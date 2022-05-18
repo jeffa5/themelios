@@ -90,3 +90,19 @@ enum DatastoreMsg {
     DeleteRangeResponse(String, String),
 }
 ```
+
+### Clients
+
+We'll need some clients to make changes to the system, at a high level, doing things like creating deployments, scaling deployments, creating pods, deleting pods.
+
+```rust
+struct ClientState {
+}
+
+enum ClientMsg {
+    CreateDeployment,
+    ScaleDeployment(u32),
+    CreatePod(u32),
+    DeletePod(u32),
+}
+```
