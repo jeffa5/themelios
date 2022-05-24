@@ -6,6 +6,7 @@ use std::fmt::Debug;
 use std::hash::Hash;
 
 use crate::datastore;
+use crate::node;
 use crate::scheduler;
 
 use crate::api_server;
@@ -13,6 +14,7 @@ use crate::api_server;
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum MyRegisterActor {
     Scheduler(scheduler::Scheduler),
+    Node(node::Node),
     Datastore(datastore::Datastore),
     APIServer(api_server::APIServer),
 }
@@ -20,6 +22,7 @@ pub enum MyRegisterActor {
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub enum MyRegisterActorState {
     Scheduler(<scheduler::Scheduler as Actor>::State),
+    Node(<node::Node as Actor>::State),
     Datastore(<datastore::Datastore as Actor>::State),
     APIServer(<api_server::APIServer as Actor>::State),
 }
@@ -28,6 +31,7 @@ pub enum MyRegisterActorState {
 pub enum MyRegisterMsg {
     /// A message specific to the register system's internal protocol.
     Scheduler(scheduler::SchedulerMsg),
+    Node(node::NodeMsg),
 
     Datastore(datastore::DatastoreMsg),
 
@@ -46,6 +50,19 @@ impl Actor for MyRegisterActor {
                 let mut client_out = Out::new();
                 let state =
                     MyRegisterActorState::Scheduler(client_actor.on_start(id, &mut client_out));
+                o.append(&mut client_out);
+                state
+            }
+            MyRegisterActor::Node(client_actor) => {
+                let mut client_out = Out::new();
+                let state = MyRegisterActorState::Node(client_actor.on_start(id, &mut client_out));
+                o.append(&mut client_out);
+                state
+            }
+            MyRegisterActor::Datastore(client_actor) => {
+                let mut client_out = Out::new();
+                let state =
+                    MyRegisterActorState::Datastore(client_actor.on_start(id, &mut client_out));
                 o.append(&mut client_out);
                 state
             }
@@ -91,6 +108,7 @@ impl Actor for MyRegisterActor {
             }
             (A::APIServer(_), S::Scheduler(_)) => {}
             (A::Scheduler(_), S::APIServer(_)) => {}
+            _ => todo!(),
         }
     }
 
@@ -110,6 +128,7 @@ impl Actor for MyRegisterActor {
                 o.append(&mut server_out);
             }
             (A::APIServer(_), S::Scheduler(_)) => {}
+            _ => todo!(),
         }
     }
 }

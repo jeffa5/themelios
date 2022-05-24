@@ -8,6 +8,7 @@ use stateright::Model;
 mod api_server;
 mod datastore;
 mod model;
+mod node;
 mod opts;
 mod register;
 mod report;
@@ -18,6 +19,7 @@ fn main() {
 
     let model = model::ModelCfg {
         schedulers: opts.schedulers,
+        nodes: opts.nodes,
         datastores: opts.datastores,
         api_servers: opts.api_servers,
     }
