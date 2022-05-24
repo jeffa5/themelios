@@ -6,11 +6,11 @@ use stateright::actor::ActorModelState;
 use stateright::actor::Network;
 
 use crate::datastore;
-use crate::register::MyRegisterActor;
+use crate::root::Root;
 
 use crate::api_server;
-use crate::register::MyRegisterActorState;
-use crate::register::MyRegisterMsg;
+use crate::root::RootMsg;
+use crate::root::RootState;
 use crate::scheduler;
 
 pub struct ModelCfg {
@@ -21,22 +21,22 @@ pub struct ModelCfg {
 }
 
 impl ModelCfg {
-    pub fn into_actor_model(self) -> ActorModel<MyRegisterActor, (), ()> {
+    pub fn into_actor_model(self) -> ActorModel<Root, (), ()> {
         let mut model = ActorModel::new((), ());
         for i in 0..self.api_servers {
-            model = model.actor(MyRegisterActor::APIServer(api_server::APIServer {}))
+            model = model.actor(Root::APIServer(api_server::APIServer {}))
         }
 
         for _ in 0..self.schedulers {
-            model = model.actor(MyRegisterActor::Scheduler(scheduler::Scheduler {}))
+            model = model.actor(Root::Scheduler(scheduler::Scheduler {}))
         }
 
         for _ in 0..self.nodes {
-            model = model.actor(MyRegisterActor::Node(node::Node {}))
+            model = model.actor(Root::Node(node::Node {}))
         }
 
         for _ in 0..self.datastores {
-            model = model.actor(MyRegisterActor::Datastore(datastore::Datastore {}))
+            model = model.actor(Root::Datastore(datastore::Datastore {}))
         }
 
         model
@@ -54,26 +54,26 @@ impl ModelCfg {
     }
 }
 
-fn all_same_state(actors: &[Arc<MyRegisterActorState>]) -> bool {
+fn all_same_state(actors: &[Arc<RootState>]) -> bool {
     actors.windows(2).all(|w| match (&*w[0], &*w[1]) {
-        (MyRegisterActorState::Scheduler(_), MyRegisterActorState::Scheduler(_)) => true,
-        (MyRegisterActorState::Scheduler(_), MyRegisterActorState::APIServer(_)) => true,
-        (MyRegisterActorState::APIServer(_), MyRegisterActorState::Scheduler(_)) => true,
-        (MyRegisterActorState::APIServer(a), MyRegisterActorState::APIServer(b)) => a == b,
+        (RootState::Scheduler(_), RootState::Scheduler(_)) => true,
+        (RootState::Scheduler(_), RootState::APIServer(_)) => true,
+        (RootState::APIServer(_), RootState::Scheduler(_)) => true,
+        (RootState::APIServer(a), RootState::APIServer(b)) => a == b,
         _ => todo!(),
     })
 }
 
-fn syncing_done_and_in_sync(state: &ActorModelState<MyRegisterActor>) -> bool {
+fn syncing_done_and_in_sync(state: &ActorModelState<Root>) -> bool {
     // first check that the network has no sync messages in-flight.
     for envelope in state.network.iter_deliverable() {
         match envelope.msg {
-            MyRegisterMsg::Scheduler(scheduler::SchedulerMsg::Empty) => {
+            RootMsg::Scheduler(scheduler::SchedulerMsg::Empty) => {
                 return true;
             }
-            MyRegisterMsg::Node(_) => {}
-            MyRegisterMsg::Datastore(_) => {}
-            MyRegisterMsg::APIServer(_) => {}
+            RootMsg::Node(_) => {}
+            RootMsg::Datastore(_) => {}
+            RootMsg::APIServer(_) => {}
         }
     }
 

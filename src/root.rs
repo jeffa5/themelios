@@ -12,7 +12,7 @@ use crate::scheduler;
 use crate::api_server;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub enum MyRegisterActor {
+pub enum Root {
     Scheduler(scheduler::Scheduler),
     Node(node::Node),
     Datastore(datastore::Datastore),
@@ -20,7 +20,7 @@ pub enum MyRegisterActor {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
-pub enum MyRegisterActorState {
+pub enum RootState {
     Scheduler(<scheduler::Scheduler as Actor>::State),
     Node(<node::Node as Actor>::State),
     Datastore(<datastore::Datastore as Actor>::State),
@@ -28,7 +28,7 @@ pub enum MyRegisterActorState {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
-pub enum MyRegisterMsg {
+pub enum RootMsg {
     /// A message specific to the register system's internal protocol.
     Scheduler(scheduler::SchedulerMsg),
     Node(node::NodeMsg),
@@ -39,37 +39,34 @@ pub enum MyRegisterMsg {
     APIServer(api_server::APIServerMsg),
 }
 
-impl Actor for MyRegisterActor {
-    type Msg = MyRegisterMsg;
+impl Actor for Root {
+    type Msg = RootMsg;
 
-    type State = MyRegisterActorState;
+    type State = RootState;
 
     fn on_start(&self, id: Id, o: &mut Out<Self>) -> Self::State {
         match self {
-            MyRegisterActor::Scheduler(client_actor) => {
+            Root::Scheduler(client_actor) => {
                 let mut client_out = Out::new();
-                let state =
-                    MyRegisterActorState::Scheduler(client_actor.on_start(id, &mut client_out));
+                let state = RootState::Scheduler(client_actor.on_start(id, &mut client_out));
                 o.append(&mut client_out);
                 state
             }
-            MyRegisterActor::Node(client_actor) => {
+            Root::Node(client_actor) => {
                 let mut client_out = Out::new();
-                let state = MyRegisterActorState::Node(client_actor.on_start(id, &mut client_out));
+                let state = RootState::Node(client_actor.on_start(id, &mut client_out));
                 o.append(&mut client_out);
                 state
             }
-            MyRegisterActor::Datastore(client_actor) => {
+            Root::Datastore(client_actor) => {
                 let mut client_out = Out::new();
-                let state =
-                    MyRegisterActorState::Datastore(client_actor.on_start(id, &mut client_out));
+                let state = RootState::Datastore(client_actor.on_start(id, &mut client_out));
                 o.append(&mut client_out);
                 state
             }
-            MyRegisterActor::APIServer(server_actor) => {
+            Root::APIServer(server_actor) => {
                 let mut server_out = Out::new();
-                let state =
-                    MyRegisterActorState::APIServer(server_actor.on_start(id, &mut server_out));
+                let state = RootState::APIServer(server_actor.on_start(id, &mut server_out));
                 o.append(&mut server_out);
                 state
             }
@@ -84,8 +81,8 @@ impl Actor for MyRegisterActor {
         msg: Self::Msg,
         o: &mut Out<Self>,
     ) {
-        use MyRegisterActor as A;
-        use MyRegisterActorState as S;
+        use Root as A;
+        use RootState as S;
 
         match (self, &**state) {
             (A::Scheduler(client_actor), S::Scheduler(client_state)) => {
@@ -93,7 +90,7 @@ impl Actor for MyRegisterActor {
                 let mut client_out = Out::new();
                 client_actor.on_msg(id, &mut client_state, src, msg, &mut client_out);
                 if let Cow::Owned(client_state) = client_state {
-                    *state = Cow::Owned(MyRegisterActorState::Scheduler(client_state))
+                    *state = Cow::Owned(RootState::Scheduler(client_state))
                 }
                 o.append(&mut client_out);
             }
@@ -102,7 +99,7 @@ impl Actor for MyRegisterActor {
                 let mut server_out = Out::new();
                 server_actor.on_msg(id, &mut server_state, src, msg, &mut server_out);
                 if let Cow::Owned(server_state) = server_state {
-                    *state = Cow::Owned(MyRegisterActorState::APIServer(server_state))
+                    *state = Cow::Owned(RootState::APIServer(server_state))
                 }
                 o.append(&mut server_out);
             }
@@ -113,8 +110,8 @@ impl Actor for MyRegisterActor {
     }
 
     fn on_timeout(&self, id: Id, state: &mut Cow<Self::State>, o: &mut Out<Self>) {
-        use MyRegisterActor as A;
-        use MyRegisterActorState as S;
+        use Root as A;
+        use RootState as S;
         match (self, &**state) {
             (A::Scheduler(_), S::Scheduler(_)) => {}
             (A::Scheduler(_), S::APIServer(_)) => {}
@@ -123,7 +120,7 @@ impl Actor for MyRegisterActor {
                 let mut server_out = Out::new();
                 server_actor.on_timeout(id, &mut server_state, &mut server_out);
                 if let Cow::Owned(server_state) = server_state {
-                    *state = Cow::Owned(MyRegisterActorState::APIServer(server_state))
+                    *state = Cow::Owned(RootState::APIServer(server_state))
                 }
                 o.append(&mut server_out);
             }

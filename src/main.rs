@@ -10,8 +10,8 @@ mod datastore;
 mod model;
 mod node;
 mod opts;
-mod register;
 mod report;
+mod root;
 mod scheduler;
 
 fn main() {
@@ -29,7 +29,7 @@ fn main() {
     run(opts, model)
 }
 
-fn run(opts: opts::Opts, model: CheckerBuilder<ActorModel<register::MyRegisterActor>>) {
+fn run(opts: opts::Opts, model: CheckerBuilder<ActorModel<root::Root>>) {
     println!("Running with config {:?}", opts);
     match opts.command {
         opts::SubCmd::Serve => {

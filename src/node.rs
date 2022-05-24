@@ -1,6 +1,6 @@
 use stateright::actor::{Actor, Id, Out};
 
-use crate::register::MyRegisterMsg;
+use crate::root::RootMsg;
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub struct Node {}
@@ -14,7 +14,7 @@ pub enum NodeMsg {
 }
 
 impl Actor for Node {
-    type Msg = MyRegisterMsg;
+    type Msg = RootMsg;
 
     type State = NodeState;
 
