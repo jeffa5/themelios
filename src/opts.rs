@@ -11,6 +11,9 @@ pub struct Opts {
     #[clap(long, short, global = true, default_value = "2")]
     pub api_servers: usize,
 
+    #[clap(long, short, global = true, default_value = "2")]
+    pub datastores: usize,
+
     #[clap(long, default_value = "8080")]
     pub port: u16,
 }

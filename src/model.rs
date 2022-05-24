@@ -4,6 +4,7 @@ use stateright::actor::ActorModel;
 use stateright::actor::ActorModelState;
 use stateright::actor::Network;
 
+use crate::datastore;
 use crate::register::MyRegisterActor;
 
 use crate::api_server;
@@ -13,6 +14,7 @@ use crate::scheduler;
 
 pub struct ModelCfg {
     pub schedulers: usize,
+    pub datastores: usize,
     pub api_servers: usize,
 }
 
@@ -25,6 +27,10 @@ impl ModelCfg {
 
         for _ in 0..self.schedulers {
             model = model.actor(MyRegisterActor::Scheduler(scheduler::Scheduler {}))
+        }
+
+        for _ in 0..self.datastores {
+            model = model.actor(MyRegisterActor::Datastore(datastore::Datastore {}))
         }
 
         model

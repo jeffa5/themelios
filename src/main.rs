@@ -6,6 +6,7 @@ use stateright::CheckerBuilder;
 use stateright::Model;
 
 mod api_server;
+mod datastore;
 mod model;
 mod opts;
 mod register;
@@ -17,6 +18,7 @@ fn main() {
 
     let model = model::ModelCfg {
         schedulers: opts.schedulers,
+        datastores: opts.datastores,
         api_servers: opts.api_servers,
     }
     .into_actor_model()

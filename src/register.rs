@@ -5,6 +5,7 @@ use std::borrow::Cow;
 use std::fmt::Debug;
 use std::hash::Hash;
 
+use crate::datastore;
 use crate::scheduler;
 
 use crate::api_server;
@@ -12,12 +13,14 @@ use crate::api_server;
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum MyRegisterActor {
     Scheduler(scheduler::Scheduler),
+    Datastore(datastore::Datastore),
     APIServer(api_server::APIServer),
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub enum MyRegisterActorState {
     Scheduler(<scheduler::Scheduler as Actor>::State),
+    Datastore(<datastore::Datastore as Actor>::State),
     APIServer(<api_server::APIServer as Actor>::State),
 }
 
@@ -25,6 +28,8 @@ pub enum MyRegisterActorState {
 pub enum MyRegisterMsg {
     /// A message specific to the register system's internal protocol.
     Scheduler(scheduler::SchedulerMsg),
+
+    Datastore(datastore::DatastoreMsg),
 
     /// Messages originating or destined for clients.
     APIServer(api_server::APIServerMsg),
