@@ -5,14 +5,10 @@ use stateright::Checker;
 use stateright::CheckerBuilder;
 use stateright::Model;
 
-mod api_server;
-mod datastore;
-mod model;
-mod node;
-mod opts;
-mod report;
-mod root;
-mod scheduler;
+use model_checked_orchestration::model;
+use model_checked_orchestration::opts;
+use model_checked_orchestration::report;
+use model_checked_orchestration::root;
 
 fn main() {
     let opts = opts::Opts::parse();
