@@ -23,7 +23,7 @@ pub struct ModelCfg {
 impl ModelCfg {
     pub fn into_actor_model(self) -> ActorModel<Root, (), ()> {
         let mut model = ActorModel::new((), ());
-        for i in 0..self.api_servers {
+        for _i in 0..self.api_servers {
             model = model.actor(Root::APIServer(api_server::APIServer {}))
         }
 
