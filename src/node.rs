@@ -18,6 +18,8 @@ impl Actor for Node {
 
     type State = NodeState;
 
+    type Timer = ();
+
     fn on_start(&self, id: Id, o: &mut Out<Self>) -> Self::State {
         todo!()
     }

@@ -18,6 +18,8 @@ impl Actor for Scheduler {
 
     type State = SchedulerState;
 
+    type Timer = ();
+
     fn on_start(&self, id: Id, o: &mut Out<Self>) -> Self::State {
         todo!()
     }

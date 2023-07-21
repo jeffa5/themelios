@@ -8,7 +8,7 @@ edition = "2021"
 [dependencies]
 clap = { version = "3.1.18", features = ["derive"] }
 num_cpus = "1.13.1"
-stateright = "0.29.0"
+stateright = "0.30.0"
 
-[patch.crates-io]
-stateright = { git = "https://github.com/jeffa5/stateright", branch = "report-data" }
+# [patch.crates-io]
+# stateright = { git = "https://github.com/jeffa5/stateright", branch = "report-data" }

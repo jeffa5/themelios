@@ -34,7 +34,7 @@ where
 
     fn report_discoveries(
         &mut self,
-        discoveries: std::collections::HashMap<
+        discoveries: std::collections::BTreeMap<
             &'static str,
             stateright::report::ReportDiscovery<M>,
         >,

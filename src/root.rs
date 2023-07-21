@@ -44,6 +44,8 @@ impl Actor for Root {
 
     type State = RootState;
 
+    type Timer = ();
+
     fn on_start(&self, id: Id, o: &mut Out<Self>) -> Self::State {
         match self {
             Root::Scheduler(client_actor) => {
@@ -109,7 +111,13 @@ impl Actor for Root {
         }
     }
 
-    fn on_timeout(&self, id: Id, state: &mut Cow<Self::State>, o: &mut Out<Self>) {
+    fn on_timeout(
+        &self,
+        id: Id,
+        state: &mut Cow<Self::State>,
+        timer: &Self::Timer,
+        o: &mut Out<Self>,
+    ) {
         use Root as A;
         use RootState as S;
         match (self, &**state) {
@@ -118,7 +126,7 @@ impl Actor for Root {
             (A::APIServer(server_actor), S::APIServer(server_state)) => {
                 let mut server_state = Cow::Borrowed(server_state);
                 let mut server_out = Out::new();
-                server_actor.on_timeout(id, &mut server_state, &mut server_out);
+                server_actor.on_timeout(id, &mut server_state, timer, &mut server_out);
                 if let Cow::Owned(server_state) = server_state {
                     *state = Cow::Owned(RootState::APIServer(server_state))
                 }

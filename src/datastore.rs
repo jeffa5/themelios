@@ -18,6 +18,8 @@ impl Actor for Datastore {
 
     type State = DatastoreState;
 
+    type Timer = ();
+
     fn on_start(&self, id: Id, o: &mut Out<Self>) -> Self::State {
         todo!()
     }
