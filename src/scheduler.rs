@@ -1,6 +1,6 @@
 use stateright::actor::{Actor, Id, Out};
 
-use crate::root::RootMsg;
+use crate::{datastore::DatastoreMsg, root::RootMsg};
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub struct Scheduler {}
@@ -20,7 +20,35 @@ impl Actor for Scheduler {
 
     type Timer = ();
 
-    fn on_start(&self, _id: Id, _o: &mut Out<Self>) -> Self::State {
-        todo!()
+    fn on_start(&self, _id: Id, o: &mut Out<Self>) -> Self::State {
+        println!("send nodes");
+        o.send(Id::from(0), RootMsg::Datastore(DatastoreMsg::NodesRequest));
+        SchedulerState {}
+    }
+
+    fn on_msg(
+        &self,
+        id: Id,
+        state: &mut std::borrow::Cow<Self::State>,
+        src: Id,
+        msg: Self::Msg,
+        o: &mut Out<Self>,
+    ) {
+        dbg!(&msg);
+        match msg {
+            RootMsg::Scheduler(s) => match s {
+                SchedulerMsg::Empty => todo!(),
+            },
+            RootMsg::Node(_) => todo!(),
+            RootMsg::Datastore(d) => match d {
+                DatastoreMsg::NodeJoin => todo!(),
+                DatastoreMsg::NodesRequest => todo!(),
+                DatastoreMsg::NodesResponse(nodes) => println!("got nodes {:?}", nodes),
+                DatastoreMsg::UnscheduledAppsRequest => todo!(),
+                DatastoreMsg::UnscheduledAppsResponse(_) => todo!(),
+                DatastoreMsg::ScheduleAppRequest(_, _) => todo!(),
+                DatastoreMsg::ScheduleAppResponse(_) => todo!(),
+            },
+        }
     }
 }
