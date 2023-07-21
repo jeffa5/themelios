@@ -8,7 +8,7 @@ use stateright::actor::Network;
 use crate::datastore;
 use crate::root::Root;
 
-use crate::api_server;
+
 use crate::root::RootMsg;
 use crate::root::RootState;
 use crate::scheduler;
@@ -17,15 +17,11 @@ pub struct ModelCfg {
     pub schedulers: usize,
     pub nodes: usize,
     pub datastores: usize,
-    pub api_servers: usize,
 }
 
 impl ModelCfg {
     pub fn into_actor_model(self) -> ActorModel<Root, (), ()> {
         let mut model = ActorModel::new((), ());
-        for _i in 0..self.api_servers {
-            model = model.actor(Root::APIServer(api_server::APIServer {}))
-        }
 
         for _ in 0..self.schedulers {
             model = model.actor(Root::Scheduler(scheduler::Scheduler {}))
@@ -57,9 +53,6 @@ impl ModelCfg {
 fn all_same_state(actors: &[Arc<RootState>]) -> bool {
     actors.windows(2).all(|w| match (&*w[0], &*w[1]) {
         (RootState::Scheduler(_), RootState::Scheduler(_)) => true,
-        (RootState::Scheduler(_), RootState::APIServer(_)) => true,
-        (RootState::APIServer(_), RootState::Scheduler(_)) => true,
-        (RootState::APIServer(a), RootState::APIServer(b)) => a == b,
         _ => todo!(),
     })
 }
@@ -73,10 +66,11 @@ fn syncing_done_and_in_sync(state: &ActorModelState<Root>) -> bool {
             }
             RootMsg::Node(_) => {}
             RootMsg::Datastore(_) => {}
-            RootMsg::APIServer(_) => {}
         }
     }
 
     // next, check that all actors are in the same states (using sub-property checker)
     all_same_state(&state.actor_states)
 }
+
+

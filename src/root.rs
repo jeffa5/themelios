@@ -9,14 +9,11 @@ use crate::datastore;
 use crate::node;
 use crate::scheduler;
 
-use crate::api_server;
-
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Root {
     Scheduler(scheduler::Scheduler),
     Node(node::Node),
     Datastore(datastore::Datastore),
-    APIServer(api_server::APIServer),
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
@@ -24,7 +21,6 @@ pub enum RootState {
     Scheduler(<scheduler::Scheduler as Actor>::State),
     Node(<node::Node as Actor>::State),
     Datastore(<datastore::Datastore as Actor>::State),
-    APIServer(<api_server::APIServer as Actor>::State),
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
@@ -34,9 +30,6 @@ pub enum RootMsg {
     Node(node::NodeMsg),
 
     Datastore(datastore::DatastoreMsg),
-
-    /// Messages originating or destined for clients.
-    APIServer(api_server::APIServerMsg),
 }
 
 impl Actor for Root {
@@ -66,12 +59,6 @@ impl Actor for Root {
                 o.append(&mut client_out);
                 state
             }
-            Root::APIServer(server_actor) => {
-                let mut server_out = Out::new();
-                let state = RootState::APIServer(server_actor.on_start(id, &mut server_out));
-                o.append(&mut server_out);
-                state
-            }
         }
     }
 
@@ -96,43 +83,21 @@ impl Actor for Root {
                 }
                 o.append(&mut client_out);
             }
-            (A::APIServer(server_actor), S::APIServer(server_state)) => {
-                let mut server_state = Cow::Borrowed(server_state);
-                let mut server_out = Out::new();
-                server_actor.on_msg(id, &mut server_state, src, msg, &mut server_out);
-                if let Cow::Owned(server_state) = server_state {
-                    *state = Cow::Owned(RootState::APIServer(server_state))
-                }
-                o.append(&mut server_out);
-            }
-            (A::APIServer(_), S::Scheduler(_)) => {}
-            (A::Scheduler(_), S::APIServer(_)) => {}
             _ => todo!(),
         }
     }
 
     fn on_timeout(
         &self,
-        id: Id,
+        _id: Id,
         state: &mut Cow<Self::State>,
-        timer: &Self::Timer,
-        o: &mut Out<Self>,
+        _timer: &Self::Timer,
+        _o: &mut Out<Self>,
     ) {
         use Root as A;
         use RootState as S;
         match (self, &**state) {
             (A::Scheduler(_), S::Scheduler(_)) => {}
-            (A::Scheduler(_), S::APIServer(_)) => {}
-            (A::APIServer(server_actor), S::APIServer(server_state)) => {
-                let mut server_state = Cow::Borrowed(server_state);
-                let mut server_out = Out::new();
-                server_actor.on_timeout(id, &mut server_state, timer, &mut server_out);
-                if let Cow::Owned(server_state) = server_state {
-                    *state = Cow::Owned(RootState::APIServer(server_state))
-                }
-                o.append(&mut server_out);
-            }
-            (A::APIServer(_), S::Scheduler(_)) => {}
             _ => todo!(),
         }
     }

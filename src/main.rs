@@ -17,7 +17,6 @@ fn main() {
         schedulers: opts.schedulers,
         nodes: opts.nodes,
         datastores: opts.datastores,
-        api_servers: opts.api_servers,
     }
     .into_actor_model()
     .checker()

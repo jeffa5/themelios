@@ -5,16 +5,13 @@ pub struct Opts {
     #[clap(subcommand)]
     pub command: SubCmd,
 
-    #[clap(long, short, global = true, default_value = "2")]
+    #[clap(long, short, global = true, default_value = "1")]
     pub schedulers: usize,
 
-    #[clap(long, short, global = true, default_value = "2")]
-    pub api_servers: usize,
-
-    #[clap(long, short, global = true, default_value = "2")]
+    #[clap(long, short, global = true, default_value = "1")]
     pub datastores: usize,
 
-    #[clap(long, short, global = true, default_value = "2")]
+    #[clap(long, short, global = true, default_value = "1")]
     pub nodes: usize,
 
     #[clap(long, default_value = "8080")]
