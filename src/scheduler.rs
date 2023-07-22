@@ -5,8 +5,10 @@ use crate::{datastore::DatastoreMsg, root::RootMsg};
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub struct Scheduler {}
 
-#[derive(Clone, Debug, Eq, PartialEq, Hash)]
-pub struct SchedulerState {}
+#[derive(Clone, Debug, Default, Eq, PartialEq, Hash)]
+pub struct SchedulerState {
+    nodes: Vec<Id>,
+}
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub enum SchedulerMsg {
@@ -21,20 +23,22 @@ impl Actor for Scheduler {
     type Timer = ();
 
     fn on_start(&self, _id: Id, o: &mut Out<Self>) -> Self::State {
-        println!("send nodes");
         o.send(Id::from(0), RootMsg::Datastore(DatastoreMsg::NodesRequest));
-        SchedulerState {}
+        o.send(
+            Id::from(0),
+            RootMsg::Datastore(DatastoreMsg::UnscheduledAppsRequest),
+        );
+        SchedulerState::default()
     }
 
     fn on_msg(
         &self,
-        id: Id,
+        _id: Id,
         state: &mut std::borrow::Cow<Self::State>,
         src: Id,
         msg: Self::Msg,
         o: &mut Out<Self>,
     ) {
-        dbg!(&msg);
         match msg {
             RootMsg::Scheduler(s) => match s {
                 SchedulerMsg::Empty => todo!(),
@@ -43,11 +47,23 @@ impl Actor for Scheduler {
             RootMsg::Datastore(d) => match d {
                 DatastoreMsg::NodeJoin => todo!(),
                 DatastoreMsg::NodesRequest => todo!(),
-                DatastoreMsg::NodesResponse(nodes) => println!("got nodes {:?}", nodes),
+                DatastoreMsg::NodesResponse(nodes) => {
+                    state.to_mut().nodes = nodes;
+                }
                 DatastoreMsg::UnscheduledAppsRequest => todo!(),
-                DatastoreMsg::UnscheduledAppsResponse(_) => todo!(),
+                DatastoreMsg::UnscheduledAppsResponse(apps) => {
+                    for app in apps {
+                        if let Some(node) = state.nodes.first() {
+                            // TODO: use an actual scheduling strategy
+                            o.send(
+                                src,
+                                RootMsg::Datastore(DatastoreMsg::ScheduleAppRequest(app, *node)),
+                            );
+                        }
+                    }
+                }
                 DatastoreMsg::ScheduleAppRequest(_, _) => todo!(),
-                DatastoreMsg::ScheduleAppResponse(_) => todo!(),
+                DatastoreMsg::ScheduleAppResponse(_) => {},
             },
         }
     }

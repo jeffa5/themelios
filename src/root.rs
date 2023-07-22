@@ -40,8 +40,7 @@ impl Actor for Root {
     type Timer = ();
 
     fn on_start(&self, id: Id, o: &mut Out<Self>) -> Self::State {
-        println!("root start");
-        match self {
+        let state = match self {
             Root::Scheduler(client_actor) => {
                 let mut client_out = Out::new();
                 let state = RootState::Scheduler(client_actor.on_start(id, &mut client_out));
@@ -60,7 +59,8 @@ impl Actor for Root {
                 o.append(&mut client_out);
                 state
             }
-        }
+        };
+        state
     }
 
     fn on_msg(
@@ -74,8 +74,6 @@ impl Actor for Root {
         use Root as A;
         use RootState as S;
 
-        dbg!(&msg);
-
         match (self, &**state) {
             (A::Scheduler(client_actor), S::Scheduler(client_state)) => {
                 let mut client_state = Cow::Borrowed(client_state);
@@ -86,7 +84,25 @@ impl Actor for Root {
                 }
                 o.append(&mut client_out);
             }
-            _ => todo!(),
+            (A::Node(client_actor), S::Node(client_state)) => {
+                let mut client_state = Cow::Borrowed(client_state);
+                let mut client_out = Out::new();
+                client_actor.on_msg(id, &mut client_state, src, msg, &mut client_out);
+                if let Cow::Owned(client_state) = client_state {
+                    *state = Cow::Owned(RootState::Node(client_state))
+                }
+                o.append(&mut client_out);
+            }
+            (A::Datastore(client_actor), S::Datastore(client_state)) => {
+                let mut client_state = Cow::Borrowed(client_state);
+                let mut client_out = Out::new();
+                client_actor.on_msg(id, &mut client_state, src, msg, &mut client_out);
+                if let Cow::Owned(client_state) = client_state {
+                    *state = Cow::Owned(RootState::Datastore(client_state))
+                }
+                o.append(&mut client_out);
+            }
+            _ => {}
         }
     }
 
@@ -101,7 +117,9 @@ impl Actor for Root {
         use RootState as S;
         match (self, &**state) {
             (A::Scheduler(_), S::Scheduler(_)) => {}
-            _ => todo!(),
+            (A::Node(_), S::Node(_)) => {}
+            (A::Datastore(_), S::Datastore(_)) => {}
+            _ => {},
         }
     }
 }

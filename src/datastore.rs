@@ -42,20 +42,18 @@ impl Actor for Datastore {
 
     type Timer = ();
 
-    fn on_start(&self, id: Id, o: &mut Out<Self>) -> Self::State {
-        println!("datastore start");
+    fn on_start(&self, _id: Id, _o: &mut Out<Self>) -> Self::State {
         DatastoreState::default()
     }
 
     fn on_msg(
         &self,
-        id: Id,
+        _id: Id,
         state: &mut std::borrow::Cow<Self::State>,
         src: Id,
         msg: Self::Msg,
         o: &mut Out<Self>,
     ) {
-        dbg!(&msg);
         match msg {
             RootMsg::Scheduler(_) => todo!(),
             RootMsg::Node(_) => todo!(),

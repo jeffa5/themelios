@@ -21,7 +21,6 @@ impl Actor for Node {
     type Timer = ();
 
     fn on_start(&self, _id: Id, o: &mut Out<Self>) -> Self::State {
-        println!("start node");
         o.send(
             Id::from(0),
             RootMsg::Datastore(crate::datastore::DatastoreMsg::NodeJoin),
