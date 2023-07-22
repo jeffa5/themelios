@@ -40,7 +40,8 @@ impl Actor for Root {
     type Timer = ();
 
     fn on_start(&self, id: Id, o: &mut Out<Self>) -> Self::State {
-        let state = match self {
+        
+        match self {
             Root::Scheduler(client_actor) => {
                 let mut client_out = Out::new();
                 let state = RootState::Scheduler(client_actor.on_start(id, &mut client_out));
@@ -59,8 +60,7 @@ impl Actor for Root {
                 o.append(&mut client_out);
                 state
             }
-        };
-        state
+        }
     }
 
     fn on_msg(
