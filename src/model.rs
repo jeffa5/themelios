@@ -17,7 +17,9 @@ impl ModelCfg {
         let mut model = ActorModel::new((), ());
 
         for _ in 0..self.datastores {
-            model = model.actor(Root::Datastore(datastore::Datastore {}))
+            model = model.actor(Root::Datastore(datastore::Datastore {
+                initial_apps: 2,
+            }))
         }
 
         for _ in 0..self.schedulers {
