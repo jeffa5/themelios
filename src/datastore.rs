@@ -1,3 +1,4 @@
+use crate::app::{App, AppId};
 use std::collections::{BTreeMap, BTreeSet};
 
 use stateright::actor::{Actor, Id, Out};
@@ -14,9 +15,9 @@ pub struct DatastoreState {
     /// Ids of worker nodes in this cluster, given by their id.
     nodes: BTreeSet<Id>,
     /// Identifiers of applications to be scheduled in this cluster.
-    unscheduled_apps: BTreeSet<u32>,
+    unscheduled_apps: BTreeMap<AppId, App>,
     /// Scheduled applications in this cluster tagged with the node they are running on.
-    scheduled_apps: BTreeMap<u32, Id>,
+    scheduled_apps: BTreeMap<AppId, (App, Id)>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
@@ -29,10 +30,10 @@ pub enum DatastoreMsg {
 
     /// Get the apps to be scheduled
     UnscheduledAppsRequest,
-    UnscheduledAppsResponse(Vec<u32>),
+    UnscheduledAppsResponse(Vec<App>),
 
     /// Schedule an app to a node.
-    ScheduleAppRequest(u32, Id),
+    ScheduleAppRequest(App, Id),
     /// Return whether the app was successfully scheduled.
     ScheduleAppResponse(bool),
 }
@@ -46,7 +47,9 @@ impl Actor for Datastore {
 
     fn on_start(&self, _id: Id, _o: &mut Out<Self>) -> Self::State {
         DatastoreState {
-            unscheduled_apps: (0..self.initial_apps).collect(),
+            unscheduled_apps: (0..self.initial_apps)
+                .map(|i| (i, App::default()))
+                .collect(),
             ..Default::default()
         }
     }
@@ -80,15 +83,15 @@ impl Actor for Datastore {
                     o.send(
                         src,
                         RootMsg::Datastore(DatastoreMsg::UnscheduledAppsResponse(
-                            state.unscheduled_apps.iter().cloned().collect(),
+                            state.unscheduled_apps.values().cloned().collect(),
                         )),
                     );
                 }
                 DatastoreMsg::UnscheduledAppsResponse(_) => todo!(),
                 DatastoreMsg::ScheduleAppRequest(app, node) => {
                     let state = state.to_mut();
-                    state.unscheduled_apps.remove(&app);
-                    state.scheduled_apps.insert(app, node);
+                    state.unscheduled_apps.remove(&app.id);
+                    state.scheduled_apps.insert(app.id, (app, node));
                 }
                 DatastoreMsg::ScheduleAppResponse(_) => todo!(),
             },
