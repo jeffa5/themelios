@@ -3,7 +3,9 @@ use stateright::actor::{Actor, Id, Out};
 use crate::root::RootMsg;
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
-pub struct Node {}
+pub struct Node {
+    pub datastore: Id,
+}
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub struct NodeState {}
@@ -22,7 +24,7 @@ impl Actor for Node {
 
     fn on_start(&self, _id: Id, o: &mut Out<Self>) -> Self::State {
         o.send(
-            Id::from(0),
+            self.datastore,
             RootMsg::Datastore(crate::datastore::DatastoreMsg::NodeJoin),
         );
         NodeState {}
