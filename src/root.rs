@@ -32,15 +32,20 @@ pub enum RootMsg {
     Datastore(datastore::DatastoreMsg),
 }
 
+#[derive(Clone, Debug, Eq, PartialEq, Hash)]
+pub enum RootTimer {
+    Node(node::NodeTimer),
+}
+
 impl Actor for Root {
     type Msg = RootMsg;
 
     type State = RootState;
 
-    type Timer = ();
+    type Timer = RootTimer;
 
     fn on_start(&self, id: Id, o: &mut Out<Self>) -> Self::State {
-        
+
         match self {
             Root::Scheduler(client_actor) => {
                 let mut client_out = Out::new();

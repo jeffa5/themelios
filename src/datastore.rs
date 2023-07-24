@@ -1,4 +1,7 @@
-use crate::app::{App, AppId};
+use crate::{
+    app::{App, AppId},
+    root::RootTimer,
+};
 use std::collections::{BTreeMap, BTreeSet};
 
 use stateright::actor::{Actor, Id, Out};
@@ -17,13 +20,18 @@ pub struct DatastoreState {
     /// Identifiers of applications to be scheduled in this cluster.
     unscheduled_apps: BTreeMap<AppId, App>,
     /// Scheduled applications in this cluster tagged with the node they are running on.
-    scheduled_apps: BTreeMap<AppId, (App, Id)>,
+    scheduled_apps: Vec<(App, Id)>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub enum DatastoreMsg {
     /// Join a new node into this cluster.
     NodeJoin,
+
+    /// Get the apps a node should run.
+    GetAppsForNodeRequest(Id),
+    /// The apps that the node has been assigned.
+    GetAppsForNodeResponse(Vec<App>),
 
     /// Get the current nodes.
     NodesRequest,
@@ -44,7 +52,7 @@ impl Actor for Datastore {
 
     type State = DatastoreState;
 
-    type Timer = ();
+    type Timer = RootTimer;
 
     fn on_start(&self, _id: Id, _o: &mut Out<Self>) -> Self::State {
         DatastoreState {
@@ -71,6 +79,18 @@ impl Actor for Datastore {
                     state.to_mut().nodes.insert(src);
                     // ignore if already registered
                 }
+                DatastoreMsg::GetAppsForNodeRequest(node) => {
+                    let apps = state
+                        .scheduled_apps
+                        .iter()
+                        .filter_map(|(a, n)| if n == &node { Some(a.clone()) } else { None })
+                        .collect();
+                    o.send(
+                        src,
+                        RootMsg::Datastore(DatastoreMsg::GetAppsForNodeResponse(apps)),
+                    );
+                }
+                DatastoreMsg::GetAppsForNodeResponse(_) => todo!(),
                 DatastoreMsg::NodesRequest => {
                     o.send(
                         src,
@@ -92,7 +112,11 @@ impl Actor for Datastore {
                 DatastoreMsg::ScheduleAppRequest(app, node) => {
                     let state = state.to_mut();
                     state.unscheduled_apps.remove(&app.id);
-                    state.scheduled_apps.insert(app.id, (app, node));
+                    if let Some(_pos) = state.scheduled_apps.iter().find(|(a, _n)| a.id == app.id) {
+                        // TODO: should probably be an error or something...
+                    } else {
+                        state.scheduled_apps.push((app, node));
+                    }
                 }
                 DatastoreMsg::ScheduleAppResponse(_) => todo!(),
             },

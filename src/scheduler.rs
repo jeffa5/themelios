@@ -1,6 +1,6 @@
 use stateright::actor::{Actor, Id, Out};
 
-use crate::{datastore::DatastoreMsg, root::RootMsg};
+use crate::{datastore::DatastoreMsg, root::{RootMsg, RootTimer}};
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub struct Scheduler {
@@ -22,7 +22,7 @@ impl Actor for Scheduler {
 
     type State = SchedulerState;
 
-    type Timer = ();
+    type Timer = RootTimer;
 
     fn on_start(&self, _id: Id, o: &mut Out<Self>) -> Self::State {
         o.send(
@@ -67,6 +67,8 @@ impl Actor for Scheduler {
                 }
                 DatastoreMsg::ScheduleAppRequest(_, _) => todo!(),
                 DatastoreMsg::ScheduleAppResponse(_) => {}
+                DatastoreMsg::GetAppsForNodeRequest(_) => todo!(),
+                DatastoreMsg::GetAppsForNodeResponse(_) => todo!(),
             },
         }
     }
