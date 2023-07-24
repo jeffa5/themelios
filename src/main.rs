@@ -19,7 +19,9 @@ fn main() {
         datastores: opts.datastores,
     }
     .into_actor_model()
-    .property(stateright::Expectation::Sometimes, "something", |_, _| false)
+    .property(stateright::Expectation::Sometimes, "something", |_, _| {
+        false
+    })
     .checker()
     .threads(num_cpus::get());
     run(opts, model)

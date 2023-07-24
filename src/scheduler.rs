@@ -1,6 +1,9 @@
 use stateright::actor::{Actor, Id, Out};
 
-use crate::{datastore::DatastoreMsg, root::{RootMsg, RootTimer}};
+use crate::{
+    datastore::DatastoreMsg,
+    root::{RootMsg, RootTimer},
+};
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub struct Scheduler {

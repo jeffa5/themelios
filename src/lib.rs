@@ -1,5 +1,5 @@
-pub mod datastore;
 pub mod app;
+pub mod datastore;
 pub mod model;
 pub mod node;
 pub mod opts;
