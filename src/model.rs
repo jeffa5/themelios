@@ -8,12 +8,16 @@ use crate::root::Root;
 use crate::scheduler;
 
 pub struct ModelCfg {
+    /// The number of schedulers to run.
     pub schedulers: usize,
+    /// The number of nodes to run.
     pub nodes: usize,
+    /// The number of datastores to run.
     pub datastores: usize,
 }
 
 impl ModelCfg {
+    /// Instantiate a new actor model based on this config.
     pub fn into_actor_model(self) -> ActorModel<Root, (), ()> {
         let mut model = ActorModel::new((), ());
 

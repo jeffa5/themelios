@@ -22,6 +22,7 @@ pub struct DatastoreState {
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub enum DatastoreMsg {
+    /// Join a new node into this cluster.
     NodeJoin,
 
     /// Get the current nodes.

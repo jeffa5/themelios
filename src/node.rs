@@ -4,6 +4,7 @@ use crate::root::RootMsg;
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub struct Node {
+    /// The id of the datastore node.
     pub datastore: Id,
 }
 
@@ -12,7 +13,6 @@ pub struct NodeState {}
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub enum NodeMsg {
-    Empty,
 }
 
 impl Actor for Node {
