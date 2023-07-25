@@ -18,7 +18,7 @@ pub struct DatastoreState {
     /// Ids of worker nodes in this cluster, given by their id.
     nodes: BTreeSet<Id>,
     /// Identifiers of applications to be scheduled in this cluster.
-    unscheduled_apps: BTreeMap<AppId, App>,
+    pub unscheduled_apps: BTreeMap<AppId, App>,
     /// Scheduled applications in this cluster tagged with the node they are running on.
     scheduled_apps: Vec<(App, Id)>,
 }

@@ -1,4 +1,5 @@
 use clap::Parser;
+use model_checked_orchestration::root::RootState;
 use report::Reporter;
 use stateright::actor::ActorModel;
 use stateright::Checker;
@@ -19,9 +20,23 @@ fn main() {
         datastores: opts.datastores,
     }
     .into_actor_model()
-    .property(stateright::Expectation::Sometimes, "something", |_, _| {
-        false
-    })
+    .property(
+        // TODO: eventually properties don't seem to work with timers, even though they may be
+        // steady state.
+        stateright::Expectation::Eventually,
+        "every application gets scheduled",
+        |_model, state| {
+            let mut all = true;
+            for actor in &state.actor_states {
+                if let RootState::Datastore(d) = &**actor {
+                    if !d.unscheduled_apps.is_empty() {
+                        all = false;
+                    }
+                }
+            }
+            all
+        },
+    )
     .checker()
     .threads(num_cpus::get());
     run(opts, model)
