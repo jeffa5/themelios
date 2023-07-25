@@ -72,54 +72,50 @@ impl Actor for Datastore {
         o: &mut Out<Self>,
     ) {
         match msg {
-            RootMsg::Scheduler(_) => todo!(),
-            RootMsg::Node(_) => todo!(),
-            RootMsg::Datastore(d) => match d {
-                DatastoreMsg::NodeJoin => {
-                    state.to_mut().nodes.insert(src);
-                    // ignore if already registered
+            RootMsg::NodeJoin => {
+                state.to_mut().nodes.insert(src);
+                // ignore if already registered
+            }
+            RootMsg::GetAppsForNodeRequest(node) => {
+                let apps = state
+                    .scheduled_apps
+                    .iter()
+                    .filter_map(|(a, n)| if n == &node { Some(a.clone()) } else { None })
+                    .collect();
+                o.send(
+                    src,
+                    RootMsg::GetAppsForNodeResponse(apps),
+                );
+            }
+            RootMsg::GetAppsForNodeResponse(_) => todo!(),
+            RootMsg::NodesRequest => {
+                o.send(
+                    src,
+                    RootMsg::NodesResponse(
+                        state.nodes.iter().cloned().collect(),
+                    ),
+                );
+            }
+            RootMsg::NodesResponse(_) => todo!(),
+            RootMsg::UnscheduledAppsRequest => {
+                o.send(
+                    src,
+                    RootMsg::UnscheduledAppsResponse(
+                        state.unscheduled_apps.values().cloned().collect(),
+                    ),
+                );
+            }
+            RootMsg::UnscheduledAppsResponse(_) => todo!(),
+            RootMsg::ScheduleAppRequest(app, node) => {
+                let state = state.to_mut();
+                state.unscheduled_apps.remove(&app.id);
+                if let Some(_pos) = state.scheduled_apps.iter().find(|(a, _n)| a.id == app.id) {
+                    // TODO: should probably be an error or something...
+                } else {
+                    state.scheduled_apps.push((app, node));
                 }
-                DatastoreMsg::GetAppsForNodeRequest(node) => {
-                    let apps = state
-                        .scheduled_apps
-                        .iter()
-                        .filter_map(|(a, n)| if n == &node { Some(a.clone()) } else { None })
-                        .collect();
-                    o.send(
-                        src,
-                        RootMsg::Datastore(DatastoreMsg::GetAppsForNodeResponse(apps)),
-                    );
-                }
-                DatastoreMsg::GetAppsForNodeResponse(_) => todo!(),
-                DatastoreMsg::NodesRequest => {
-                    o.send(
-                        src,
-                        RootMsg::Datastore(DatastoreMsg::NodesResponse(
-                            state.nodes.iter().cloned().collect(),
-                        )),
-                    );
-                }
-                DatastoreMsg::NodesResponse(_) => todo!(),
-                DatastoreMsg::UnscheduledAppsRequest => {
-                    o.send(
-                        src,
-                        RootMsg::Datastore(DatastoreMsg::UnscheduledAppsResponse(
-                            state.unscheduled_apps.values().cloned().collect(),
-                        )),
-                    );
-                }
-                DatastoreMsg::UnscheduledAppsResponse(_) => todo!(),
-                DatastoreMsg::ScheduleAppRequest(app, node) => {
-                    let state = state.to_mut();
-                    state.unscheduled_apps.remove(&app.id);
-                    if let Some(_pos) = state.scheduled_apps.iter().find(|(a, _n)| a.id == app.id) {
-                        // TODO: should probably be an error or something...
-                    } else {
-                        state.scheduled_apps.push((app, node));
-                    }
-                }
-                DatastoreMsg::ScheduleAppResponse(_) => todo!(),
-            },
+            }
+            RootMsg::ScheduleAppResponse(_) => todo!(),
         }
     }
 }

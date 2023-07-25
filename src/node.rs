@@ -1,4 +1,4 @@
-use crate::{app::App, datastore::DatastoreMsg, root::RootTimer};
+use crate::{app::App, root::RootTimer};
 use stateright::actor::{model_timeout, Actor, Id, Out};
 use std::borrow::Cow;
 
@@ -31,7 +31,7 @@ impl Actor for Node {
     type Timer = RootTimer;
 
     fn on_start(&self, _id: Id, o: &mut Out<Self>) -> Self::State {
-        o.send(self.datastore, RootMsg::Datastore(DatastoreMsg::NodeJoin));
+        o.send(self.datastore, RootMsg::NodeJoin);
         o.set_timer(RootTimer::Node(NodeTimer::GetNewApps), model_timeout());
         NodeState::default()
     }
@@ -45,21 +45,17 @@ impl Actor for Node {
         _o: &mut Out<Self>,
     ) {
         match msg {
-            RootMsg::Scheduler(_) => todo!(),
-            RootMsg::Node(_) => todo!(),
-            RootMsg::Datastore(d) => match d {
-                DatastoreMsg::NodeJoin => todo!(),
-                DatastoreMsg::GetAppsForNodeRequest(_) => todo!(),
-                DatastoreMsg::GetAppsForNodeResponse(apps) => {
-                    state.to_mut().running_apps = apps;
-                }
-                DatastoreMsg::NodesRequest => todo!(),
-                DatastoreMsg::NodesResponse(_) => todo!(),
-                DatastoreMsg::UnscheduledAppsRequest => todo!(),
-                DatastoreMsg::UnscheduledAppsResponse(_) => todo!(),
-                DatastoreMsg::ScheduleAppRequest(_, _) => todo!(),
-                DatastoreMsg::ScheduleAppResponse(_) => todo!(),
-            },
+            RootMsg::NodeJoin => todo!(),
+            RootMsg::GetAppsForNodeRequest(_) => todo!(),
+            RootMsg::GetAppsForNodeResponse(apps) => {
+                state.to_mut().running_apps = apps;
+            }
+            RootMsg::NodesRequest => todo!(),
+            RootMsg::NodesResponse(_) => todo!(),
+            RootMsg::UnscheduledAppsRequest => todo!(),
+            RootMsg::UnscheduledAppsResponse(_) => todo!(),
+            RootMsg::ScheduleAppRequest(_, _) => todo!(),
+            RootMsg::ScheduleAppResponse(_) => todo!(),
         }
     }
 
@@ -72,10 +68,7 @@ impl Actor for Node {
     ) {
         match timer {
             RootTimer::Node(NodeTimer::GetNewApps) => {
-                o.send(
-                    self.datastore,
-                    RootMsg::Datastore(DatastoreMsg::GetAppsForNodeRequest(id)),
-                );
+                o.send(self.datastore, RootMsg::GetAppsForNodeRequest(id));
                 o.set_timer(RootTimer::Node(NodeTimer::GetNewApps), model_timeout());
             }
         }

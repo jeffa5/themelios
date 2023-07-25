@@ -1,9 +1,6 @@
 use stateright::actor::{Actor, Id, Out};
 
-use crate::{
-    datastore::DatastoreMsg,
-    root::{RootMsg, RootTimer},
-};
+use crate::root::{RootMsg, RootTimer};
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub struct Scheduler {
@@ -28,14 +25,8 @@ impl Actor for Scheduler {
     type Timer = RootTimer;
 
     fn on_start(&self, _id: Id, o: &mut Out<Self>) -> Self::State {
-        o.send(
-            self.datastore,
-            RootMsg::Datastore(DatastoreMsg::NodesRequest),
-        );
-        o.send(
-            self.datastore,
-            RootMsg::Datastore(DatastoreMsg::UnscheduledAppsRequest),
-        );
+        o.send(self.datastore, RootMsg::NodesRequest);
+        o.send(self.datastore, RootMsg::UnscheduledAppsRequest);
         SchedulerState::default()
     }
 
@@ -48,31 +39,24 @@ impl Actor for Scheduler {
         o: &mut Out<Self>,
     ) {
         match msg {
-            RootMsg::Scheduler(_) => todo!(),
-            RootMsg::Node(_) => todo!(),
-            RootMsg::Datastore(d) => match d {
-                DatastoreMsg::NodeJoin => todo!(),
-                DatastoreMsg::NodesRequest => todo!(),
-                DatastoreMsg::NodesResponse(nodes) => {
-                    state.to_mut().nodes = nodes;
-                }
-                DatastoreMsg::UnscheduledAppsRequest => todo!(),
-                DatastoreMsg::UnscheduledAppsResponse(apps) => {
-                    for app in apps {
-                        if let Some(node) = state.nodes.first() {
-                            // TODO: use an actual scheduling strategy
-                            o.send(
-                                src,
-                                RootMsg::Datastore(DatastoreMsg::ScheduleAppRequest(app, *node)),
-                            );
-                        }
+            RootMsg::NodeJoin => todo!(),
+            RootMsg::NodesRequest => todo!(),
+            RootMsg::NodesResponse(nodes) => {
+                state.to_mut().nodes = nodes;
+            }
+            RootMsg::UnscheduledAppsRequest => todo!(),
+            RootMsg::UnscheduledAppsResponse(apps) => {
+                for app in apps {
+                    if let Some(node) = state.nodes.first() {
+                        // TODO: use an actual scheduling strategy
+                        o.send(src, RootMsg::ScheduleAppRequest(app, *node));
                     }
                 }
-                DatastoreMsg::ScheduleAppRequest(_, _) => todo!(),
-                DatastoreMsg::ScheduleAppResponse(_) => {}
-                DatastoreMsg::GetAppsForNodeRequest(_) => todo!(),
-                DatastoreMsg::GetAppsForNodeResponse(_) => todo!(),
-            },
+            }
+            RootMsg::ScheduleAppRequest(_, _) => todo!(),
+            RootMsg::ScheduleAppResponse(_) => {}
+            RootMsg::GetAppsForNodeRequest(_) => todo!(),
+            RootMsg::GetAppsForNodeResponse(_) => todo!(),
         }
     }
 }

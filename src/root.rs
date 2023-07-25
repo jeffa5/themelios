@@ -5,6 +5,7 @@ use std::borrow::Cow;
 use std::fmt::Debug;
 use std::hash::Hash;
 
+use crate::app::App;
 use crate::datastore;
 use crate::node;
 use crate::scheduler;
@@ -25,11 +26,26 @@ pub enum RootState {
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub enum RootMsg {
-    /// A message specific to the register system's internal protocol.
-    Scheduler(scheduler::SchedulerMsg),
-    Node(node::NodeMsg),
+    /// Join a new node into this cluster.
+    NodeJoin,
 
-    Datastore(datastore::DatastoreMsg),
+    /// Get the apps a node should run.
+    GetAppsForNodeRequest(Id),
+    /// The apps that the node has been assigned.
+    GetAppsForNodeResponse(Vec<App>),
+
+    /// Get the current nodes.
+    NodesRequest,
+    NodesResponse(Vec<Id>),
+
+    /// Get the apps to be scheduled
+    UnscheduledAppsRequest,
+    UnscheduledAppsResponse(Vec<App>),
+
+    /// Schedule an app to a node.
+    ScheduleAppRequest(App, Id),
+    /// Return whether the app was successfully scheduled.
+    ScheduleAppResponse(bool),
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
