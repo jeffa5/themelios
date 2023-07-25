@@ -20,6 +20,19 @@ These simulations will also form a great point of comparison between variations.
 
 Of particular interest in the model checking is how running duplicates of a component affects the properties (do we need leader election for all of them).
 
+## Progression
+
+1. Scheduler
+2. Faulty nodes
+3. General node restarts
+4. Multiple schedulers
+5. Multiple datastore nodes (strong consistency)
+6. Abstracting other bits
+
+### Tertiary pieces
+
+1. Watch streams from the datastore nodes
+
 ## Potential properties
 
 1. When all pertubations to the system are done, it should be steady-state (no fighting controllers)
