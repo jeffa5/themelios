@@ -1,6 +1,7 @@
 use clap::Parser;
 use model_checked_orchestration::root::RootState;
 use report::Reporter;
+use stateright::UniformChooser;
 use stateright::actor::ActorModel;
 use stateright::Checker;
 use stateright::CheckerBuilder;
@@ -59,6 +60,14 @@ fn run(opts: opts::Opts, model: CheckerBuilder<ActorModel<root::Root>>) {
         opts::SubCmd::CheckBfs => {
             model
                 .spawn_bfs()
+                .report(&mut Reporter::default())
+                .join()
+                .assert_properties();
+        }
+        opts::SubCmd::Simulation { seed } => {
+            let seed = seed.unwrap_or(0);
+            model
+                .spawn_simulation::<UniformChooser>(seed)
                 .report(&mut Reporter::default())
                 .join()
                 .assert_properties();

@@ -1640,8 +1640,7 @@ dependencies = [
 [[package]]
 name = "stateright"
 version = "0.30.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ca7e73c2941052bdd29db2c1339c11b30490b25de9dbc363c0e2543e92c5949b"
+source = "git+https://github.com/jeffa5/stateright?branch=simulation#c7016503aa481df6038eceef3de7a7ba95fcffec"
 dependencies = [
  "actix-web",
  "ahash 0.3.8",
