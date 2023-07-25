@@ -112,17 +112,41 @@ impl Actor for Root {
 
     fn on_timeout(
         &self,
-        _id: Id,
+        id: Id,
         state: &mut Cow<Self::State>,
-        _timer: &Self::Timer,
-        _o: &mut Out<Self>,
+        timer: &Self::Timer,
+        o: &mut Out<Self>,
     ) {
         use Root as A;
         use RootState as S;
         match (self, &**state) {
-            (A::Scheduler(_), S::Scheduler(_)) => {}
-            (A::Node(_), S::Node(_)) => {}
-            (A::Datastore(_), S::Datastore(_)) => {}
+            (A::Scheduler(client_actor), S::Scheduler(client_state)) => {
+                let mut client_state = Cow::Borrowed(client_state);
+                let mut client_out = Out::new();
+                client_actor.on_timeout(id, &mut client_state, timer, &mut client_out);
+                if let Cow::Owned(client_state) = client_state {
+                    *state = Cow::Owned(RootState::Scheduler(client_state))
+                }
+                o.append(&mut client_out);
+            }
+            (A::Node(client_actor), S::Node(client_state)) => {
+                let mut client_state = Cow::Borrowed(client_state);
+                let mut client_out = Out::new();
+                client_actor.on_timeout(id, &mut client_state, timer, &mut client_out);
+                if let Cow::Owned(client_state) = client_state {
+                    *state = Cow::Owned(RootState::Node(client_state))
+                }
+                o.append(&mut client_out);
+            }
+            (A::Datastore(client_actor), S::Datastore(client_state)) => {
+                let mut client_state = Cow::Borrowed(client_state);
+                let mut client_out = Out::new();
+                client_actor.on_timeout(id, &mut client_state, timer, &mut client_out);
+                if let Cow::Owned(client_state) = client_state {
+                    *state = Cow::Owned(RootState::Datastore(client_state))
+                }
+                o.append(&mut client_out);
+            }
             _ => {}
         }
     }
