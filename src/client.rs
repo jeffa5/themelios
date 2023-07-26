@@ -49,7 +49,9 @@ impl Actor for Client {
             RootMsg::GetAppsForNodeRequest(_) => todo!(),
             RootMsg::GetAppsForNodeResponse(_) => todo!(),
             RootMsg::CreateAppRequest(_) => todo!(),
-            RootMsg::CreateAppResponse(_) => todo!(),
+            RootMsg::CreateAppResponse(_) => {
+                // app already existed
+            }
         }
     }
 }
