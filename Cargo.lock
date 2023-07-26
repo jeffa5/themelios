@@ -1697,7 +1697,7 @@ dependencies = [
 [[package]]
 name = "stateright"
 version = "0.30.0"
-source = "git+https://github.com/jeffa5/stateright?branch=simulation#fd5f9130a1d691ecfcdda9d064db653528a11301"
+source = "git+https://github.com/jeffa5/stateright?branch=simulation#42b1e5f1ba649abc637bdfd8b98c746188f6dbe1"
 dependencies = [
  "actix-web",
  "ahash 0.3.8",

@@ -84,7 +84,7 @@ fn run(opts: opts::Opts, model: CheckerBuilder<ActorModel<root::Root>>) {
         opts::SubCmd::CheckSimulation { seed } => {
             let seed = seed.unwrap_or(0);
             model
-                .spawn_simulation::<UniformChooser>(seed)
+                .spawn_simulation(seed, UniformChooser)
                 .report(&mut Reporter::default())
                 .join()
                 .assert_properties();
