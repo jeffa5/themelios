@@ -28,6 +28,8 @@ fn main() {
         .with(log_filter)
         .init();
 
+    let threads = opts.threads.unwrap_or_else(|| num_cpus::get());
+
     let model = model::ModelCfg {
         apps_per_client: opts.apps_per_client,
         clients: opts.clients,
@@ -54,7 +56,7 @@ fn main() {
         },
     )
     .checker()
-    .threads(num_cpus::get());
+    .threads(threads);
     run(opts, model)
 }
 

@@ -5,6 +5,11 @@ pub struct Opts {
     #[clap(subcommand)]
     pub command: SubCmd,
 
+    /// The number of threads to run.
+    /// Defaults to the number of CPUs the machine has, as reported by `num_cpus`.
+    #[clap(long, short, global = true)]
+    pub threads: Option<usize>,
+
     #[clap(long, short, global = true, default_value = "1")]
     pub apps_per_client: usize,
 
