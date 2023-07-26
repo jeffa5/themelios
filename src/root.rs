@@ -6,6 +6,7 @@ use std::fmt::Debug;
 use std::hash::Hash;
 
 use crate::app::App;
+use crate::client;
 use crate::datastore;
 use crate::node;
 use crate::scheduler;
@@ -13,6 +14,7 @@ use crate::scheduler;
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Root {
     Scheduler(scheduler::Scheduler),
+    Client(client::Client),
     Node(node::Node),
     Datastore(datastore::Datastore),
 }
@@ -20,6 +22,7 @@ pub enum Root {
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub enum RootState {
     Scheduler(<scheduler::Scheduler as Actor>::State),
+    Client(<client::Client as Actor>::State),
     Node(<node::Node as Actor>::State),
     Datastore(<datastore::Datastore as Actor>::State),
 }
@@ -46,6 +49,11 @@ pub enum RootMsg {
     ScheduleAppRequest(App, Id),
     /// Return whether the app was successfully scheduled.
     ScheduleAppResponse(bool),
+
+    /// Create an app.
+    CreateAppRequest(App),
+    /// Whether the app was successfully added.
+    CreateAppResponse(bool),
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
@@ -65,6 +73,12 @@ impl Actor for Root {
             Root::Scheduler(client_actor) => {
                 let mut client_out = Out::new();
                 let state = RootState::Scheduler(client_actor.on_start(id, &mut client_out));
+                o.append(&mut client_out);
+                state
+            }
+            Root::Client(client_actor) => {
+                let mut client_out = Out::new();
+                let state = RootState::Client(client_actor.on_start(id, &mut client_out));
                 o.append(&mut client_out);
                 state
             }
@@ -101,6 +115,15 @@ impl Actor for Root {
                 client_actor.on_msg(id, &mut client_state, src, msg, &mut client_out);
                 if let Cow::Owned(client_state) = client_state {
                     *state = Cow::Owned(RootState::Scheduler(client_state))
+                }
+                o.append(&mut client_out);
+            }
+            (A::Client(client_actor), S::Client(client_state)) => {
+                let mut client_state = Cow::Borrowed(client_state);
+                let mut client_out = Out::new();
+                client_actor.on_msg(id, &mut client_state, src, msg, &mut client_out);
+                if let Cow::Owned(client_state) = client_state {
+                    *state = Cow::Owned(RootState::Client(client_state))
                 }
                 o.append(&mut client_out);
             }
@@ -142,6 +165,15 @@ impl Actor for Root {
                 client_actor.on_timeout(id, &mut client_state, timer, &mut client_out);
                 if let Cow::Owned(client_state) = client_state {
                     *state = Cow::Owned(RootState::Scheduler(client_state))
+                }
+                o.append(&mut client_out);
+            }
+            (A::Client(client_actor), S::Client(client_state)) => {
+                let mut client_state = Cow::Borrowed(client_state);
+                let mut client_out = Out::new();
+                client_actor.on_timeout(id, &mut client_state, timer, &mut client_out);
+                if let Cow::Owned(client_state) = client_state {
+                    *state = Cow::Owned(RootState::Client(client_state))
                 }
                 o.append(&mut client_out);
             }

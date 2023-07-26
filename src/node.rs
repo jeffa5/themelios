@@ -56,6 +56,8 @@ impl Actor for Node {
             RootMsg::UnscheduledAppsResponse(_) => todo!(),
             RootMsg::ScheduleAppRequest(_, _) => todo!(),
             RootMsg::ScheduleAppResponse(_) => todo!(),
+            RootMsg::CreateAppRequest(_) => todo!(),
+            RootMsg::CreateAppResponse(_) => todo!(),
         }
     }
 

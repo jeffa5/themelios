@@ -1,4 +1,5 @@
 pub mod app;
+pub mod client;
 pub mod datastore;
 pub mod model;
 pub mod node;

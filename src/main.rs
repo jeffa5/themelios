@@ -29,6 +29,8 @@ fn main() {
         .init();
 
     let model = model::ModelCfg {
+        apps_per_client: opts.apps_per_client,
+        clients: opts.clients,
         schedulers: opts.schedulers,
         nodes: opts.nodes,
         datastores: opts.datastores,

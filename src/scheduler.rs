@@ -57,6 +57,8 @@ impl Actor for Scheduler {
             RootMsg::ScheduleAppResponse(_) => {}
             RootMsg::GetAppsForNodeRequest(_) => todo!(),
             RootMsg::GetAppsForNodeResponse(_) => todo!(),
+            RootMsg::CreateAppRequest(_) => todo!(),
+            RootMsg::CreateAppResponse(_) => todo!(),
         }
     }
 }

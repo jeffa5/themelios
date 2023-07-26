@@ -6,6 +6,12 @@ pub struct Opts {
     pub command: SubCmd,
 
     #[clap(long, short, global = true, default_value = "1")]
+    pub apps_per_client: usize,
+
+    #[clap(long, short, global = true, default_value = "1")]
+    pub clients: usize,
+
+    #[clap(long, short, global = true, default_value = "1")]
     pub schedulers: usize,
 
     #[clap(long, short, global = true, default_value = "1")]

@@ -9,9 +9,7 @@ use stateright::actor::{Actor, Id, Out};
 use crate::root::RootMsg;
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
-pub struct Datastore {
-    pub initial_apps: u32,
-}
+pub struct Datastore {}
 
 #[derive(Clone, Debug, Default, Eq, PartialEq, Hash)]
 pub struct DatastoreState {
@@ -55,12 +53,7 @@ impl Actor for Datastore {
     type Timer = RootTimer;
 
     fn on_start(&self, _id: Id, _o: &mut Out<Self>) -> Self::State {
-        DatastoreState {
-            unscheduled_apps: (0..self.initial_apps)
-                .map(|i| (i, App::default()))
-                .collect(),
-            ..Default::default()
-        }
+        DatastoreState::default()
     }
 
     fn on_msg(
@@ -111,6 +104,14 @@ impl Actor for Datastore {
                 }
             }
             RootMsg::ScheduleAppResponse(_) => todo!(),
+            RootMsg::CreateAppRequest(app) => {
+                let exists = state.unscheduled_apps.contains_key(&app.id);
+                if !exists {
+                    state.to_mut().unscheduled_apps.insert(app.id, app);
+                }
+                o.send(src, RootMsg::CreateAppResponse(!exists))
+            }
+            RootMsg::CreateAppResponse(_) => todo!(),
         }
     }
 }
