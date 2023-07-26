@@ -40,6 +40,17 @@ Of particular interest in the model checking is how running duplicates of a comp
 3. When a pod is scheduled it eventually starts running (kubelet acknowledges it)
 4. Replicasets eventually converge on a count (replicaset controller heals after partition)
 
+### Kubernetes properties
+
+#### [Statefulsets](https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/#deployment-and-scaling-guarantees)
+
+- For a StatefulSet with N replicas, when Pods are being deployed, they are created sequentially, in order from {0..N-1}.
+- When Pods are being deleted, they are terminated in reverse order, from {N-1..0}.
+- Before a scaling operation is applied to a Pod, all of its predecessors must be Running and Ready.
+- Before a Pod is terminated, all of its successors must be completely shutdown.
+
+This also relies on the numbering being sequential.
+
 ## Likely challenges
 
 State space explosion...
