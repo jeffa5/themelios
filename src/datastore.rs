@@ -82,18 +82,13 @@ impl Actor for Datastore {
                     .iter()
                     .filter_map(|(a, n)| if n == &node { Some(a.clone()) } else { None })
                     .collect();
-                o.send(
-                    src,
-                    RootMsg::GetAppsForNodeResponse(apps),
-                );
+                o.send(src, RootMsg::GetAppsForNodeResponse(apps));
             }
             RootMsg::GetAppsForNodeResponse(_) => todo!(),
             RootMsg::NodesRequest => {
                 o.send(
                     src,
-                    RootMsg::NodesResponse(
-                        state.nodes.iter().cloned().collect(),
-                    ),
+                    RootMsg::NodesResponse(state.nodes.iter().cloned().collect()),
                 );
             }
             RootMsg::NodesResponse(_) => todo!(),

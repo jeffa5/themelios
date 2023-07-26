@@ -23,5 +23,5 @@ pub enum SubCmd {
     Serve,
     CheckDfs,
     CheckBfs,
-    Simulation { seed: Option<u64> },
+    CheckSimulation { seed: Option<u64> },
 }

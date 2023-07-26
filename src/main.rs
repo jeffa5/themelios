@@ -1,11 +1,16 @@
 use clap::Parser;
 use model_checked_orchestration::root::RootState;
 use report::Reporter;
-use stateright::UniformChooser;
 use stateright::actor::ActorModel;
 use stateright::Checker;
 use stateright::CheckerBuilder;
 use stateright::Model;
+use stateright::UniformChooser;
+use tracing::metadata::LevelFilter;
+use tracing_subscriber::fmt;
+use tracing_subscriber::layer::SubscriberExt;
+use tracing_subscriber::util::SubscriberInitExt;
+use tracing_subscriber::EnvFilter;
 
 use model_checked_orchestration::model;
 use model_checked_orchestration::opts;
@@ -14,6 +19,14 @@ use model_checked_orchestration::root;
 
 fn main() {
     let opts = opts::Opts::parse();
+
+    let log_filter = EnvFilter::builder()
+        .with_default_directive(LevelFilter::INFO.into())
+        .from_env_lossy();
+    tracing_subscriber::registry()
+        .with(fmt::layer().with_ansi(true))
+        .with(log_filter)
+        .init();
 
     let model = model::ModelCfg {
         schedulers: opts.schedulers,
@@ -64,7 +77,7 @@ fn run(opts: opts::Opts, model: CheckerBuilder<ActorModel<root::Root>>) {
                 .join()
                 .assert_properties();
         }
-        opts::SubCmd::Simulation { seed } => {
+        opts::SubCmd::CheckSimulation { seed } => {
             let seed = seed.unwrap_or(0);
             model
                 .spawn_simulation::<UniformChooser>(seed)
