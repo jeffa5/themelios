@@ -59,6 +59,7 @@ pub enum RootMsg {
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub enum RootTimer {
     Node(node::NodeTimer),
+    Scheduler(scheduler::SchedulerTimer),
 }
 
 impl Actor for Root {

@@ -73,6 +73,7 @@ impl Actor for Node {
                 o.send(self.datastore, RootMsg::GetAppsForNodeRequest(id));
                 o.set_timer(RootTimer::Node(NodeTimer::GetNewApps), model_timeout());
             }
+            RootTimer::Scheduler(_) => todo!(),
         }
     }
 }
