@@ -51,6 +51,10 @@ Of particular interest in the model checking is how running duplicates of a comp
 
 This also relies on the numbering being sequential.
 
+#### Other properties
+
+Harder to find, especially on the documentation.
+
 ## Likely challenges
 
 State space explosion...
