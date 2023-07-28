@@ -16,9 +16,6 @@ pub struct NodeState {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
-pub enum NodeMsg {}
-
-#[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub enum NodeTimer {
     GetNewApps,
 }

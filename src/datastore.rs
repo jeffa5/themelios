@@ -21,30 +21,6 @@ pub struct DatastoreState {
     scheduled_apps: Vec<(App, Id)>,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, Hash)]
-pub enum DatastoreMsg {
-    /// Join a new node into this cluster.
-    NodeJoin,
-
-    /// Get the apps a node should run.
-    GetAppsForNodeRequest(Id),
-    /// The apps that the node has been assigned.
-    GetAppsForNodeResponse(Vec<App>),
-
-    /// Get the current nodes.
-    NodesRequest,
-    NodesResponse(Vec<Id>),
-
-    /// Get the apps to be scheduled
-    UnscheduledAppsRequest,
-    UnscheduledAppsResponse(Vec<App>),
-
-    /// Schedule an app to a node.
-    ScheduleAppRequest(App, Id),
-    /// Return whether the app was successfully scheduled.
-    ScheduleAppResponse(bool),
-}
-
 impl Actor for Datastore {
     type Msg = RootMsg;
 

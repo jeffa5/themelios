@@ -15,9 +15,6 @@ pub struct SchedulerState {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
-pub enum SchedulerMsg {}
-
-#[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub enum SchedulerTimer {
     GetNodes,
     GetApps,
