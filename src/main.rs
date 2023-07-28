@@ -44,15 +44,15 @@ fn main() {
         stateright::Expectation::Eventually,
         "every application gets scheduled",
         |_model, state| {
-            let mut all = true;
+            let mut any = false;
             for actor in &state.actor_states {
                 if let RootState::Datastore(d) = &**actor {
-                    if !d.unscheduled_apps.is_empty() {
-                        all = false;
+                    if d.unscheduled_apps.is_empty() && !d.scheduled_apps.is_empty() {
+                        any = true;
                     }
                 }
             }
-            all
+            any
         },
     )
     .checker()

@@ -14,11 +14,11 @@ pub struct Datastore {}
 #[derive(Clone, Debug, Default, Eq, PartialEq, Hash)]
 pub struct DatastoreState {
     /// Ids of worker nodes in this cluster, given by their id.
-    nodes: BTreeSet<Id>,
+    pub nodes: BTreeSet<Id>,
     /// Identifiers of applications to be scheduled in this cluster.
     pub unscheduled_apps: BTreeMap<AppId, App>,
     /// Scheduled applications in this cluster tagged with the node they are running on.
-    scheduled_apps: Vec<(App, Id)>,
+    pub scheduled_apps: Vec<(App, Id)>,
 }
 
 impl Actor for Datastore {
