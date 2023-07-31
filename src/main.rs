@@ -56,6 +56,7 @@ fn main() {
         },
     )
     .checker()
+    .target_max_depth(opts.max_depth)
     .threads(threads);
     run(opts, model)
 }

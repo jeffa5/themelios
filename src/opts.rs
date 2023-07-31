@@ -25,8 +25,12 @@ pub struct Opts {
     #[clap(long, short, global = true, default_value = "1")]
     pub nodes: usize,
 
-    #[clap(long, default_value = "8080")]
+    #[clap(long, global = true, default_value = "8080")]
     pub port: u16,
+
+    /// Max depth for the check run, 0 is no limit.
+    #[clap(long, global = true, default_value = "0")]
+    pub max_depth: usize,
 }
 
 #[derive(clap::Subcommand, Debug)]
@@ -34,5 +38,8 @@ pub enum SubCmd {
     Serve,
     CheckDfs,
     CheckBfs,
-    CheckSimulation { seed: Option<u64> },
+    CheckSimulation {
+        #[clap(long)]
+        seed: Option<u64>,
+    },
 }
