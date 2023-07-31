@@ -15,6 +15,8 @@ pub struct Datastore {}
 pub struct DatastoreState {
     /// Ids of worker nodes in this cluster, given by their id.
     pub nodes: BTreeSet<Id>,
+    /// Ids of schedulers for this cluster.
+    pub schedulers: BTreeSet<Id>,
     /// Identifiers of applications to be scheduled in this cluster.
     pub unscheduled_apps: BTreeMap<AppId, App>,
     /// Scheduled applications in this cluster tagged with the node they are running on.
@@ -42,52 +44,57 @@ impl Actor for Datastore {
     ) {
         match msg {
             RootMsg::NodeJoin => {
-                state.to_mut().nodes.insert(src);
+                if !state.nodes.contains(&src) {
+                    state.to_mut().nodes.insert(src);
+                    o.broadcast(state.schedulers.iter(), &RootMsg::NodeJoinedEvent(src));
+                    // tell the node any apps that it is supposed to be running
+                    for (app, id) in &state.scheduled_apps {
+                        if id == &src {
+                            o.send(src, RootMsg::ScheduledAppEvent(app.clone()));
+                        }
+                    }
+                }
                 // ignore if already registered
             }
-            RootMsg::GetAppsForNodeRequest(node) => {
-                let apps = state
-                    .scheduled_apps
-                    .iter()
-                    .filter_map(|(a, n)| if n == &node { Some(a.clone()) } else { None })
-                    .collect();
-                o.send(src, RootMsg::GetAppsForNodeResponse(apps));
+            RootMsg::SchedulerJoin => {
+                if !state.schedulers.contains(&src) {
+                    state.to_mut().schedulers.insert(src);
+                    // tell the scheduler the set of nodes in the cluster
+                    for node in &state.nodes {
+                        o.send(src, RootMsg::NodeJoinedEvent(*node));
+                    }
+                    // tell the scheduler the current set of apps to schedule
+                    for (_, app) in &state.unscheduled_apps {
+                        o.send(src, RootMsg::NewAppEvent(app.clone()));
+                    }
+                    // TODO: a smarter scheduler will probably want the existing state of
+                    // scheduling
+                }
+                // ignore if already registered
             }
-            RootMsg::GetAppsForNodeResponse(_) => todo!(),
-            RootMsg::NodesRequest => {
-                o.send(
-                    src,
-                    RootMsg::NodesResponse(state.nodes.iter().cloned().collect()),
-                );
-            }
-            RootMsg::NodesResponse(_) => todo!(),
-            RootMsg::UnscheduledAppsRequest => {
-                o.send(
-                    src,
-                    RootMsg::UnscheduledAppsResponse(
-                        state.unscheduled_apps.values().cloned().collect(),
-                    ),
-                );
-            }
-            RootMsg::UnscheduledAppsResponse(_) => todo!(),
+            RootMsg::ScheduledAppEvent(_) => todo!(),
             RootMsg::ScheduleAppRequest(app, node) => {
                 let state = state.to_mut();
                 state.unscheduled_apps.remove(&app.id);
                 if let Some(_pos) = state.scheduled_apps.iter().find(|(a, _n)| a.id == app.id) {
                     // TODO: should probably be an error or something...
                 } else {
-                    state.scheduled_apps.push((app, node));
+                    state.scheduled_apps.push((app.clone(), node));
+                    o.broadcast(state.nodes.iter(), &RootMsg::ScheduledAppEvent(app))
                 }
             }
             RootMsg::ScheduleAppResponse(_) => todo!(),
             RootMsg::CreateAppRequest(app) => {
                 let exists = state.unscheduled_apps.contains_key(&app.id);
                 if !exists {
-                    state.to_mut().unscheduled_apps.insert(app.id, app);
+                    state.to_mut().unscheduled_apps.insert(app.id, app.clone());
+                    o.broadcast(state.schedulers.iter(), &RootMsg::NewAppEvent(app));
                 }
-                o.send(src, RootMsg::CreateAppResponse(!exists))
+                o.send(src, RootMsg::CreateAppResponse(!exists));
             }
             RootMsg::CreateAppResponse(_) => todo!(),
+            RootMsg::NodeJoinedEvent(_) => todo!(),
+            RootMsg::NewAppEvent(_) => todo!(),
         }
     }
 

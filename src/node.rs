@@ -1,5 +1,5 @@
 use crate::{app::App, root::RootTimer};
-use stateright::actor::{model_timeout, Actor, Id, Out};
+use stateright::actor::{Actor, Id, Out};
 use std::borrow::Cow;
 
 use crate::root::RootMsg;
@@ -16,9 +16,7 @@ pub struct NodeState {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
-pub enum NodeTimer {
-    GetNewApps,
-}
+pub enum NodeTimer {}
 
 impl Actor for Node {
     type Msg = RootMsg;
@@ -29,7 +27,6 @@ impl Actor for Node {
 
     fn on_start(&self, _id: Id, o: &mut Out<Self>) -> Self::State {
         o.send(self.datastore, RootMsg::NodeJoin);
-        o.set_timer(RootTimer::Node(NodeTimer::GetNewApps), model_timeout());
         NodeState::default()
     }
 
@@ -39,38 +36,20 @@ impl Actor for Node {
         state: &mut Cow<Self::State>,
         _src: Id,
         msg: Self::Msg,
-        o: &mut Out<Self>,
+        _o: &mut Out<Self>,
     ) {
         match msg {
             RootMsg::NodeJoin => todo!(),
-            RootMsg::GetAppsForNodeRequest(_) => todo!(),
-            RootMsg::GetAppsForNodeResponse(apps) => {
-                state.to_mut().running_apps = apps;
-                o.set_timer(RootTimer::Node(NodeTimer::GetNewApps), model_timeout());
+            RootMsg::SchedulerJoin => todo!(),
+            RootMsg::ScheduledAppEvent(app) => {
+                state.to_mut().running_apps.push(app);
             }
-            RootMsg::NodesRequest => todo!(),
-            RootMsg::NodesResponse(_) => todo!(),
-            RootMsg::UnscheduledAppsRequest => todo!(),
-            RootMsg::UnscheduledAppsResponse(_) => todo!(),
             RootMsg::ScheduleAppRequest(_, _) => todo!(),
             RootMsg::ScheduleAppResponse(_) => todo!(),
             RootMsg::CreateAppRequest(_) => todo!(),
             RootMsg::CreateAppResponse(_) => todo!(),
-        }
-    }
-
-    fn on_timeout(
-        &self,
-        id: Id,
-        _state: &mut Cow<Self::State>,
-        timer: &Self::Timer,
-        o: &mut Out<Self>,
-    ) {
-        match timer {
-            RootTimer::Node(NodeTimer::GetNewApps) => {
-                o.send(self.datastore, RootMsg::GetAppsForNodeRequest(id));
-            }
-            RootTimer::Scheduler(_) => todo!(),
+            RootMsg::NodeJoinedEvent(_) => todo!(),
+            RootMsg::NewAppEvent(_) => todo!(),
         }
     }
 

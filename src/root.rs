@@ -31,19 +31,12 @@ pub enum RootState {
 pub enum RootMsg {
     /// Join a new node into this cluster.
     NodeJoin,
+    SchedulerJoin,
 
-    /// Get the apps a node should run.
-    GetAppsForNodeRequest(Id),
-    /// The apps that the node has been assigned.
-    GetAppsForNodeResponse(Vec<App>),
-
-    /// Get the current nodes.
-    NodesRequest,
-    NodesResponse(Vec<Id>),
-
-    /// Get the apps to be scheduled
-    UnscheduledAppsRequest,
-    UnscheduledAppsResponse(Vec<App>),
+    /// Events the datastore sends out.
+    NodeJoinedEvent(Id),
+    NewAppEvent(App),
+    ScheduledAppEvent(App),
 
     /// Schedule an app to a node.
     ScheduleAppRequest(App, Id),

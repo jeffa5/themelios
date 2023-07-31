@@ -40,18 +40,16 @@ impl Actor for Client {
     ) {
         match msg {
             RootMsg::NodeJoin => todo!(),
-            RootMsg::NodesRequest => todo!(),
-            RootMsg::NodesResponse(_) => todo!(),
-            RootMsg::UnscheduledAppsRequest => todo!(),
-            RootMsg::UnscheduledAppsResponse(_) => todo!(),
+            RootMsg::SchedulerJoin => todo!(),
             RootMsg::ScheduleAppRequest(_, _) => todo!(),
             RootMsg::ScheduleAppResponse(_) => {}
-            RootMsg::GetAppsForNodeRequest(_) => todo!(),
-            RootMsg::GetAppsForNodeResponse(_) => todo!(),
             RootMsg::CreateAppRequest(_) => todo!(),
             RootMsg::CreateAppResponse(_) => {
                 // app already existed
             }
+            RootMsg::NodeJoinedEvent(_) => todo!(),
+            RootMsg::NewAppEvent(_) => todo!(),
+            RootMsg::ScheduledAppEvent(_) => todo!(),
         }
     }
 
