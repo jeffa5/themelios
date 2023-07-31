@@ -199,4 +199,13 @@ impl Actor for Root {
             _ => {}
         }
     }
+
+    fn name(&self) -> String {
+        match self {
+            Root::Scheduler(a) => a.name(),
+            Root::Client(a) => a.name(),
+            Root::Node(a) => a.name(),
+            Root::Datastore(a) => a.name(),
+        }
+    }
 }

@@ -54,4 +54,8 @@ impl Actor for Client {
             }
         }
     }
+
+    fn name(&self) -> String {
+        "Client".to_owned()
+    }
 }

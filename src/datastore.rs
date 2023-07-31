@@ -90,4 +90,8 @@ impl Actor for Datastore {
             RootMsg::CreateAppResponse(_) => todo!(),
         }
     }
+
+    fn name(&self) -> String {
+        "Datastore".to_owned()
+    }
 }

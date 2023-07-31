@@ -73,4 +73,8 @@ impl Actor for Node {
             RootTimer::Scheduler(_) => todo!(),
         }
     }
+
+    fn name(&self) -> String {
+        "Node".to_owned()
+    }
 }
