@@ -25,9 +25,6 @@ pub struct Opts {
     #[clap(long, short, global = true, default_value = "1")]
     pub nodes: usize,
 
-    #[clap(long, global = true, default_value = "8080")]
-    pub port: u16,
-
     /// Max depth for the check run, 0 is no limit.
     #[clap(long, global = true, default_value = "0")]
     pub max_depth: usize,
@@ -35,7 +32,13 @@ pub struct Opts {
 
 #[derive(clap::Subcommand, Debug)]
 pub enum SubCmd {
-    Serve,
+    Explore {
+        /// Path to a state.
+        fingerprint_path: Option<String>,
+        /// Port to serve the UI on.
+        #[clap(long, default_value = "8080")]
+        port: u16,
+    },
     CheckDfs,
     CheckBfs,
     CheckSimulation {
