@@ -1,9 +1,30 @@
-use stateright::Model;
+use std::collections::BTreeMap;
+
+use stateright::{actor::ActorModel, Expectation, Model};
+
+use crate::root::Root;
 
 #[derive(Debug, Default)]
 pub struct Reporter {
     last_total: usize,
     last_unique: usize,
+    properties: BTreeMap<&'static str, Expectation>,
+}
+
+impl Reporter {
+    /// Create a new reporter.
+    pub fn new(model: &ActorModel<Root, (), ()>) -> Self {
+        let properties = model
+            .properties()
+            .iter()
+            .map(|p| (p.name, p.expectation.clone()))
+            .collect();
+        Self {
+            last_total: 0,
+            last_unique: 0,
+            properties,
+        }
+    }
 }
 
 impl<M> stateright::report::Reporter<M> for Reporter
@@ -40,13 +61,50 @@ where
         >,
     ) where
         <M as Model>::Action: std::fmt::Debug,
-        <M as Model>::State: std::fmt::Debug,
+        <M as Model>::State: std::fmt::Debug + std::hash::Hash,
     {
-        for (name, discovery) in discoveries {
-            print!(
-                "Discovered \"{}\" {} {}",
-                name, discovery.classification, discovery.path,
-            );
+        let (success, failure): (Vec<_>, Vec<_>) =
+            self.properties.iter().partition(|(name, expectation)| {
+                property_holds(expectation, discoveries.get(*name).is_some())
+            });
+
+        for (name, expectation) in &self.properties {
+            let status = if property_holds(expectation, discoveries.get(name).is_some()) {
+                "OK"
+            } else {
+                "FAILED"
+            };
+            println!("Property {:?} {:?} {}", expectation, name, status);
+            if let Some(discovery) = discoveries.get(name) {
+                print!("{}, {}", discovery.classification, discovery.path,);
+                println!(
+                    "To explore this path try re-running with `explore {}`",
+                    discovery.path.encode()
+                );
+            }
         }
+
+        println!(
+            "Properties checked. {} succeeded, {} failed",
+            success.len(),
+            failure.len()
+        );
+    }
+}
+
+fn property_holds(expectation: &Expectation, discovery: bool) -> bool {
+    match (expectation, discovery) {
+        // counter-example
+        (Expectation::Always, true) => false,
+        // no counter-example
+        (Expectation::Always, false) => true,
+        // counter-example
+        (Expectation::Eventually, true) => false,
+        // no counter-example
+        (Expectation::Eventually, false) => true,
+        // example
+        (Expectation::Sometimes, true) => true,
+        // no example
+        (Expectation::Sometimes, false) => false,
     }
 }
