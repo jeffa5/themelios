@@ -39,13 +39,14 @@ impl Actor for Node {
         state: &mut Cow<Self::State>,
         _src: Id,
         msg: Self::Msg,
-        _o: &mut Out<Self>,
+        o: &mut Out<Self>,
     ) {
         match msg {
             RootMsg::NodeJoin => todo!(),
             RootMsg::GetAppsForNodeRequest(_) => todo!(),
             RootMsg::GetAppsForNodeResponse(apps) => {
                 state.to_mut().running_apps = apps;
+                o.set_timer(RootTimer::Node(NodeTimer::GetNewApps), model_timeout());
             }
             RootMsg::NodesRequest => todo!(),
             RootMsg::NodesResponse(_) => todo!(),
@@ -68,7 +69,6 @@ impl Actor for Node {
         match timer {
             RootTimer::Node(NodeTimer::GetNewApps) => {
                 o.send(self.datastore, RootMsg::GetAppsForNodeRequest(id));
-                o.set_timer(RootTimer::Node(NodeTimer::GetNewApps), model_timeout());
             }
             RootTimer::Scheduler(_) => todo!(),
         }

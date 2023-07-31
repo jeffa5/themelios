@@ -52,6 +52,10 @@ impl Actor for Scheduler {
             RootMsg::NodesRequest => todo!(),
             RootMsg::NodesResponse(nodes) => {
                 state.to_mut().nodes = nodes;
+                o.set_timer(
+                    RootTimer::Scheduler(SchedulerTimer::GetNodes),
+                    model_timeout(),
+                );
             }
             RootMsg::UnscheduledAppsRequest => todo!(),
             RootMsg::UnscheduledAppsResponse(apps) => {
@@ -61,6 +65,10 @@ impl Actor for Scheduler {
                         o.send(src, RootMsg::ScheduleAppRequest(app, *node));
                     }
                 }
+                o.set_timer(
+                    RootTimer::Scheduler(SchedulerTimer::GetApps),
+                    model_timeout(),
+                );
             }
             RootMsg::ScheduleAppRequest(_, _) => todo!(),
             RootMsg::ScheduleAppResponse(_) => {}
@@ -82,11 +90,9 @@ impl Actor for Scheduler {
             RootTimer::Scheduler(s) => match s {
                 SchedulerTimer::GetNodes => {
                     o.send(self.datastore, RootMsg::NodesRequest);
-                    o.set_timer(timer.clone(), model_timeout());
                 }
                 SchedulerTimer::GetApps => {
                     o.send(self.datastore, RootMsg::UnscheduledAppsRequest);
-                    o.set_timer(timer.clone(), model_timeout());
                 }
             },
             RootTimer::Node(_) => todo!(),
