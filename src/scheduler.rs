@@ -1,6 +1,11 @@
+use std::borrow::Cow;
+
 use stateright::actor::{Actor, Id, Out};
 
-use crate::root::{RootMsg, RootTimer};
+use crate::{
+    app::App,
+    root::{RootMsg, RootTimer},
+};
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub struct Scheduler {
@@ -12,6 +17,9 @@ pub struct Scheduler {
 pub struct SchedulerState {
     /// The current view of the nodes.
     nodes: Vec<Id>,
+
+    /// Apps that need scheduling
+    apps_to_schedule: Vec<App>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
@@ -33,7 +41,7 @@ impl Actor for Scheduler {
         &self,
         _id: Id,
         state: &mut std::borrow::Cow<Self::State>,
-        src: Id,
+        _src: Id,
         msg: Self::Msg,
         o: &mut Out<Self>,
     ) {
@@ -42,12 +50,11 @@ impl Actor for Scheduler {
             RootMsg::SchedulerJoin => todo!(),
             RootMsg::NodeJoinedEvent(node) => {
                 state.to_mut().nodes.push(node);
+                self.schedule(state, o);
             }
             RootMsg::NewAppEvent(app) => {
-                if let Some(node) = state.nodes.first() {
-                    // TODO: use an actual scheduling strategy
-                    o.send(src, RootMsg::ScheduleAppRequest(app, *node));
-                }
+                state.to_mut().apps_to_schedule.push(app);
+                self.schedule(state, o);
             }
             RootMsg::ScheduledAppEvent(_) => todo!(),
             RootMsg::ScheduleAppRequest(_, _) => todo!(),
@@ -59,5 +66,23 @@ impl Actor for Scheduler {
 
     fn name(&self) -> String {
         "Scheduler".to_owned()
+    }
+}
+
+impl Scheduler {
+    fn schedule(&self, state: &mut Cow<SchedulerState>, o: &mut Out<Self>) {
+        let mut_state = state.to_mut();
+        mut_state.apps_to_schedule.retain(|app| {
+            if let Some(node) = mut_state.nodes.first().copied() {
+                // TODO: use an actual scheduling strategy
+                o.send(
+                    self.datastore,
+                    RootMsg::ScheduleAppRequest(app.clone(), node),
+                );
+                false
+            } else {
+                true
+            }
+        })
     }
 }
