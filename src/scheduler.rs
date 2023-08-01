@@ -58,7 +58,11 @@ impl Actor for Scheduler {
             }
             RootMsg::ScheduledAppEvent(_) => todo!(),
             RootMsg::ScheduleAppRequest(_, _) => todo!(),
-            RootMsg::ScheduleAppResponse(_) => {}
+            RootMsg::ScheduleAppResponse(result) => {
+                if !result {
+                    // TODO: should refresh its view of the node allocations
+                }
+            }
             RootMsg::CreateAppRequest(_) => todo!(),
             RootMsg::CreateAppResponse(_) => todo!(),
         }

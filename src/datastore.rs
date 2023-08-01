@@ -78,9 +78,11 @@ impl Actor for Datastore {
                 state.unscheduled_apps.remove(&app.id);
                 if let Some(_pos) = state.scheduled_apps.iter().find(|(a, _n)| a.id == app.id) {
                     // TODO: should probably be an error or something...
+                    o.send(src, RootMsg::ScheduleAppResponse(false));
                 } else {
                     state.scheduled_apps.push((app.clone(), node));
-                    o.broadcast(state.nodes.iter(), &RootMsg::ScheduledAppEvent(app))
+                    o.send(node, RootMsg::ScheduledAppEvent(app));
+                    o.send(src, RootMsg::ScheduleAppResponse(true));
                 }
             }
             RootMsg::ScheduleAppResponse(_) => todo!(),
