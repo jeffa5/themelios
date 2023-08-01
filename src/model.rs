@@ -51,6 +51,6 @@ impl ModelCfg {
             }));
         }
 
-        model.init_network(Network::new_ordered(vec![]))
+        model.init_network(Network::new_unordered_nonduplicating(vec![]))
     }
 }
