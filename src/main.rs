@@ -40,11 +40,12 @@ fn main() {
         // steady state.
         stateright::Expectation::Eventually,
         "every application gets scheduled",
-        |_model, state| {
+        |model, state| {
             let mut any = false;
+            let total_apps = model.cfg.apps_per_client as usize * model.cfg.clients;
             for actor in &state.actor_states {
                 if let RootState::Datastore(d) = &**actor {
-                    if d.unscheduled_apps.is_empty() && !d.scheduled_apps.is_empty() {
+                    if d.unscheduled_apps.is_empty() && d.scheduled_apps.len() == total_apps {
                         any = true;
                     }
                 }
@@ -55,7 +56,7 @@ fn main() {
     run(opts, model)
 }
 
-fn run(opts: opts::Opts, model: ActorModel<root::Root>) {
+fn run(opts: opts::Opts, model: ActorModel<root::Root, model::ModelCfg>) {
     println!("Running with config {:?}", opts);
     let mut reporter = Reporter::new(&model);
     let threads = opts.threads.unwrap_or_else(num_cpus::get);

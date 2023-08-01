@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use stateright::{actor::ActorModel, Expectation, Model};
 
-use crate::root::Root;
+use crate::{root::Root, model};
 
 #[derive(Debug, Default)]
 pub struct Reporter {
@@ -13,7 +13,7 @@ pub struct Reporter {
 
 impl Reporter {
     /// Create a new reporter.
-    pub fn new(model: &ActorModel<Root, (), ()>) -> Self {
+    pub fn new(model: &ActorModel<Root, model::ModelCfg, ()>) -> Self {
         let properties = model
             .properties()
             .iter()

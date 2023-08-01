@@ -8,6 +8,7 @@ use crate::datastore;
 use crate::root::Root;
 use crate::scheduler;
 
+#[derive(Clone, Debug)]
 pub struct ModelCfg {
     /// The number of apps each client should create.
     pub apps_per_client: u32,
@@ -23,8 +24,8 @@ pub struct ModelCfg {
 
 impl ModelCfg {
     /// Instantiate a new actor model based on this config.
-    pub fn into_actor_model(self) -> ActorModel<Root, (), ()> {
-        let mut model = ActorModel::new((), ());
+    pub fn into_actor_model(self) -> ActorModel<Root, Self, ()> {
+        let mut model = ActorModel::new(self.clone(), ());
 
         let datastore_id = Id::from(0);
         assert!(self.datastores > 0);
