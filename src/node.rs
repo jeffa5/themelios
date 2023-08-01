@@ -32,7 +32,7 @@ impl Actor for Node {
 
     fn on_msg(
         &self,
-        _id: Id,
+        id: Id,
         state: &mut Cow<Self::State>,
         _src: Id,
         msg: Self::Msg,
@@ -41,7 +41,8 @@ impl Actor for Node {
         match msg {
             RootMsg::NodeJoin => todo!(),
             RootMsg::SchedulerJoin => todo!(),
-            RootMsg::ScheduledAppEvent(app) => {
+            RootMsg::ScheduledAppEvent(app, node) => {
+                assert_eq!(node, id, "Sent app to run but not for this node");
                 state.to_mut().running_apps.push(app);
             }
             RootMsg::ScheduleAppRequest(_, _) => todo!(),

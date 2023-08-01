@@ -1,9 +1,9 @@
-use std::borrow::Cow;
+use std::{borrow::Cow, collections::BTreeMap};
 
 use stateright::actor::{Actor, Id, Out};
 
 use crate::{
-    app::App,
+    app::{App, AppId},
     root::{RootMsg, RootTimer},
 };
 
@@ -16,7 +16,8 @@ pub struct Scheduler {
 #[derive(Clone, Debug, Default, Eq, PartialEq, Hash)]
 pub struct SchedulerState {
     /// The current view of the nodes.
-    nodes: Vec<Id>,
+    /// Value is the apps that node is running.
+    nodes: BTreeMap<Id, Vec<AppId>>,
 
     /// Apps that need scheduling
     apps_to_schedule: Vec<App>,
@@ -49,14 +50,16 @@ impl Actor for Scheduler {
             RootMsg::NodeJoin => todo!(),
             RootMsg::SchedulerJoin => todo!(),
             RootMsg::NodeJoinedEvent(node) => {
-                state.to_mut().nodes.push(node);
+                state.to_mut().nodes.insert(node, Vec::new());
                 self.schedule(state, o);
             }
             RootMsg::NewAppEvent(app) => {
                 state.to_mut().apps_to_schedule.push(app);
                 self.schedule(state, o);
             }
-            RootMsg::ScheduledAppEvent(_) => todo!(),
+            RootMsg::ScheduledAppEvent(app, node) => {
+                state.to_mut().nodes.entry(node).or_default().push(app.id);
+            }
             RootMsg::ScheduleAppRequest(_, _) => todo!(),
             RootMsg::ScheduleAppResponse(result) => {
                 if !result {
@@ -77,11 +80,16 @@ impl Scheduler {
     fn schedule(&self, state: &mut Cow<SchedulerState>, o: &mut Out<Self>) {
         let mut_state = state.to_mut();
         mut_state.apps_to_schedule.retain(|app| {
-            if let Some(node) = mut_state.nodes.first().copied() {
+            let least_loaded_node = mut_state
+                .nodes
+                .iter()
+                .map(|(n, apps)| (n, apps.len()))
+                .min_by_key(|(_, apps)| *apps);
+            if let Some((node, _)) = least_loaded_node {
                 // TODO: use an actual scheduling strategy
                 o.send(
                     self.datastore,
-                    RootMsg::ScheduleAppRequest(app.clone(), node),
+                    RootMsg::ScheduleAppRequest(app.clone(), *node),
                 );
                 false
             } else {

@@ -48,9 +48,9 @@ impl Actor for Datastore {
                     state.to_mut().nodes.insert(src);
                     o.broadcast(state.schedulers.iter(), &RootMsg::NodeJoinedEvent(src));
                     // tell the node any apps that it is supposed to be running
-                    for (app, id) in &state.scheduled_apps {
-                        if id == &src {
-                            o.send(src, RootMsg::ScheduledAppEvent(app.clone()));
+                    for (app, node) in &state.scheduled_apps {
+                        if node == &src {
+                            o.send(src, RootMsg::ScheduledAppEvent(app.clone(), *node));
                         }
                     }
                 }
@@ -72,7 +72,7 @@ impl Actor for Datastore {
                 }
                 // ignore if already registered
             }
-            RootMsg::ScheduledAppEvent(_) => todo!(),
+            RootMsg::ScheduledAppEvent(_, _) => todo!(),
             RootMsg::ScheduleAppRequest(app, node) => {
                 let state = state.to_mut();
                 state.unscheduled_apps.remove(&app.id);
@@ -81,8 +81,12 @@ impl Actor for Datastore {
                     o.send(src, RootMsg::ScheduleAppResponse(false));
                 } else {
                     state.scheduled_apps.push((app.clone(), node));
-                    o.send(node, RootMsg::ScheduledAppEvent(app));
+                    o.send(node, RootMsg::ScheduledAppEvent(app.clone(), node));
                     o.send(src, RootMsg::ScheduleAppResponse(true));
+                    o.broadcast(
+                        state.schedulers.iter(),
+                        &RootMsg::ScheduledAppEvent(app, node),
+                    );
                 }
             }
             RootMsg::ScheduleAppResponse(_) => todo!(),

@@ -49,7 +49,7 @@ impl Actor for Client {
             }
             RootMsg::NodeJoinedEvent(_) => todo!(),
             RootMsg::NewAppEvent(_) => todo!(),
-            RootMsg::ScheduledAppEvent(_) => todo!(),
+            RootMsg::ScheduledAppEvent(_, _) => todo!(),
         }
     }
 

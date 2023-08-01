@@ -36,7 +36,7 @@ pub enum RootMsg {
     /// Events the datastore sends out.
     NodeJoinedEvent(Id),
     NewAppEvent(App),
-    ScheduledAppEvent(App),
+    ScheduledAppEvent(App, Id),
 
     /// Schedule an app to a node.
     ScheduleAppRequest(App, Id),
