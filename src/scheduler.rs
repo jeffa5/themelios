@@ -91,6 +91,8 @@ impl Scheduler {
                     self.datastore,
                     RootMsg::ScheduleAppRequest(app.clone(), *node),
                 );
+                // TODO: handle scheduling multiple apps in one go
+                // need to update the view as we go and have a way of rolling back
                 false
             } else {
                 true
