@@ -11,7 +11,7 @@ pub struct Opts {
     pub threads: Option<usize>,
 
     #[clap(long, short, global = true, default_value = "1")]
-    pub apps_per_client: usize,
+    pub apps_per_client: u32,
 
     #[clap(long, short, global = true, default_value = "1")]
     pub clients: usize,

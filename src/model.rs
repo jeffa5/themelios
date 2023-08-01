@@ -10,7 +10,7 @@ use crate::scheduler;
 
 pub struct ModelCfg {
     /// The number of apps each client should create.
-    pub apps_per_client: usize,
+    pub apps_per_client: u32,
     /// The number of clients to run.
     pub clients: usize,
     /// The number of schedulers to run.
@@ -47,7 +47,7 @@ impl ModelCfg {
         for _ in 0..self.clients {
             model = model.actor(Root::Client(client::Client {
                 datastore: datastore_id,
-                initial_apps: 2,
+                initial_apps: self.apps_per_client,
             }));
         }
 
