@@ -67,8 +67,10 @@ impl Actor for Datastore {
                     for app in state.unscheduled_apps.values() {
                         o.send(src, RootMsg::NewAppEvent(app.clone()));
                     }
-                    // TODO: a smarter scheduler will probably want the existing state of
-                    // scheduling
+                    // tell the scheduler the current set of apps that have been scheduled
+                    for (app, node) in &state.scheduled_apps {
+                        o.send(src, RootMsg::ScheduledAppEvent(app.clone(), *node));
+                    }
                 }
                 // ignore if already registered
             }
