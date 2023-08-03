@@ -20,7 +20,7 @@ pub enum Change {
 
 #[derive(Default, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct State {
-    pub nodes: BTreeMap<usize, BTreeSet<u32>>,
+    pub nodes: BTreeMap<usize, Node>,
     pub schedulers: BTreeSet<usize>,
     pub pods: BTreeMap<u32, Pod>,
 }
@@ -31,11 +31,23 @@ pub struct Pod {
     pub scheduled: Option<usize>,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct Node {
+    pub running: BTreeSet<u32>,
+    pub ready: bool,
+}
+
 impl State {
     fn apply_change(&mut self, change: Change) {
         match change {
             Change::NodeJoin(i) => {
-                self.nodes.insert(i, BTreeSet::new());
+                self.nodes.insert(
+                    i,
+                    Node {
+                        running: BTreeSet::new(),
+                        ready: true,
+                    },
+                );
             }
             Change::SchedulerJoin(i) => {
                 self.schedulers.insert(i);
@@ -55,7 +67,7 @@ impl State {
                 }
             }
             Change::RunPod(pod, node) => {
-                self.nodes.get_mut(&node).unwrap().insert(pod);
+                self.nodes.get_mut(&node).unwrap().running.insert(pod);
             }
         }
     }
@@ -64,6 +76,7 @@ impl State {
 #[derive(Debug, PartialEq, Eq, Hash)]
 pub enum Action {
     ControllerStep(usize, String, Vec<Change>),
+    NodeCrash(usize),
 }
 
 impl Model for ModelCfg {
@@ -80,6 +93,11 @@ impl Model for ModelCfg {
             let changes = controller.step(i, state);
             actions.push(Action::ControllerStep(i, controller.name(), changes));
         }
+        for (node_id, node) in &state.nodes {
+            if node.ready {
+                actions.push(Action::NodeCrash(*node_id));
+            }
+        }
     }
 
     fn next_state(&self, last_state: &Self::State, action: Self::Action) -> Option<Self::State> {
@@ -89,6 +107,14 @@ impl Model for ModelCfg {
                 for change in changes {
                     state.apply_change(change);
                 }
+                Some(state)
+            }
+            Action::NodeCrash(node) => {
+                let mut state = last_state.clone();
+                state.nodes.remove(&node);
+                state
+                    .pods
+                    .retain(|_, pod| pod.scheduled.map_or(true, |n| n != node));
                 Some(state)
             }
         }
