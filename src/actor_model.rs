@@ -1,5 +1,8 @@
 use crate::client;
+use crate::controller::ControllerType;
+use crate::model::ModelCfg;
 use crate::node;
+use crate::root::RootState;
 use stateright::actor::ActorModel;
 use stateright::actor::Id;
 use stateright::actor::Network;
@@ -52,6 +55,49 @@ impl ActorModelCfg {
             }));
         }
 
-        model.init_network(Network::new_unordered_nonduplicating(vec![]))
+        model = model.init_network(Network::new_unordered_nonduplicating(vec![]));
+
+        model.property(
+            // TODO: eventually properties don't seem to work with timers, even though they may be
+            // steady state.
+            stateright::Expectation::Eventually,
+            "every application gets scheduled",
+            |model, state| {
+                let mut any = false;
+                let total_apps = model.cfg.apps_per_client as usize * model.cfg.clients;
+                for actor in &state.actor_states {
+                    if let RootState::Datastore(d) = &**actor {
+                        if d.unscheduled_apps.is_empty() && d.scheduled_apps.len() == total_apps {
+                            any = true;
+                        }
+                    }
+                }
+                any
+            },
+        )
+    }
+
+    pub fn into_model(self) -> ModelCfg {
+        let mut model = ModelCfg {
+            controllers: Vec::new(),
+        };
+
+        assert!(self.datastores > 0);
+
+        for _ in 0..self.nodes {
+            model.controllers.push(ControllerType::Node);
+        }
+
+        for _ in 0..self.schedulers {
+            model.controllers.push(ControllerType::Scheduler);
+        }
+
+        for _ in 0..self.clients {
+            model.controllers.push(ControllerType::Client {
+                initial_pods: self.apps_per_client,
+            });
+        }
+
+        model
     }
 }

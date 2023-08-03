@@ -1,7 +1,5 @@
 use clap::Parser;
-use model_checked_orchestration::root::RootState;
 use report::Reporter;
-use stateright::actor::ActorModel;
 use stateright::Checker;
 use stateright::Model;
 use stateright::UniformChooser;
@@ -14,7 +12,6 @@ use tracing_subscriber::EnvFilter;
 use model_checked_orchestration::actor_model;
 use model_checked_orchestration::opts;
 use model_checked_orchestration::report;
-use model_checked_orchestration::root;
 
 fn main() {
     let opts = opts::Opts::parse();
@@ -33,30 +30,20 @@ fn main() {
         schedulers: opts.schedulers,
         nodes: opts.nodes,
         datastores: opts.datastores,
+    };
+    if opts.actors {
+        run(opts, model.into_actor_model())
+    } else {
+        run(opts, model.into_model())
     }
-    .into_actor_model()
-    .property(
-        // TODO: eventually properties don't seem to work with timers, even though they may be
-        // steady state.
-        stateright::Expectation::Eventually,
-        "every application gets scheduled",
-        |model, state| {
-            let mut any = false;
-            let total_apps = model.cfg.apps_per_client as usize * model.cfg.clients;
-            for actor in &state.actor_states {
-                if let RootState::Datastore(d) = &**actor {
-                    if d.unscheduled_apps.is_empty() && d.scheduled_apps.len() == total_apps {
-                        any = true;
-                    }
-                }
-            }
-            any
-        },
-    );
-    run(opts, model)
 }
 
-fn run(opts: opts::Opts, model: ActorModel<root::Root, actor_model::ActorModelCfg>) {
+fn run<M>(opts: opts::Opts, model: M)
+where
+    M: Model + Send + Sync+'static,
+    M::State: Send + Sync + std::hash::Hash + std::fmt::Debug,
+    M::Action: Send + Sync + std::hash::Hash + std::fmt::Debug,
+{
     println!("Running with config {:?}", opts);
     let mut reporter = Reporter::new(&model);
     let threads = opts.threads.unwrap_or_else(num_cpus::get);

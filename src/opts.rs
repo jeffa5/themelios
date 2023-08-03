@@ -5,6 +5,10 @@ pub struct Opts {
     #[clap(subcommand)]
     pub command: SubCmd,
 
+    /// Whether to use an actor model or not.
+    #[clap(long, global = true)]
+    pub actors: bool,
+
     /// The number of threads to run.
     /// Defaults to the number of CPUs the machine has, as reported by `num_cpus`.
     #[clap(long, short, global = true)]
