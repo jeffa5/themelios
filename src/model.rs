@@ -63,7 +63,7 @@ impl State {
 
 #[derive(Debug, PartialEq, Eq, Hash)]
 pub enum Action {
-    ControllerStep(usize),
+    ControllerStep(usize, String, Vec<Change>),
 }
 
 impl Model for ModelCfg {
@@ -75,17 +75,16 @@ impl Model for ModelCfg {
         vec![State::default()]
     }
 
-    fn actions(&self, _state: &Self::State, actions: &mut Vec<Self::Action>) {
-        for i in 0..self.controllers.len() {
-            actions.push(Action::ControllerStep(i));
+    fn actions(&self, state: &Self::State, actions: &mut Vec<Self::Action>) {
+        for (i, controller) in self.controllers.iter().enumerate() {
+            let changes = controller.step(i, state);
+            actions.push(Action::ControllerStep(i, controller.name(), changes));
         }
     }
 
     fn next_state(&self, last_state: &Self::State, action: Self::Action) -> Option<Self::State> {
         match action {
-            Action::ControllerStep(i) => {
-                let controller = self.controllers.get(i).unwrap();
-                let changes = controller.step(i, last_state);
+            Action::ControllerStep(_, _, changes) => {
                 let mut state = last_state.clone();
                 for change in changes {
                     state.apply_change(change);

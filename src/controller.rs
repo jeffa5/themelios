@@ -2,6 +2,8 @@ use crate::model::{Change, State};
 
 pub trait Controller {
     fn step(&self, id: usize, state: &State) -> Vec<Change>;
+
+    fn name(&self) -> String;
 }
 
 #[derive(Clone, Debug)]
@@ -46,5 +48,14 @@ impl Controller for ControllerType {
             }
         }
         actions
+    }
+
+    fn name(&self) -> String {
+        match self {
+            ControllerType::Node => "Node",
+            ControllerType::Scheduler => "Scheduler",
+            ControllerType::Client { initial_pods: _ } => "Client",
+        }
+        .to_owned()
     }
 }
