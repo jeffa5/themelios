@@ -22,7 +22,7 @@ impl Controller for ControllerType {
                 }
                 if state.nodes.get(&id).map_or(false, |n| n.ready) {
                     for pod in state.pods.values() {
-                        if let Some(node) = pod.scheduled {
+                        if let Some(node) = pod.node_name {
                             if node == id {
                                 actions.push(Change::RunPod(pod.id, node));
                             }
@@ -41,7 +41,7 @@ impl Controller for ControllerType {
                         .map(|(n, node)| (n, node.running.len()))
                         .min_by_key(|(_, apps)| *apps);
                     if let Some((node, _)) = least_loaded_node {
-                        if pod.scheduled.is_none() {
+                        if pod.node_name.is_none() {
                             actions.push(Change::SchedulePod(pod.id, *node));
                         }
                     }

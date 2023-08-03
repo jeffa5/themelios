@@ -29,7 +29,7 @@ pub struct State {
 #[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct Pod {
     pub id: u32,
-    pub scheduled: Option<usize>,
+    pub node_name: Option<usize>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -58,13 +58,13 @@ impl State {
                     i,
                     Pod {
                         id: i,
-                        scheduled: None,
+                        node_name: None,
                     },
                 );
             }
             Change::SchedulePod(pod, node) => {
                 if let Some(pod) = self.pods.get_mut(&pod) {
-                    pod.scheduled = Some(node);
+                    pod.node_name = Some(node);
                 }
             }
             Change::RunPod(pod, node) => {
@@ -92,7 +92,7 @@ impl Model for ModelCfg {
                 i,
                 Pod {
                     id: i,
-                    scheduled: None,
+                    node_name: None,
                 },
             );
         }
@@ -125,7 +125,7 @@ impl Model for ModelCfg {
                 state.nodes.remove(&node);
                 state
                     .pods
-                    .retain(|_, pod| pod.scheduled.map_or(true, |n| n != node));
+                    .retain(|_, pod| pod.node_name.map_or(true, |n| n != node));
                 Some(state)
             }
         }
@@ -134,7 +134,7 @@ impl Model for ModelCfg {
     fn properties(&self) -> Vec<stateright::Property<Self>> {
         vec![Property::<Self>::eventually(
             "every pod gets scheduled",
-            |_model, state| state.pods.values().all(|pod| pod.scheduled.is_some()),
+            |_model, state| state.pods.values().all(|pod| pod.node_name.is_some()),
         )]
     }
 }
