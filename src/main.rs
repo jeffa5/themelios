@@ -11,7 +11,7 @@ use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 use tracing_subscriber::EnvFilter;
 
-use model_checked_orchestration::model;
+use model_checked_orchestration::actor_model;
 use model_checked_orchestration::opts;
 use model_checked_orchestration::report;
 use model_checked_orchestration::root;
@@ -27,7 +27,7 @@ fn main() {
         .with(log_filter)
         .init();
 
-    let model = model::ModelCfg {
+    let model = actor_model::ActorModelCfg {
         apps_per_client: opts.apps_per_client,
         clients: opts.clients,
         schedulers: opts.schedulers,
@@ -56,7 +56,7 @@ fn main() {
     run(opts, model)
 }
 
-fn run(opts: opts::Opts, model: ActorModel<root::Root, model::ModelCfg>) {
+fn run(opts: opts::Opts, model: ActorModel<root::Root, actor_model::ActorModelCfg>) {
     println!("Running with config {:?}", opts);
     let mut reporter = Reporter::new(&model);
     let threads = opts.threads.unwrap_or_else(num_cpus::get);
