@@ -23,6 +23,12 @@ pub struct ActorModelCfg {
     pub nodes: usize,
     /// The number of datastores to run.
     pub datastores: usize,
+    /// The number of replicaset controllers to run.
+    pub replicaset_controllers: usize,
+    /// The number of replicasets to create.
+    pub replicasets: u32,
+    /// The number of pods each replicaset manages.
+    pub pods_per_replicaset: u32,
 }
 
 impl ActorModelCfg {
@@ -81,6 +87,8 @@ impl ActorModelCfg {
         let mut model = ModelCfg {
             controllers: Vec::new(),
             initial_pods: self.clients as u32 * self.apps_per_client,
+            initial_replicasets: self.replicasets,
+            pods_per_replicaset: self.pods_per_replicaset,
         };
 
         assert!(self.datastores > 0);
@@ -91,6 +99,10 @@ impl ActorModelCfg {
 
         for _ in 0..self.schedulers {
             model.controllers.push(ControllerType::Scheduler);
+        }
+
+        for _ in 0..self.replicaset_controllers {
+            model.controllers.push(ControllerType::ReplicaSet);
         }
 
         model

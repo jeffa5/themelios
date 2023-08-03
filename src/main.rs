@@ -30,6 +30,9 @@ fn main() {
         schedulers: opts.schedulers,
         nodes: opts.nodes,
         datastores: opts.datastores,
+        replicaset_controllers: opts.replicaset_controllers,
+        replicasets: opts.replicasets,
+        pods_per_replicaset: opts.pods_per_replicaset,
     };
     if opts.actors {
         run(opts, model.into_actor_model())

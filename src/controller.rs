@@ -10,6 +10,7 @@ pub trait Controller {
 pub enum ControllerType {
     Node,
     Scheduler,
+    ReplicaSet,
 }
 
 impl Controller for ControllerType {
@@ -47,6 +48,15 @@ impl Controller for ControllerType {
                     }
                 }
             }
+            ControllerType::ReplicaSet => {
+                for replicaset in state.replica_sets.values() {
+                    for pod in replicaset.pods() {
+                        if !state.pods.contains_key(&pod) {
+                            actions.push(Change::NewPod(pod));
+                        }
+                    }
+                }
+            }
         }
         actions
     }
@@ -55,6 +65,7 @@ impl Controller for ControllerType {
         match self {
             ControllerType::Node => "Node",
             ControllerType::Scheduler => "Scheduler",
+            ControllerType::ReplicaSet => "ReplicaSet",
         }
         .to_owned()
     }

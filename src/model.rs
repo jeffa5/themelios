@@ -8,6 +8,8 @@ use crate::controller::{Controller, ControllerType};
 pub struct ModelCfg {
     pub controllers: Vec<ControllerType>,
     pub initial_pods: u32,
+    pub initial_replicasets: u32,
+    pub pods_per_replicaset: u32,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -24,12 +26,25 @@ pub struct State {
     pub nodes: BTreeMap<usize, Node>,
     pub schedulers: BTreeSet<usize>,
     pub pods: BTreeMap<u32, Pod>,
+    pub replica_sets: BTreeMap<u32, ReplicaSet>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct Pod {
     pub id: u32,
     pub node_name: Option<usize>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct ReplicaSet {
+    pub id: u32,
+    pub replicas: u32,
+}
+
+impl ReplicaSet {
+    pub fn pods(&self) -> Vec<u32> {
+        (0..self.replicas).map(|i| (self.id * 1000) + i).collect()
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -95,6 +110,11 @@ impl Model for ModelCfg {
                     node_name: None,
                 },
             );
+        }
+        for i in 1..=self.initial_replicasets {
+            state
+                .replica_sets
+                .insert(i, ReplicaSet { id: i, replicas: self.pods_per_replicaset });
         }
         vec![state]
     }

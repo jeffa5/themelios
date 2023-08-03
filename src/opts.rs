@@ -20,6 +20,15 @@ pub struct Opts {
     #[clap(long, short, global = true, default_value = "1")]
     pub clients: usize,
 
+    #[clap(long, global = true, default_value = "1")]
+    pub replicasets: u32,
+
+    #[clap(long, global = true, default_value = "1")]
+    pub pods_per_replicaset: u32,
+
+    #[clap(long, global = true, default_value = "1")]
+    pub replicaset_controllers: usize,
+
     #[clap(long, short, global = true, default_value = "1")]
     pub schedulers: usize,
 
