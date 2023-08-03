@@ -7,6 +7,7 @@ use crate::controller::{Controller, ControllerType};
 #[derive(Debug)]
 pub struct ModelCfg {
     pub controllers: Vec<ControllerType>,
+    pub initial_pods: u32,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -85,7 +86,17 @@ impl Model for ModelCfg {
     type Action = Action;
 
     fn init_states(&self) -> Vec<Self::State> {
-        vec![State::default()]
+        let mut state = State::default();
+        for i in 0..self.initial_pods {
+            state.pods.insert(
+                i,
+                Pod {
+                    id: i,
+                    scheduled: None,
+                },
+            );
+        }
+        vec![state]
     }
 
     fn actions(&self, state: &Self::State, actions: &mut Vec<Self::Action>) {

@@ -40,7 +40,7 @@ fn main() {
 
 fn run<M>(opts: opts::Opts, model: M)
 where
-    M: Model + Send + Sync+'static,
+    M: Model + Send + Sync + 'static,
     M::State: Send + Sync + std::hash::Hash + std::fmt::Debug,
     M::Action: Send + Sync + std::hash::Hash + std::fmt::Debug,
 {

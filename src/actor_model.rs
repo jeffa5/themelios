@@ -80,6 +80,7 @@ impl ActorModelCfg {
     pub fn into_model(self) -> ModelCfg {
         let mut model = ModelCfg {
             controllers: Vec::new(),
+            initial_pods: self.clients as u32 * self.apps_per_client,
         };
 
         assert!(self.datastores > 0);
@@ -90,12 +91,6 @@ impl ActorModelCfg {
 
         for _ in 0..self.schedulers {
             model.controllers.push(ControllerType::Scheduler);
-        }
-
-        for _ in 0..self.clients {
-            model.controllers.push(ControllerType::Client {
-                initial_pods: self.apps_per_client,
-            });
         }
 
         model

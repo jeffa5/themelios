@@ -10,7 +10,6 @@ pub trait Controller {
 pub enum ControllerType {
     Node,
     Scheduler,
-    Client { initial_pods: u32 },
 }
 
 impl Controller for ControllerType {
@@ -48,13 +47,6 @@ impl Controller for ControllerType {
                     }
                 }
             }
-            ControllerType::Client { initial_pods } => {
-                for i in 0..*initial_pods {
-                    if !state.pods.contains_key(&i) {
-                        actions.push(Change::NewPod(i))
-                    }
-                }
-            }
         }
         actions
     }
@@ -63,7 +55,6 @@ impl Controller for ControllerType {
         match self {
             ControllerType::Node => "Node",
             ControllerType::Scheduler => "Scheduler",
-            ControllerType::Client { initial_pods: _ } => "Client",
         }
         .to_owned()
     }
