@@ -15,12 +15,12 @@ pub enum Change {
     SchedulerJoin(usize),
     NewPod(u32),
     SchedulePod(u32, usize),
-    RunPod(Pod, usize),
+    RunPod(u32, usize),
 }
 
 #[derive(Default, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct State {
-    pub nodes: BTreeMap<usize, BTreeSet<Pod>>,
+    pub nodes: BTreeMap<usize, BTreeSet<u32>>,
     pub schedulers: BTreeSet<usize>,
     pub pods: BTreeMap<u32, Pod>,
 }

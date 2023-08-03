@@ -21,6 +21,13 @@ impl Controller for ControllerType {
                 if !state.nodes.contains_key(&id) {
                     actions.push(Change::NodeJoin(id));
                 }
+                for pod in state.pods.values() {
+                    if let Some(node) = pod.scheduled {
+                        if node == id {
+                            actions.push(Change::RunPod(pod.id, node));
+                        }
+                    }
+                }
             }
             ControllerType::Scheduler => {
                 if !state.schedulers.contains(&id) {
