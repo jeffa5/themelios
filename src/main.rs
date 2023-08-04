@@ -24,7 +24,7 @@ fn main() {
         .with(log_filter)
         .init();
 
-    let model = actor_model::ActorModelCfg {
+    let model = actor_model::OrchestrationModelCfg {
         initial_pods: opts.initial_pods,
         schedulers: opts.schedulers,
         nodes: opts.nodes,

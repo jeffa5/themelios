@@ -11,7 +11,7 @@ use stateright::actor::ActorModel;
 use stateright::actor::Network;
 
 #[derive(Clone, Debug)]
-pub struct ActorModelCfg {
+pub struct OrchestrationModelCfg {
     /// The number of static pods to start with.
     pub initial_pods: u32,
     /// The number of schedulers to run.
@@ -28,10 +28,19 @@ pub struct ActorModelCfg {
     pub pods_per_replicaset: u32,
 }
 
-impl ActorModelCfg {
+pub struct ActorModelCfg {
+    pub initial_pods: u32,
+}
+
+impl OrchestrationModelCfg {
     /// Instantiate a new actor model based on this config.
-    pub fn into_actor_model(self) -> ActorModel<Actors, Self, ()> {
-        let mut model = ActorModel::new(self.clone(), ());
+    pub fn into_actor_model(self) -> ActorModel<Actors, ActorModelCfg, ()> {
+        let mut model = ActorModel::new(
+            ActorModelCfg {
+                initial_pods: self.initial_pods,
+            },
+            (),
+        );
 
         assert!(self.datastores > 0);
         for _ in 0..self.datastores {
