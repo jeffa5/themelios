@@ -201,7 +201,7 @@ impl Actor for Actors {
     fn on_msg(
         &self,
         id: stateright::actor::Id,
-        mut state: &mut std::borrow::Cow<Self::State>,
+        state: &mut std::borrow::Cow<Self::State>,
         src: stateright::actor::Id,
         msg: Self::Msg,
         o: &mut stateright::actor::Out<Self>,
@@ -209,22 +209,22 @@ impl Actor for Actors {
         match self {
             Actors::Datastore(a) => {
                 let mut client_out = Out::new();
-                a.on_msg(id, &mut state, src, msg, &mut client_out);
+                a.on_msg(id, state, src, msg, &mut client_out);
                 o.append(&mut client_out);
             }
             Actors::Node(a) => {
                 let mut client_out = Out::new();
-                a.on_msg(id, &mut state, src, msg, &mut client_out);
+                a.on_msg(id, state, src, msg, &mut client_out);
                 o.append(&mut client_out);
             }
             Actors::Scheduler(a) => {
                 let mut client_out = Out::new();
-                a.on_msg(id, &mut state, src, msg, &mut client_out);
+                a.on_msg(id, state, src, msg, &mut client_out);
                 o.append(&mut client_out);
             }
             Actors::ReplicaSet(a) => {
                 let mut client_out = Out::new();
-                a.on_msg(id, &mut state, src, msg, &mut client_out);
+                a.on_msg(id, state, src, msg, &mut client_out);
                 o.append(&mut client_out);
             }
         }
@@ -233,29 +233,29 @@ impl Actor for Actors {
     fn on_timeout(
         &self,
         id: stateright::actor::Id,
-        mut state: &mut std::borrow::Cow<Self::State>,
+        state: &mut std::borrow::Cow<Self::State>,
         timer: &Self::Timer,
         o: &mut stateright::actor::Out<Self>,
     ) {
         match self {
             Actors::Datastore(a) => {
                 let mut client_out = Out::new();
-                a.on_timeout(id, &mut state, timer, &mut client_out);
+                a.on_timeout(id, state, timer, &mut client_out);
                 o.append(&mut client_out);
             }
             Actors::Node(a) => {
                 let mut client_out = Out::new();
-                a.on_timeout(id, &mut state, timer, &mut client_out);
+                a.on_timeout(id, state, timer, &mut client_out);
                 o.append(&mut client_out);
             }
             Actors::Scheduler(a) => {
                 let mut client_out = Out::new();
-                a.on_timeout(id, &mut state, timer, &mut client_out);
+                a.on_timeout(id, state, timer, &mut client_out);
                 o.append(&mut client_out);
             }
             Actors::ReplicaSet(a) => {
                 let mut client_out = Out::new();
-                a.on_timeout(id, &mut state, timer, &mut client_out);
+                a.on_timeout(id, state, timer, &mut client_out);
                 o.append(&mut client_out);
             }
         }
