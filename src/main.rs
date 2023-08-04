@@ -25,8 +25,7 @@ fn main() {
         .init();
 
     let model = actor_model::ActorModelCfg {
-        apps_per_client: opts.apps_per_client,
-        clients: opts.clients,
+        initial_pods: opts.initial_pods,
         schedulers: opts.schedulers,
         nodes: opts.nodes,
         datastores: opts.datastores,

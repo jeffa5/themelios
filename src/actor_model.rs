@@ -12,10 +12,8 @@ use stateright::actor::Network;
 
 #[derive(Clone, Debug)]
 pub struct ActorModelCfg {
-    /// The number of apps each client should create.
-    pub apps_per_client: u32,
-    /// The number of clients to run.
-    pub clients: usize,
+    /// The number of static pods to start with.
+    pub initial_pods: u32,
     /// The number of schedulers to run.
     pub schedulers: usize,
     /// The number of nodes to run.
@@ -38,7 +36,7 @@ impl ActorModelCfg {
         assert!(self.datastores > 0);
         for _ in 0..self.datastores {
             model = model.actor(Actors::Datastore(Datastore {
-                initial_pods: self.clients as u32 * self.apps_per_client,
+                initial_pods: self.initial_pods,
                 initial_replicasets: self.replicasets,
                 pods_per_replicaset: self.pods_per_replicaset,
             }));
@@ -65,7 +63,7 @@ impl ActorModelCfg {
             "every application gets scheduled",
             |model, state| {
                 let mut any = false;
-                let total_apps = model.cfg.apps_per_client as usize * model.cfg.clients;
+                let total_apps = model.cfg.initial_pods as usize;
                 let datastore_state = state.actor_states.first().unwrap();
                 let all_apps_scheduled =
                     datastore_state.pods.values().all(|a| a.node_name.is_some());
@@ -81,7 +79,7 @@ impl ActorModelCfg {
     pub fn into_model(self) -> ModelCfg {
         let mut model = ModelCfg {
             controllers: Vec::new(),
-            initial_pods: self.clients as u32 * self.apps_per_client,
+            initial_pods: self.initial_pods,
             initial_replicasets: self.replicasets,
             pods_per_replicaset: self.pods_per_replicaset,
         };
