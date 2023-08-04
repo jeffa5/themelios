@@ -3,10 +3,10 @@ use crate::actor::ControllerActor;
 use crate::actor::Datastore;
 
 use crate::controller::Controllers;
-use crate::controller::Node;
 use crate::controller::ReplicaSet;
 use crate::controller::Scheduler;
 use crate::model::ModelCfg;
+use crate::node::Node;
 use stateright::actor::ActorModel;
 use stateright::actor::Network;
 

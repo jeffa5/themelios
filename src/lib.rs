@@ -3,5 +3,6 @@ pub mod actor_model;
 pub mod app;
 pub mod controller;
 pub mod model;
+pub mod node;
 pub mod opts;
 pub mod report;
