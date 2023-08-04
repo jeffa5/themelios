@@ -15,7 +15,7 @@ impl Controller for Scheduler {
                 .nodes
                 .iter()
                 .map(|(n, node)| (n, node.running.len()))
-                .min_by_key(|(_, apps)| *apps);
+                .min_by_key(|(_, pods)| *pods);
             if let Some((node, _)) = least_loaded_node {
                 if pod.node_name.is_none() {
                     actions.push(Change::SchedulePod(pod.id, *node));
