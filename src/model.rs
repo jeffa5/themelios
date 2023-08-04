@@ -2,11 +2,11 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use stateright::{Model, Property};
 
-use crate::controller::{Controller, ControllerType};
+use crate::controller::{Controller, Controllers};
 
 #[derive(Debug)]
 pub struct ModelCfg {
-    pub controllers: Vec<ControllerType>,
+    pub controllers: Vec<Controllers>,
     pub initial_pods: u32,
     pub initial_replicasets: u32,
     pub pods_per_replicaset: u32,
@@ -16,6 +16,7 @@ pub struct ModelCfg {
 pub enum Change {
     NodeJoin(usize),
     SchedulerJoin(usize),
+    ReplicasetJoin(usize),
     NewPod(u32),
     SchedulePod(u32, usize),
     RunPod(u32, usize),
@@ -25,6 +26,7 @@ pub enum Change {
 pub struct State {
     pub nodes: BTreeMap<usize, Node>,
     pub schedulers: BTreeSet<usize>,
+    pub replicaset_controllers: BTreeSet<usize>,
     pub pods: BTreeMap<u32, Pod>,
     pub replica_sets: BTreeMap<u32, ReplicaSet>,
 }
@@ -54,7 +56,7 @@ pub struct Node {
 }
 
 impl State {
-    fn apply_change(&mut self, change: Change) {
+    pub fn apply_change(&mut self, change: Change) {
         match change {
             Change::NodeJoin(i) => {
                 self.nodes.insert(
@@ -67,6 +69,9 @@ impl State {
             }
             Change::SchedulerJoin(i) => {
                 self.schedulers.insert(i);
+            }
+            Change::ReplicasetJoin(i) => {
+                self.replicaset_controllers.insert(i);
             }
             Change::NewPod(i) => {
                 self.pods.insert(
@@ -112,9 +117,13 @@ impl Model for ModelCfg {
             );
         }
         for i in 1..=self.initial_replicasets {
-            state
-                .replica_sets
-                .insert(i, ReplicaSet { id: i, replicas: self.pods_per_replicaset });
+            state.replica_sets.insert(
+                i,
+                ReplicaSet {
+                    id: i,
+                    replicas: self.pods_per_replicaset,
+                },
+            );
         }
         vec![state]
     }

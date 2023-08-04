@@ -1,15 +1,14 @@
-use crate::client;
-use crate::controller::ControllerType;
-use crate::model::ModelCfg;
-use crate::node;
-use crate::root::RootState;
-use stateright::actor::ActorModel;
-use stateright::actor::Id;
-use stateright::actor::Network;
+use crate::actor::Actors;
+use crate::actor::ControllerActor;
+use crate::actor::Datastore;
 
-use crate::datastore;
-use crate::root::Root;
-use crate::scheduler;
+use crate::controller::Controllers;
+use crate::controller::Node;
+use crate::controller::ReplicaSet;
+use crate::controller::Scheduler;
+use crate::model::ModelCfg;
+use stateright::actor::ActorModel;
+use stateright::actor::Network;
 
 #[derive(Clone, Debug)]
 pub struct ActorModelCfg {
@@ -33,32 +32,28 @@ pub struct ActorModelCfg {
 
 impl ActorModelCfg {
     /// Instantiate a new actor model based on this config.
-    pub fn into_actor_model(self) -> ActorModel<Root, Self, ()> {
+    pub fn into_actor_model(self) -> ActorModel<Actors, Self, ()> {
         let mut model = ActorModel::new(self.clone(), ());
 
-        let datastore_id = Id::from(0);
         assert!(self.datastores > 0);
         for _ in 0..self.datastores {
-            model = model.actor(Root::Datastore(datastore::Datastore {}));
+            model = model.actor(Actors::Datastore(Datastore {
+                initial_pods: self.clients as u32 * self.apps_per_client,
+                initial_replicasets: self.replicasets,
+                pods_per_replicaset: self.pods_per_replicaset,
+            }));
         }
 
         for _ in 0..self.nodes {
-            model = model.actor(Root::Node(node::Node {
-                datastore: datastore_id,
-            }));
+            model = model.actor(Actors::Node(ControllerActor::new(Node)));
         }
 
         for _ in 0..self.schedulers {
-            model = model.actor(Root::Scheduler(scheduler::Scheduler {
-                datastore: datastore_id,
-            }));
+            model = model.actor(Actors::Scheduler(ControllerActor::new(Scheduler)));
         }
 
-        for _ in 0..self.clients {
-            model = model.actor(Root::Client(client::Client {
-                datastore: datastore_id,
-                initial_apps: self.apps_per_client,
-            }));
+        for _ in 0..self.replicaset_controllers {
+            model = model.actor(Actors::ReplicaSet(ControllerActor::new(ReplicaSet)));
         }
 
         model = model.init_network(Network::new_unordered_nonduplicating(vec![]));
@@ -71,12 +66,12 @@ impl ActorModelCfg {
             |model, state| {
                 let mut any = false;
                 let total_apps = model.cfg.apps_per_client as usize * model.cfg.clients;
-                for actor in &state.actor_states {
-                    if let RootState::Datastore(d) = &**actor {
-                        if d.unscheduled_apps.is_empty() && d.scheduled_apps.len() == total_apps {
-                            any = true;
-                        }
-                    }
+                let datastore_state = state.actor_states.first().unwrap();
+                let all_apps_scheduled =
+                    datastore_state.pods.values().all(|a| a.node_name.is_some());
+                let num_scheduled_apps = datastore_state.pods.len();
+                if all_apps_scheduled && num_scheduled_apps == total_apps {
+                    any = true;
                 }
                 any
             },
@@ -94,15 +89,15 @@ impl ActorModelCfg {
         assert!(self.datastores > 0);
 
         for _ in 0..self.nodes {
-            model.controllers.push(ControllerType::Node);
+            model.controllers.push(Controllers::Node(Node));
         }
 
         for _ in 0..self.schedulers {
-            model.controllers.push(ControllerType::Scheduler);
+            model.controllers.push(Controllers::Scheduler(Scheduler));
         }
 
         for _ in 0..self.replicaset_controllers {
-            model.controllers.push(ControllerType::ReplicaSet);
+            model.controllers.push(Controllers::ReplicaSet(ReplicaSet));
         }
 
         model

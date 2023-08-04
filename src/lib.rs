@@ -1,4 +1,5 @@
 pub mod actor_model;
+pub mod actor;
 pub mod app;
 pub mod client;
 pub mod controller;
