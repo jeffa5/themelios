@@ -3,9 +3,9 @@ use stateright::actor::{Actor, Id, Out};
 use crate::{
     controller::Controller,
     model::{self, Change, Pod, State},
-    node::Node,
-    replicaset::ReplicaSet,
-    scheduler::Scheduler,
+    controller::node::Node,
+    controller::replicaset::ReplicaSet,
+    controller::scheduler::Scheduler,
 };
 
 pub struct ControllerActor<C> {

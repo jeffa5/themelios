@@ -1,9 +1,11 @@
-use crate::{
-    model::{Change, State},
-    node::Node,
-    replicaset::ReplicaSet,
-    scheduler::Scheduler,
-};
+use crate::model::{Change, State};
+use node::Node;
+use replicaset::ReplicaSet;
+use scheduler::Scheduler;
+
+pub mod node;
+pub mod replicaset;
+pub mod scheduler;
 
 pub trait Controller {
     fn step(&self, id: usize, state: &State) -> Vec<Change>;

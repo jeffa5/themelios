@@ -4,9 +4,9 @@ use crate::actor::Datastore;
 
 use crate::controller::Controllers;
 use crate::model::ModelCfg;
-use crate::node::Node;
-use crate::replicaset::ReplicaSet;
-use crate::scheduler::Scheduler;
+use crate::controller::node::Node;
+use crate::controller::replicaset::ReplicaSet;
+use crate::controller::scheduler::Scheduler;
 use stateright::actor::ActorModel;
 use stateright::actor::Network;
 
