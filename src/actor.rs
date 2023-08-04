@@ -1,9 +1,10 @@
 use stateright::actor::{Actor, Id, Out};
 
 use crate::{
-    controller::{Controller, ReplicaSet, Scheduler},
+    controller::{Controller, ReplicaSet},
     model::{self, Change, Pod, State},
     node::Node,
+    scheduler::Scheduler,
 };
 
 pub struct ControllerActor<C> {
