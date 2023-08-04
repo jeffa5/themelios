@@ -1,9 +1,10 @@
 use stateright::actor::{Actor, Id, Out};
 
 use crate::{
-    controller::{Controller, ReplicaSet},
+    controller::Controller,
     model::{self, Change, Pod, State},
     node::Node,
+    replicaset::ReplicaSet,
     scheduler::Scheduler,
 };
 
