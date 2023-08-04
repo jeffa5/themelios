@@ -1,7 +1,5 @@
-use crate::{
-    controller::Controller,
-    model::{Change, State},
-};
+use crate::state::State;
+use crate::{controller::Controller, model::Change};
 
 #[derive(Clone, Debug)]
 pub struct ReplicaSet;

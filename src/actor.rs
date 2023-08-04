@@ -1,11 +1,9 @@
 use stateright::actor::{Actor, Id, Out};
 
+use crate::state::{self, Pod, State};
 use crate::{
-    controller::Controller,
-    model::{self, Change, Pod, State},
-    controller::node::Node,
-    controller::replicaset::ReplicaSet,
-    controller::scheduler::Scheduler,
+    controller::node::Node, controller::replicaset::ReplicaSet, controller::scheduler::Scheduler,
+    controller::Controller, model::Change,
 };
 
 pub struct ControllerActor<C> {
@@ -108,7 +106,7 @@ impl Actor for Datastore {
         for i in 1..=self.initial_replicasets {
             state.replica_sets.insert(
                 i,
-                model::ReplicaSet {
+                state::ReplicaSet {
                     id: i,
                     replicas: self.pods_per_replicaset,
                 },

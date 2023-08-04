@@ -1,4 +1,5 @@
-use crate::model::{Change, State};
+use crate::model::Change;
+use crate::state::State;
 use node::Node;
 use replicaset::ReplicaSet;
 use scheduler::Scheduler;

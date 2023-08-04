@@ -2,11 +2,11 @@ use crate::actor::Actors;
 use crate::actor::ControllerActor;
 use crate::actor::Datastore;
 
-use crate::controller::Controllers;
-use crate::model::ModelCfg;
 use crate::controller::node::Node;
 use crate::controller::replicaset::ReplicaSet;
 use crate::controller::scheduler::Scheduler;
+use crate::controller::Controllers;
+use crate::model::ModelCfg;
 use stateright::actor::ActorModel;
 use stateright::actor::Network;
 
