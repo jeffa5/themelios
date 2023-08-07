@@ -4,7 +4,7 @@ use crate::{
     abstract_model::AbstractModelCfg,
     actor_model::{ActorModelCfg, ActorState, Actors, ControllerActor, Datastore},
     controller::{Controllers, Node, ReplicaSet, Scheduler},
-    state::{ConsistencyLevel, StateView},
+    state::{ReadConsistencyLevel, StateView},
 };
 
 #[derive(Clone, Debug)]
@@ -12,7 +12,7 @@ pub struct OrchestrationModelCfg {
     /// The initial state.
     pub initial_state: StateView,
     /// The consistency level of the state.
-    pub consistency_level: ConsistencyLevel,
+    pub consistency_level: ReadConsistencyLevel,
     /// The number of datastores to run.
     pub datastores: usize,
     /// The number of schedulers to run.

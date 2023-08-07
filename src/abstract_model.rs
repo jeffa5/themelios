@@ -1,7 +1,7 @@
 use stateright::{Model, Property};
 
 use crate::controller::{Controller, Controllers};
-use crate::state::{ConsistencyLevel, Revision, State, StateView};
+use crate::state::{ReadConsistencyLevel, MultiRevision, State, StateView};
 
 #[derive(Debug)]
 pub struct AbstractModelCfg {
@@ -10,14 +10,14 @@ pub struct AbstractModelCfg {
     /// The initial state.
     pub initial_state: StateView,
     /// The consistency level of the state.
-    pub consistency_level: ConsistencyLevel,
+    pub consistency_level: ReadConsistencyLevel,
 }
 
 /// Changes to a state.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Change {
     /// The revision of the state that this change was generated from.
-    pub revision: Revision,
+    pub revision: MultiRevision,
     /// The operation to perform on the state.
     pub operation: Operation,
 }

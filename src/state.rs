@@ -4,7 +4,7 @@ use crate::abstract_model::{Change, Operation};
 
 /// Consistency level for viewing the state with.
 #[derive(Default, Clone, Debug, PartialEq, Eq, Hash)]
-pub enum ConsistencyLevel {
+pub enum ReadConsistencyLevel {
     /// Always work off the latest state.
     #[default]
     Strong,
@@ -36,16 +36,16 @@ impl ChangeHistory {
 
     pub fn valid_revisions(
         &self,
-        consistency_level: ConsistencyLevel,
+        consistency_level: ReadConsistencyLevel,
         session: Revision,
     ) -> Vec<Revision> {
         match consistency_level {
-            ConsistencyLevel::Strong => vec![Revision(self.0.len())],
-            ConsistencyLevel::BoundedStaleness(k) => {
+            ReadConsistencyLevel::Strong => vec![Revision(self.0.len())],
+            ReadConsistencyLevel::BoundedStaleness(k) => {
                 let max = self.max_revision().0;
                 (max.saturating_sub(k)..=max).map(Revision).collect()
             }
-            ConsistencyLevel::Session => {
+            ReadConsistencyLevel::Session => {
                 let max = self.max_revision().0;
                 (session.0..=max).map(Revision).collect()
             }
@@ -57,7 +57,7 @@ impl ChangeHistory {
 #[derive(Default, Clone, Eq)]
 pub struct State {
     /// Consistency level for this state.
-    consistency_level: ConsistencyLevel,
+    consistency_level: ReadConsistencyLevel,
     /// The initial state, to enable starting from interesting places.
     initial: StateView,
     /// The changes that have been made to the state.
@@ -104,12 +104,12 @@ impl State {
         self
     }
 
-    pub fn with_consistency_level(mut self, consistency_level: ConsistencyLevel) -> Self {
+    pub fn with_consistency_level(mut self, consistency_level: ReadConsistencyLevel) -> Self {
         self.set_consistency_level(consistency_level);
         self
     }
 
-    pub fn set_consistency_level(&mut self, consistency_level: ConsistencyLevel) -> &mut Self {
+    pub fn set_consistency_level(&mut self, consistency_level: ReadConsistencyLevel) -> &mut Self {
         self.consistency_level = consistency_level;
         self
     }

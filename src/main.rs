@@ -1,6 +1,6 @@
 use clap::Parser;
 use model_checked_orchestration::model;
-use model_checked_orchestration::state::ConsistencyLevel;
+use model_checked_orchestration::state::ReadConsistencyLevel;
 use model_checked_orchestration::state::PodResource;
 use model_checked_orchestration::state::ReplicaSetResource;
 use model_checked_orchestration::state::StateView;
@@ -39,12 +39,12 @@ fn main() {
         }));
 
     let consistency_level = if let Some(k) = opts.bounded_staleness {
-        ConsistencyLevel::BoundedStaleness(k)
+        ReadConsistencyLevel::BoundedStaleness(k)
     } else if opts.session {
-        ConsistencyLevel::Session
+        ReadConsistencyLevel::Session
     } else {
         // default to strong
-        ConsistencyLevel::Strong
+        ReadConsistencyLevel::Strong
     };
     let model = model::OrchestrationModelCfg {
         initial_state,

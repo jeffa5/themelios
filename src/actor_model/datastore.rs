@@ -1,6 +1,6 @@
 use stateright::actor::{Actor, Id};
 
-use crate::state::{ConsistencyLevel, State, StateView};
+use crate::state::{ReadConsistencyLevel, State, StateView};
 
 use super::Message;
 
@@ -22,7 +22,7 @@ impl Actor for Datastore {
     ) -> Self::State {
         State::default()
             .with_initial(self.initial_state.clone())
-            .with_consistency_level(ConsistencyLevel::Strong)
+            .with_consistency_level(ReadConsistencyLevel::Strong)
     }
 
     fn on_msg(
