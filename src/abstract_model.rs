@@ -1,7 +1,7 @@
 use stateright::{Model, Property};
 
 use crate::controller::{Controller, Controllers};
-use crate::state::{ConsistencyLevel, State, StateView, Revision};
+use crate::state::{ConsistencyLevel, Revision, State, StateView};
 
 #[derive(Debug)]
 pub struct AbstractModelCfg {

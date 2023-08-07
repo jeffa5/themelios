@@ -13,6 +13,23 @@ pub enum ConsistencyLevel {
 #[derive(Default, Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct Revision(usize);
 
+#[derive(Default, Debug, Clone, PartialEq, Eq, Hash)]
+pub struct ChangeHistory(Vec<Change>);
+
+impl ChangeHistory {
+    pub fn changes_to(&self, revision: Revision) -> Vec<&Change> {
+        self.0[..revision.0].iter().collect()
+    }
+
+    pub fn max_revision(&self) -> Revision {
+        Revision(self.0.len())
+    }
+
+    pub fn add(&mut self, change: Change) {
+        self.0.push(change);
+    }
+}
+
 /// The history of the state, enabling generating views for different historical versions.
 #[derive(Default, Clone, Eq)]
 pub struct State {
@@ -21,7 +38,7 @@ pub struct State {
     /// The initial state, to enable starting from interesting places.
     initial: StateView,
     /// The changes that have been made to the state.
-    changes: Vec<Change>,
+    changes: ChangeHistory,
 }
 
 impl PartialEq for State {
@@ -74,7 +91,7 @@ impl State {
 
     /// Record a change for this state.
     pub fn push_change(&mut self, change: Change) -> Revision {
-        self.changes.push(change);
+        self.changes.add(change);
         self.max_revision()
     }
 
@@ -88,13 +105,13 @@ impl State {
 
     /// Get the maximum revision for this change.
     pub fn max_revision(&self) -> Revision {
-        Revision(self.changes.len())
+        self.changes.max_revision()
     }
 
     /// Get a view for a specific revision in the change history.
     pub fn view_at(&self, revision: Revision) -> StateView {
         let mut view = self.initial.clone();
-        for change in &self.changes[..revision.0] {
+        for change in &self.changes.changes_to(revision) {
             view.apply_change(change);
         }
         view
