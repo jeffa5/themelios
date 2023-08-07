@@ -5,9 +5,12 @@ use crate::abstract_model::{Change, Operation};
 /// Consistency level for viewing the state with.
 #[derive(Default, Clone, Debug, PartialEq, Eq, Hash)]
 pub enum ConsistencyLevel {
+    /// Always work off the latest state.
     #[default]
     Strong,
+    /// Work off a state that is close to the latest, bounded by the `k`.
     BoundedStaleness(usize),
+    /// Work off a state that derives from the last one seen.
     Session,
 }
 
