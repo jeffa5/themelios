@@ -40,9 +40,8 @@ fn main() {
 
     let consistency_level = if let Some(k) = opts.bounded_staleness {
         ConsistencyLevel::BoundedStaleness(k)
-    } else
-    // default to strong
-    {
+    } else {
+        // default to strong
         ConsistencyLevel::Strong
     };
     let model = model::OrchestrationModelCfg {
