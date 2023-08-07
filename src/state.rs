@@ -82,6 +82,7 @@ impl std::fmt::Debug for State {
         let views = self.all_views();
         f.debug_struct("State")
             .field("consistency_level", &self.consistency_level)
+            .field("sessions", &self.sessions)
             .field("initial", &self.initial)
             .field("changes", &self.changes)
             .field("views", &views)
