@@ -58,19 +58,19 @@ impl Actor for Actors {
             }
             Actors::Node(a) => {
                 let mut client_out = Out::new();
-                let _state = a.on_start(id, &mut client_out);
+                a.on_start(id, &mut client_out);
                 o.append(&mut client_out);
                 ActorState::Controller
             }
             Actors::Scheduler(a) => {
                 let mut client_out = Out::new();
-                let _state = a.on_start(id, &mut client_out);
+                a.on_start(id, &mut client_out);
                 o.append(&mut client_out);
                 ActorState::Controller
             }
             Actors::ReplicaSet(a) => {
                 let mut client_out = Out::new();
-                let _state = a.on_start(id, &mut client_out);
+                a.on_start(id, &mut client_out);
                 o.append(&mut client_out);
                 ActorState::Controller
             }

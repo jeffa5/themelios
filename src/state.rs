@@ -124,15 +124,15 @@ impl StateView {
                 );
             }
             Change::SchedulePod(pod, node) => {
-                if let Some(pod) = self.pods.get_mut(&pod) {
+                if let Some(pod) = self.pods.get_mut(pod) {
                     pod.node_name = Some(*node);
                 }
             }
             Change::RunPod(pod, node) => {
-                self.nodes.get_mut(&node).unwrap().running.insert(*pod);
+                self.nodes.get_mut(node).unwrap().running.insert(*pod);
             }
             Change::NodeCrash(node) => {
-                self.nodes.remove(&node);
+                self.nodes.remove(node);
                 self.pods
                     .retain(|_, pod| pod.node_name.map_or(true, |n| n != *node));
             }
