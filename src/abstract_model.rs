@@ -34,11 +34,13 @@ impl Model for AbstractModelCfg {
     type Action = Action;
 
     fn init_states(&self) -> Vec<Self::State> {
-        vec![State::default().with_initial(self.initial_state.clone())]
+        vec![State::default()
+            .with_initial(self.initial_state.clone())
+            .with_consistency_level(ConsistencyLevel::Strong)]
     }
 
     fn actions(&self, state: &Self::State, actions: &mut Vec<Self::Action>) {
-        let views = state.views_for(ConsistencyLevel::Strong);
+        let views = state.views();
         for view in views {
             for (i, controller) in self.controllers.iter().enumerate() {
                 let changes = controller.step(i, &view);

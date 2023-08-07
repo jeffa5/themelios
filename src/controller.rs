@@ -12,9 +12,6 @@ pub trait Controller {
     /// Take a step, generating changes, based on the current view of the state.
     fn step(&self, id: usize, state: &StateView) -> Vec<Change>;
 
-    /// Register with the state.
-    fn register(&self, id: usize) -> Change;
-
     /// Name of this controller.
     fn name(&self) -> String;
 }
@@ -32,14 +29,6 @@ impl Controller for Controllers {
             Controllers::Node(c) => c.step(id, state),
             Controllers::Scheduler(c) => c.step(id, state),
             Controllers::ReplicaSet(c) => c.step(id, state),
-        }
-    }
-
-    fn register(&self, id: usize) -> Change {
-        match self {
-            Controllers::Node(c) => c.register(id),
-            Controllers::Scheduler(c) => c.register(id),
-            Controllers::ReplicaSet(c) => c.register(id),
         }
     }
 

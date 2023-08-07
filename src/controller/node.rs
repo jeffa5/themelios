@@ -25,10 +25,6 @@ impl Controller for Node {
         actions
     }
 
-    fn register(&self, id: usize) -> Change {
-        Change::NodeJoin(id)
-    }
-
     fn name(&self) -> String {
         "Node".to_owned()
     }

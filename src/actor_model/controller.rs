@@ -1,6 +1,6 @@
 use stateright::actor::{Actor, Id};
 
-use crate::controller::Controller;
+use crate::{controller::Controller, state::StateView};
 
 use super::Message;
 
@@ -29,8 +29,9 @@ where
         id: stateright::actor::Id,
         o: &mut stateright::actor::Out<Self>,
     ) -> Self::State {
-        let change = self.controller.register(id.into());
-        o.send(Id::from(0), Message::Changes(vec![change]));
+        let view = StateView::default();
+        let changes = self.controller.step(id.into(), &view);
+        o.send(Id::from(0), Message::Changes(changes));
     }
 
     fn on_msg(

@@ -20,7 +20,9 @@ impl Actor for Datastore {
         _id: stateright::actor::Id,
         _o: &mut stateright::actor::Out<Self>,
     ) -> Self::State {
-        State::default().with_initial(self.initial_state.clone())
+        State::default()
+            .with_initial(self.initial_state.clone())
+            .with_consistency_level(ConsistencyLevel::Strong)
     }
 
     fn on_msg(
@@ -46,7 +48,7 @@ impl Actor for Datastore {
                         .chain(scheduler_ids)
                         .chain(replicaset_ids)
                         .collect::<Vec<_>>();
-                    for view in state.views_for(ConsistencyLevel::Strong) {
+                    for view in state.views() {
                         for id in &all_ids {
                             o.send(Id::from(*id), Message::StateUpdate(view.clone()));
                         }

@@ -3,17 +3,48 @@ use std::collections::{BTreeMap, BTreeSet};
 use crate::abstract_model::Change;
 
 /// Consistency level for viewing the state with.
+#[derive(Default, Clone, Debug, PartialEq, Eq, Hash)]
 pub enum ConsistencyLevel {
+    #[default]
     Strong,
 }
 
 /// The history of the state, enabling generating views for different historical versions.
-#[derive(Default, Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Default, Clone, Eq)]
 pub struct State {
+    /// Consistency level for this state.
+    consistency_level: ConsistencyLevel,
     /// The initial state, to enable starting from interesting places.
     initial: StateView,
     /// The changes that have been made to the state.
     changes: Vec<Change>,
+}
+
+impl PartialEq for State {
+    fn eq(&self, other: &Self) -> bool {
+        let self_views = self.views();
+        let other_views = other.views();
+        self_views == other_views
+    }
+}
+
+impl std::hash::Hash for State {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        let views = self.views();
+        views.hash(state);
+    }
+}
+
+impl std::fmt::Debug for State {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let views = self.views();
+        f.debug_struct("State")
+            .field("consistency_level", &self.consistency_level)
+            .field("initial", &self.initial)
+            .field("changes", &self.changes)
+            .field("views", &views)
+            .finish()
+    }
 }
 
 impl State {
@@ -24,6 +55,16 @@ impl State {
 
     pub fn set_initial(&mut self, initial: StateView) -> &mut Self {
         self.initial = initial;
+        self
+    }
+
+    pub fn with_consistency_level(mut self, consistency_level: ConsistencyLevel) -> Self {
+        self.set_consistency_level(consistency_level);
+        self
+    }
+
+    pub fn set_consistency_level(&mut self, consistency_level: ConsistencyLevel) -> &mut Self {
+        self.consistency_level = consistency_level;
         self
     }
 
@@ -49,15 +90,15 @@ impl State {
     /// Get a view for a specific revision in the change history.
     pub fn view_at(&self, revision: usize) -> StateView {
         let mut view = self.initial.clone();
-        for change in &self.changes[..revision - 1] {
+        for change in &self.changes[..revision] {
             view.apply_change(change);
         }
         view
     }
 
     /// Get all the possible views under the given consistency level.
-    pub fn views_for(&self, consistency_level: ConsistencyLevel) -> Vec<StateView> {
-        match consistency_level {
+    pub fn views(&self) -> Vec<StateView> {
+        match self.consistency_level {
             ConsistencyLevel::Strong => {
                 let rev = self.changes.len();
                 vec![self.view_at(rev)]
