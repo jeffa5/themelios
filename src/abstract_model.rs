@@ -62,11 +62,12 @@ impl Model for AbstractModelCfg {
                     })
                     .collect();
                 actions.push(Action::ControllerStep(i, controller.name(), changes));
-                for (node_id, node) in &view.nodes {
-                    if node.ready {
-                        actions.push(Action::NodeCrash(*node_id));
-                    }
-                }
+            }
+        }
+        // at max revision as this isn't a controller event
+        for (node_id, node) in &state.view_at(state.max_revision()).nodes {
+            if node.ready {
+                actions.push(Action::NodeCrash(*node_id));
             }
         }
     }
