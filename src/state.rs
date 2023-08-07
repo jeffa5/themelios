@@ -8,9 +8,10 @@ pub enum ConsistencyLevel {
     #[default]
     Strong,
     BoundedStaleness(usize),
+    Session,
 }
 
-#[derive(Default, Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Default, Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct Revision(usize);
 
 #[derive(Default, Debug, Clone, PartialEq, Eq, Hash)]
@@ -25,8 +26,27 @@ impl ChangeHistory {
         Revision(self.0.len())
     }
 
-    pub fn add(&mut self, change: Change) {
+    pub fn add(&mut self, change: Change) -> Revision {
         self.0.push(change);
+        self.max_revision()
+    }
+
+    pub fn valid_revisions(
+        &self,
+        consistency_level: ConsistencyLevel,
+        session: Revision,
+    ) -> Vec<Revision> {
+        match consistency_level {
+            ConsistencyLevel::Strong => vec![Revision(self.0.len())],
+            ConsistencyLevel::BoundedStaleness(k) => {
+                let max = self.max_revision().0;
+                (max.saturating_sub(k)..=max).map(Revision).collect()
+            }
+            ConsistencyLevel::Session => {
+                let max = self.max_revision().0;
+                (session.0..=max).map(Revision).collect()
+            }
+        }
     }
 }
 
@@ -39,26 +59,27 @@ pub struct State {
     initial: StateView,
     /// The changes that have been made to the state.
     changes: ChangeHistory,
+    sessions: BTreeMap<usize, Revision>,
 }
 
 impl PartialEq for State {
     fn eq(&self, other: &Self) -> bool {
-        let self_views = self.views();
-        let other_views = other.views();
+        let self_views = self.all_views();
+        let other_views = other.all_views();
         self_views == other_views
     }
 }
 
 impl std::hash::Hash for State {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        let views = self.views();
+        let views = self.all_views();
         views.hash(state);
     }
 }
 
 impl std::fmt::Debug for State {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let views = self.views();
+        let views = self.all_views();
         f.debug_struct("State")
             .field("consistency_level", &self.consistency_level)
             .field("initial", &self.initial)
@@ -90,15 +111,16 @@ impl State {
     }
 
     /// Record a change for this state.
-    pub fn push_change(&mut self, change: Change) -> Revision {
-        self.changes.add(change);
-        self.max_revision()
+    pub fn push_change(&mut self, change: Change, from: usize) -> Revision {
+        let rev = self.changes.add(change);
+        self.sessions.insert(from, rev);
+        rev
     }
 
     /// Record changes for this state.
-    pub fn push_changes(&mut self, changes: impl Iterator<Item = Change>) -> Revision {
+    pub fn push_changes(&mut self, changes: impl Iterator<Item = Change>, from: usize) -> Revision {
         for change in changes {
-            self.push_change(change);
+            self.push_change(change, from);
         }
         self.max_revision()
     }
@@ -118,23 +140,20 @@ impl State {
     }
 
     /// Get all the possible views under the given consistency level.
-    pub fn views(&self) -> Vec<StateView> {
-        match self.consistency_level {
-            ConsistencyLevel::Strong => {
-                let rev = self.max_revision();
-                vec![self.view_at(rev)]
-            }
-            ConsistencyLevel::BoundedStaleness(k) => {
-                let max_rev = self.max_revision();
-                (max_rev.0.saturating_sub(k)..=max_rev.0)
-                    .map(|r| self.view_at(Revision(r)))
-                    .collect()
-            }
-        }
+    pub fn views(&self, from: &usize) -> Vec<StateView> {
+        let revisions = self.changes.valid_revisions(
+            self.consistency_level.clone(),
+            self.sessions.get(from).copied().unwrap_or_default(),
+        );
+        revisions.into_iter().map(|r| self.view_at(r)).collect()
+    }
+
+    fn all_views(&self) -> BTreeSet<StateView> {
+        self.sessions.keys().flat_map(|s| self.views(s)).collect()
     }
 }
 
-#[derive(Default, Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Default, Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct StateView {
     pub revision: Revision,
     pub nodes: BTreeMap<usize, NodeResource>,

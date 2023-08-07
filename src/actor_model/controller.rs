@@ -1,6 +1,6 @@
 use stateright::actor::{Actor, Id};
 
-use crate::{controller::Controller, state::StateView};
+use crate::{abstract_model::Change, controller::Controller, state::StateView};
 
 use super::Message;
 
@@ -30,7 +30,14 @@ where
         o: &mut stateright::actor::Out<Self>,
     ) -> Self::State {
         let view = StateView::default();
-        let changes = self.controller.step(id.into(), &view);
+        let operations = self.controller.step(id.into(), &view);
+        let changes = operations
+            .into_iter()
+            .map(|o| Change {
+                revision: view.revision,
+                operation: o,
+            })
+            .collect();
         o.send(Id::from(0), Message::Changes(changes));
     }
 
@@ -44,7 +51,14 @@ where
     ) {
         match msg {
             Message::StateUpdate(s) => {
-                let changes = self.controller.step(id.into(), &s);
+                let operations = self.controller.step(id.into(), &s);
+                let changes = operations
+                    .into_iter()
+                    .map(|o| Change {
+                        revision: s.revision,
+                        operation: o,
+                    })
+                    .collect();
                 o.send(src, Message::Changes(changes));
             }
             Message::Changes(_) => todo!(),

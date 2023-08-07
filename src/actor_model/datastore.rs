@@ -29,7 +29,7 @@ impl Actor for Datastore {
         &self,
         _id: stateright::actor::Id,
         state: &mut std::borrow::Cow<Self::State>,
-        _src: stateright::actor::Id,
+        src: stateright::actor::Id,
         msg: Self::Msg,
         o: &mut stateright::actor::Out<Self>,
     ) {
@@ -38,7 +38,7 @@ impl Actor for Datastore {
             Message::Changes(changes) => {
                 if !changes.is_empty() {
                     let state = state.to_mut();
-                    let rev = state.push_changes(changes.into_iter());
+                    let rev = state.push_changes(changes.into_iter(), src.into());
                     let view = state.view_at(rev);
                     let node_ids = view.nodes.keys().copied();
                     let scheduler_ids = view.schedulers.iter().copied();
@@ -48,8 +48,8 @@ impl Actor for Datastore {
                         .chain(scheduler_ids)
                         .chain(replicaset_ids)
                         .collect::<Vec<_>>();
-                    for view in state.views() {
-                        for id in &all_ids {
+                    for id in &all_ids {
+                        for view in state.views(id) {
                             o.send(Id::from(*id), Message::StateUpdate(view.clone()));
                         }
                     }

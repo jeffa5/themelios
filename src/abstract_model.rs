@@ -51,15 +51,21 @@ impl Model for AbstractModelCfg {
     }
 
     fn actions(&self, state: &Self::State, actions: &mut Vec<Self::Action>) {
-        let views = state.views();
-        for view in views {
-            for (i, controller) in self.controllers.iter().enumerate() {
-                let changes = controller.step(i, &view);
+        for (i, controller) in self.controllers.iter().enumerate() {
+            for view in state.views(&i) {
+                let operations = controller.step(i, &view);
+                let changes = operations
+                    .into_iter()
+                    .map(|o| Change {
+                        revision: view.revision,
+                        operation: o,
+                    })
+                    .collect();
                 actions.push(Action::ControllerStep(i, controller.name(), changes));
-            }
-            for (node_id, node) in &view.nodes {
-                if node.ready {
-                    actions.push(Action::NodeCrash(*node_id));
+                for (node_id, node) in &view.nodes {
+                    if node.ready {
+                        actions.push(Action::NodeCrash(*node_id));
+                    }
                 }
             }
         }
@@ -67,17 +73,20 @@ impl Model for AbstractModelCfg {
 
     fn next_state(&self, last_state: &Self::State, action: Self::Action) -> Option<Self::State> {
         match action {
-            Action::ControllerStep(_, _, changes) => {
+            Action::ControllerStep(from, _, changes) => {
                 let mut state = last_state.clone();
-                state.push_changes(changes.into_iter());
+                state.push_changes(changes.into_iter(), from);
                 Some(state)
             }
             Action::NodeCrash(node) => {
                 let mut state = last_state.clone();
-                state.push_change(Change {
-                    revision: last_state.max_revision(),
-                    operation: Operation::NodeCrash(node),
-                });
+                state.push_change(
+                    Change {
+                        revision: last_state.max_revision(),
+                        operation: Operation::NodeCrash(node),
+                    },
+                    node,
+                );
                 Some(state)
             }
         }
