@@ -60,7 +60,7 @@ impl OrchestrationModelCfg {
             "every application gets scheduled",
             |model, state| {
                 let mut any = false;
-                let total_apps = model.cfg.initial_pods as usize;
+                let total_apps = model.cfg.initial_pods;
                 let datastore_state = state.actor_states.first().unwrap();
                 let all_apps_scheduled =
                     datastore_state.pods.values().all(|a| a.node_name.is_some());
