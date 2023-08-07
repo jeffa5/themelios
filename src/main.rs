@@ -10,8 +10,9 @@ use tracing_subscriber::util::SubscriberInitExt;
 use tracing_subscriber::EnvFilter;
 
 use model_checked_orchestration::actor_model;
-use model_checked_orchestration::opts;
-use model_checked_orchestration::report;
+
+pub mod opts;
+pub mod report;
 
 fn main() {
     let opts = opts::Opts::parse();
