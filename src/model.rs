@@ -2,8 +2,7 @@ use stateright::actor::{ActorModel, Network};
 
 use crate::{
     abstract_model::AbstractModelCfg,
-    actor::{Actors, ControllerActor, Datastore},
-    actor_model::ActorModelCfg,
+    actor_model::{ActorModelCfg, Actors, ControllerActor, Datastore},
     controller::{Controllers, Node, ReplicaSet, Scheduler},
     state::State,
 };

@@ -4,7 +4,6 @@ use crate::{controller::Controller, state::State};
 
 use super::Message;
 
-
 pub struct ControllerActor<C> {
     controller: C,
 }
