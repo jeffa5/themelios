@@ -46,6 +46,10 @@ pub struct Opts {
     /// Model session consistency for the state.
     #[clap(long, global = true)]
     pub session: bool,
+
+    /// Model eventual consistency for the state.
+    #[clap(long, global = true)]
+    pub eventual: bool
 }
 
 #[derive(clap::Subcommand, Debug)]

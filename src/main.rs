@@ -42,6 +42,8 @@ fn main() {
         ReadConsistencyLevel::BoundedStaleness(k)
     } else if opts.session {
         ReadConsistencyLevel::Session
+    } else if opts.eventual {
+        ReadConsistencyLevel::Eventual
     } else {
         // default to strong
         ReadConsistencyLevel::Strong

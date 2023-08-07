@@ -12,12 +12,16 @@ pub enum ReadConsistencyLevel {
     BoundedStaleness(usize),
     /// Work off a state that derives from the last one seen.
     Session,
+    /// Work off any historical state.
+    Eventual,
 }
 
 #[derive(Default, Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct Revision(usize);
 
 #[derive(Default, Debug, Clone, PartialEq, Eq, Hash)]
+// TODO: rework this history to be based on a DAG of changes or a linear history, depending on
+// config.
 pub struct ChangeHistory(Vec<Change>);
 
 impl ChangeHistory {
@@ -48,6 +52,10 @@ impl ChangeHistory {
             ReadConsistencyLevel::Session => {
                 let max = self.max_revision().0;
                 (session.0..=max).map(Revision).collect()
+            }
+            ReadConsistencyLevel::Eventual => {
+                let max = self.max_revision().0;
+                (0..=max).map(Revision).collect()
             }
         }
     }
