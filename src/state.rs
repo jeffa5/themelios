@@ -10,6 +10,9 @@ pub enum ConsistencyLevel {
     BoundedStaleness(usize),
 }
 
+#[derive(Default, Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct Revision(usize);
+
 /// The history of the state, enabling generating views for different historical versions.
 #[derive(Default, Clone, Eq)]
 pub struct State {
@@ -70,28 +73,28 @@ impl State {
     }
 
     /// Record a change for this state.
-    pub fn push_change(&mut self, change: Change) -> usize {
+    pub fn push_change(&mut self, change: Change) -> Revision {
         self.changes.push(change);
-        self.changes.len()
+        self.max_revision()
     }
 
     /// Record changes for this state.
-    pub fn push_changes(&mut self, changes: impl Iterator<Item = Change>) -> usize {
+    pub fn push_changes(&mut self, changes: impl Iterator<Item = Change>) -> Revision {
         for change in changes {
             self.push_change(change);
         }
-        self.changes.len()
+        self.max_revision()
     }
 
     /// Get the maximum revision for this change.
-    pub fn max_revision(&self) -> usize {
-        self.changes.len()
+    pub fn max_revision(&self) -> Revision {
+        Revision(self.changes.len())
     }
 
     /// Get a view for a specific revision in the change history.
-    pub fn view_at(&self, revision: usize) -> StateView {
+    pub fn view_at(&self, revision: Revision) -> StateView {
         let mut view = self.initial.clone();
-        for change in &self.changes[..revision] {
+        for change in &self.changes[..revision.0] {
             view.apply_change(change);
         }
         view
@@ -101,13 +104,13 @@ impl State {
     pub fn views(&self) -> Vec<StateView> {
         match self.consistency_level {
             ConsistencyLevel::Strong => {
-                let rev = self.changes.len();
+                let rev = self.max_revision();
                 vec![self.view_at(rev)]
             }
             ConsistencyLevel::BoundedStaleness(k) => {
                 let max_rev = self.max_revision();
-                (max_rev.saturating_sub(k)..=max_rev)
-                    .map(|r| self.view_at(r))
+                (max_rev.0.saturating_sub(k)..=max_rev.0)
+                    .map(|r| self.view_at(Revision(r)))
                     .collect()
             }
         }
@@ -116,7 +119,7 @@ impl State {
 
 #[derive(Default, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct StateView {
-    pub revision: usize,
+    pub revision: Revision,
     pub nodes: BTreeMap<usize, NodeResource>,
     pub schedulers: BTreeSet<usize>,
     pub replicaset_controllers: BTreeSet<usize>,
@@ -195,7 +198,7 @@ impl StateView {
                     .retain(|_, pod| pod.node_name.map_or(true, |n| n != *node));
             }
         }
-        self.revision += 1;
+        self.revision = Revision(self.revision.0 + 1);
     }
 }
 
