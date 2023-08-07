@@ -11,6 +11,38 @@ pub struct State {
     pub replica_sets: BTreeMap<u32, ReplicaSetResource>,
 }
 
+impl State {
+    pub fn with_pods(mut self, pods: impl Iterator<Item = PodResource>) -> Self {
+        self.set_pods(pods);
+        self
+    }
+
+    pub fn set_pods(&mut self, pods: impl Iterator<Item = PodResource>) -> &mut Self {
+        for pod in pods {
+            self.pods.insert(pod.id, pod);
+        }
+        self
+    }
+
+    pub fn with_replicasets(
+        mut self,
+        replicasets: impl Iterator<Item = ReplicaSetResource>,
+    ) -> Self {
+        self.set_replicasets(replicasets);
+        self
+    }
+
+    pub fn set_replicasets(
+        &mut self,
+        replicasets: impl Iterator<Item = ReplicaSetResource>,
+    ) -> &mut Self {
+        for replicaset in replicasets {
+            self.replica_sets.insert(replicaset.id, replicaset);
+        }
+        self
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct PodResource {
     pub id: u32,

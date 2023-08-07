@@ -1,4 +1,8 @@
 use clap::Parser;
+use model_checked_orchestration::model;
+use model_checked_orchestration::state::PodResource;
+use model_checked_orchestration::state::ReplicaSetResource;
+use model_checked_orchestration::state::State;
 use report::Reporter;
 use stateright::Checker;
 use stateright::Model;
@@ -8,8 +12,6 @@ use tracing_subscriber::fmt;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 use tracing_subscriber::EnvFilter;
-
-use model_checked_orchestration::actor_model;
 
 pub mod opts;
 pub mod report;
@@ -25,19 +27,27 @@ fn main() {
         .with(log_filter)
         .init();
 
-    let model = actor_model::OrchestrationModelCfg {
-        initial_pods: opts.initial_pods,
+    let initial_state = State::default()
+        .with_pods((0..opts.initial_pods).map(|i| PodResource {
+            id: i,
+            node_name: None,
+        }))
+        .with_replicasets((1..=opts.replicasets).map(|i| ReplicaSetResource {
+            id: i,
+            replicas: opts.pods_per_replicaset,
+        }));
+
+    let model = model::OrchestrationModelCfg {
+        initial_state,
         schedulers: opts.schedulers,
         nodes: opts.nodes,
         datastores: opts.datastores,
         replicaset_controllers: opts.replicaset_controllers,
-        replicasets: opts.replicasets,
-        pods_per_replicaset: opts.pods_per_replicaset,
     };
     if opts.actors {
         run(opts, model.into_actor_model())
     } else {
-        run(opts, model.into_model())
+        run(opts, model.into_abstract_model())
     }
 }
 

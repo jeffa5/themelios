@@ -1,16 +1,14 @@
 use stateright::{Model, Property};
 
 use crate::controller::{Controller, Controllers};
-use crate::state::PodResource;
-use crate::state::ReplicaSetResource;
 use crate::state::State;
 
 #[derive(Debug)]
-pub struct ModelCfg {
+pub struct AbstractModelCfg {
+    /// The controllers running in this configuration.
     pub controllers: Vec<Controllers>,
-    pub initial_pods: u32,
-    pub initial_replicasets: u32,
-    pub pods_per_replicaset: u32,
+    /// The initial state.
+    pub initial_state: State,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -29,32 +27,13 @@ pub enum Action {
     NodeCrash(usize),
 }
 
-impl Model for ModelCfg {
+impl Model for AbstractModelCfg {
     type State = State;
 
     type Action = Action;
 
     fn init_states(&self) -> Vec<Self::State> {
-        let mut state = State::default();
-        for i in 0..self.initial_pods {
-            state.pods.insert(
-                i,
-                PodResource {
-                    id: i,
-                    node_name: None,
-                },
-            );
-        }
-        for i in 1..=self.initial_replicasets {
-            state.replica_sets.insert(
-                i,
-                ReplicaSetResource {
-                    id: i,
-                    replicas: self.pods_per_replicaset,
-                },
-            );
-        }
-        vec![state]
+        vec![self.initial_state.clone()]
     }
 
     fn actions(&self, state: &Self::State, actions: &mut Vec<Self::Action>) {

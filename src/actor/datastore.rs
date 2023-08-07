@@ -1,13 +1,11 @@
 use stateright::actor::{Actor, Id};
 
-use crate::state::{PodResource, ReplicaSetResource, State};
+use crate::state::State;
 
 use super::Message;
 
 pub struct Datastore {
-    pub initial_pods: u32,
-    pub initial_replicasets: u32,
-    pub pods_per_replicaset: u32,
+    pub initial_state: State,
 }
 
 impl Actor for Datastore {
@@ -22,26 +20,7 @@ impl Actor for Datastore {
         _id: stateright::actor::Id,
         _o: &mut stateright::actor::Out<Self>,
     ) -> Self::State {
-        let mut state = State::default();
-        for i in 0..self.initial_pods {
-            state.pods.insert(
-                i,
-                PodResource {
-                    id: i,
-                    node_name: None,
-                },
-            );
-        }
-        for i in 1..=self.initial_replicasets {
-            state.replica_sets.insert(
-                i,
-                ReplicaSetResource {
-                    id: i,
-                    replicas: self.pods_per_replicaset,
-                },
-            );
-        }
-        state
+        self.initial_state.clone()
     }
 
     fn on_msg(
