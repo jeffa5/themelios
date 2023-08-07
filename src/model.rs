@@ -2,15 +2,15 @@ use stateright::actor::{ActorModel, Network};
 
 use crate::{
     abstract_model::AbstractModelCfg,
-    actor_model::{ActorModelCfg, Actors, ControllerActor, Datastore},
+    actor_model::{ActorModelCfg, ActorState, Actors, ControllerActor, Datastore},
     controller::{Controllers, Node, ReplicaSet, Scheduler},
-    state::State,
+    state::StateView,
 };
 
 #[derive(Clone, Debug)]
 pub struct OrchestrationModelCfg {
     /// The initial state.
-    pub initial_state: State,
+    pub initial_state: StateView,
     /// The number of datastores to run.
     pub datastores: usize,
     /// The number of schedulers to run.
@@ -60,12 +60,14 @@ impl OrchestrationModelCfg {
             |model, state| {
                 let mut any = false;
                 let total_apps = model.cfg.initial_pods;
-                let datastore_state = state.actor_states.first().unwrap();
-                let all_apps_scheduled =
-                    datastore_state.pods.values().all(|a| a.node_name.is_some());
-                let num_scheduled_apps = datastore_state.pods.len();
-                if all_apps_scheduled && num_scheduled_apps == total_apps {
-                    any = true;
+                if let ActorState::Datastore(datastore) = &**state.actor_states.first().unwrap() {
+                    let datastore_state = datastore.view_at(datastore.max_revision());
+                    let all_apps_scheduled =
+                        datastore_state.pods.values().all(|a| a.node_name.is_some());
+                    let num_scheduled_apps = datastore_state.pods.len();
+                    if all_apps_scheduled && num_scheduled_apps == total_apps {
+                        any = true;
+                    }
                 }
                 any
             },

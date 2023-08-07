@@ -1,5 +1,5 @@
 use crate::abstract_model::Change;
-use crate::state::State;
+use crate::state::StateView;
 pub use node::Node;
 pub use replicaset::ReplicaSet;
 pub use scheduler::Scheduler;
@@ -9,7 +9,9 @@ mod replicaset;
 mod scheduler;
 
 pub trait Controller {
-    fn step(&self, id: usize, state: &State) -> Vec<Change>;
+    fn step(&self, id: usize, state: &StateView) -> Vec<Change>;
+
+    fn register(&self, id: usize) -> Change;
 
     fn name(&self) -> String;
 }
@@ -22,11 +24,19 @@ pub enum Controllers {
 }
 
 impl Controller for Controllers {
-    fn step(&self, id: usize, state: &State) -> Vec<Change> {
+    fn step(&self, id: usize, state: &StateView) -> Vec<Change> {
         match self {
             Controllers::Node(c) => c.step(id, state),
             Controllers::Scheduler(c) => c.step(id, state),
             Controllers::ReplicaSet(c) => c.step(id, state),
+        }
+    }
+
+    fn register(&self, id: usize) -> Change {
+        match self {
+            Controllers::Node(c) => c.register(id),
+            Controllers::Scheduler(c) => c.register(id),
+            Controllers::ReplicaSet(c) => c.register(id),
         }
     }
 

@@ -1,6 +1,6 @@
 use stateright::actor::{Actor, Id};
 
-use crate::{controller::Controller, state::State};
+use crate::controller::Controller;
 
 use super::Message;
 
@@ -22,23 +22,21 @@ where
 
     type Timer = ();
 
-    type State = State;
+    type State = ();
 
     fn on_start(
         &self,
         id: stateright::actor::Id,
         o: &mut stateright::actor::Out<Self>,
     ) -> Self::State {
-        let state = State::default();
-        let changes = self.controller.step(id.into(), &state);
-        o.send(Id::from(0), Message::Changes(changes));
-        state
+        let change = self.controller.register(id.into());
+        o.send(Id::from(0), Message::Changes(vec![change]));
     }
 
     fn on_msg(
         &self,
         id: stateright::actor::Id,
-        state: &mut std::borrow::Cow<Self::State>,
+        _state: &mut std::borrow::Cow<Self::State>,
         src: stateright::actor::Id,
         msg: Self::Msg,
         o: &mut stateright::actor::Out<Self>,
@@ -46,7 +44,6 @@ where
         match msg {
             Message::StateUpdate(s) => {
                 let changes = self.controller.step(id.into(), &s);
-                *state.to_mut() = s;
                 o.send(src, Message::Changes(changes));
             }
             Message::Changes(_) => todo!(),

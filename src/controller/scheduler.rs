@@ -1,15 +1,12 @@
-use crate::state::State;
+use crate::state::StateView;
 use crate::{abstract_model::Change, controller::Controller};
 
 #[derive(Clone, Debug)]
 pub struct Scheduler;
 
 impl Controller for Scheduler {
-    fn step(&self, id: usize, state: &State) -> Vec<Change> {
+    fn step(&self, _id: usize, state: &StateView) -> Vec<Change> {
         let mut actions = Vec::new();
-        if !state.schedulers.contains(&id) {
-            actions.push(Change::SchedulerJoin(id))
-        }
         for pod in state.pods.values() {
             let least_loaded_node = state
                 .nodes
@@ -23,6 +20,10 @@ impl Controller for Scheduler {
             }
         }
         actions
+    }
+
+    fn register(&self, id: usize) -> Change {
+        Change::SchedulerJoin(id)
     }
 
     fn name(&self) -> String {

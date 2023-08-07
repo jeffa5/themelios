@@ -1,11 +1,11 @@
-use crate::state::State;
+use crate::state::StateView;
 use crate::{abstract_model::Change, controller::Controller};
 
 #[derive(Clone, Debug)]
 pub struct Node;
 
 impl Controller for Node {
-    fn step(&self, id: usize, state: &State) -> Vec<Change> {
+    fn step(&self, id: usize, state: &StateView) -> Vec<Change> {
         let mut actions = Vec::new();
         if let Some(node) = state.nodes.get(&id) {
             if node.ready {
@@ -23,6 +23,10 @@ impl Controller for Node {
             actions.push(Change::NodeJoin(id));
         }
         actions
+    }
+
+    fn register(&self, id: usize) -> Change {
+        Change::NodeJoin(id)
     }
 
     fn name(&self) -> String {

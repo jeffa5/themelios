@@ -2,7 +2,7 @@ use clap::Parser;
 use model_checked_orchestration::model;
 use model_checked_orchestration::state::PodResource;
 use model_checked_orchestration::state::ReplicaSetResource;
-use model_checked_orchestration::state::State;
+use model_checked_orchestration::state::StateView;
 use report::Reporter;
 use stateright::Checker;
 use stateright::Model;
@@ -27,7 +27,7 @@ fn main() {
         .with(log_filter)
         .init();
 
-    let initial_state = State::default()
+    let initial_state = StateView::default()
         .with_pods((0..opts.initial_pods).map(|i| PodResource {
             id: i,
             node_name: None,

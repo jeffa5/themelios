@@ -1,11 +1,11 @@
 use stateright::actor::{Actor, Id};
 
-use crate::state::State;
+use crate::state::{ConsistencyLevel, State, StateView};
 
 use super::Message;
 
 pub struct Datastore {
-    pub initial_state: State,
+    pub initial_state: StateView,
 }
 
 impl Actor for Datastore {
@@ -20,7 +20,7 @@ impl Actor for Datastore {
         _id: stateright::actor::Id,
         _o: &mut stateright::actor::Out<Self>,
     ) -> Self::State {
-        self.initial_state.clone()
+        State::default().with_initial(self.initial_state.clone())
     }
 
     fn on_msg(
@@ -36,16 +36,20 @@ impl Actor for Datastore {
             Message::Changes(changes) => {
                 if !changes.is_empty() {
                     let state = state.to_mut();
-                    for change in changes {
-                        state.apply_change(change);
-                    }
-                    let node_ids = state.nodes.keys().copied();
-                    let scheduler_ids = state.schedulers.iter().copied();
-                    let replicaset_ids = state.replicaset_controllers.iter().copied();
+                    let rev = state.push_changes(changes.into_iter());
+                    let view = state.view_at(rev);
+                    let node_ids = view.nodes.keys().copied();
+                    let scheduler_ids = view.schedulers.iter().copied();
+                    let replicaset_ids = view.replicaset_controllers.iter().copied();
 
-                    let all_ids = node_ids.chain(scheduler_ids).chain(replicaset_ids);
-                    for id in all_ids {
-                        o.send(Id::from(id), Message::StateUpdate(state.clone()));
+                    let all_ids = node_ids
+                        .chain(scheduler_ids)
+                        .chain(replicaset_ids)
+                        .collect::<Vec<_>>();
+                    for view in state.views_for(ConsistencyLevel::Strong) {
+                        for id in &all_ids {
+                            o.send(Id::from(*id), Message::StateUpdate(view.clone()));
+                        }
                     }
                 }
             }

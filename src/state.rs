@@ -2,8 +2,63 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use crate::abstract_model::Change;
 
+pub enum ConsistencyLevel {
+    Strong,
+}
+
 #[derive(Default, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct State {
+    initial: StateView,
+    changes: Vec<Change>,
+}
+
+impl State {
+    pub fn with_initial(mut self, initial: StateView) -> Self {
+        self.set_initial(initial);
+        self
+    }
+
+    pub fn set_initial(&mut self, initial: StateView) -> &mut Self {
+        self.initial = initial;
+        self
+    }
+
+    pub fn push_change(&mut self, change: Change) -> usize {
+        self.changes.push(change);
+        self.changes.len()
+    }
+
+    pub fn push_changes(&mut self, changes: impl Iterator<Item = Change>) -> usize {
+        for change in changes {
+            self.push_change(change);
+        }
+        self.changes.len()
+    }
+
+    pub fn max_revision(&self) -> usize {
+        self.changes.len()
+    }
+
+    pub fn view_at(&self, revision: usize) -> StateView {
+        let mut view = self.initial.clone();
+        for change in &self.changes[..revision - 1] {
+            view.apply_change(change);
+        }
+        view
+    }
+
+    pub fn views_for(&self, consistency_level: ConsistencyLevel) -> Vec<StateView> {
+        match consistency_level {
+            ConsistencyLevel::Strong => {
+                let rev = self.changes.len();
+                vec![self.view_at(rev)]
+            }
+        }
+    }
+}
+
+#[derive(Default, Clone, Debug, PartialEq, Eq, Hash)]
+pub struct StateView {
     pub nodes: BTreeMap<usize, NodeResource>,
     pub schedulers: BTreeSet<usize>,
     pub replicaset_controllers: BTreeSet<usize>,
@@ -11,7 +66,7 @@ pub struct State {
     pub replica_sets: BTreeMap<u32, ReplicaSetResource>,
 }
 
-impl State {
+impl StateView {
     pub fn with_pods(mut self, pods: impl Iterator<Item = PodResource>) -> Self {
         self.set_pods(pods);
         self
@@ -41,6 +96,48 @@ impl State {
         }
         self
     }
+
+    pub fn apply_change(&mut self, change: &Change) {
+        match change {
+            Change::NodeJoin(i) => {
+                self.nodes.insert(
+                    *i,
+                    NodeResource {
+                        running: BTreeSet::new(),
+                        ready: true,
+                    },
+                );
+            }
+            Change::SchedulerJoin(i) => {
+                self.schedulers.insert(*i);
+            }
+            Change::ReplicasetJoin(i) => {
+                self.replicaset_controllers.insert(*i);
+            }
+            Change::NewPod(i) => {
+                self.pods.insert(
+                    *i,
+                    PodResource {
+                        id: *i,
+                        node_name: None,
+                    },
+                );
+            }
+            Change::SchedulePod(pod, node) => {
+                if let Some(pod) = self.pods.get_mut(&pod) {
+                    pod.node_name = Some(*node);
+                }
+            }
+            Change::RunPod(pod, node) => {
+                self.nodes.get_mut(&node).unwrap().running.insert(*pod);
+            }
+            Change::NodeCrash(node) => {
+                self.nodes.remove(&node);
+                self.pods
+                    .retain(|_, pod| pod.node_name.map_or(true, |n| n != *node));
+            }
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -65,43 +162,4 @@ impl ReplicaSetResource {
 pub struct NodeResource {
     pub running: BTreeSet<u32>,
     pub ready: bool,
-}
-
-impl State {
-    pub fn apply_change(&mut self, change: Change) {
-        match change {
-            Change::NodeJoin(i) => {
-                self.nodes.insert(
-                    i,
-                    NodeResource {
-                        running: BTreeSet::new(),
-                        ready: true,
-                    },
-                );
-            }
-            Change::SchedulerJoin(i) => {
-                self.schedulers.insert(i);
-            }
-            Change::ReplicasetJoin(i) => {
-                self.replicaset_controllers.insert(i);
-            }
-            Change::NewPod(i) => {
-                self.pods.insert(
-                    i,
-                    PodResource {
-                        id: i,
-                        node_name: None,
-                    },
-                );
-            }
-            Change::SchedulePod(pod, node) => {
-                if let Some(pod) = self.pods.get_mut(&pod) {
-                    pod.node_name = Some(node);
-                }
-            }
-            Change::RunPod(pod, node) => {
-                self.nodes.get_mut(&node).unwrap().running.insert(pod);
-            }
-        }
-    }
 }
