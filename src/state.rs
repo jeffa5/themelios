@@ -171,8 +171,10 @@ pub struct StateView {
     pub nodes: BTreeMap<usize, NodeResource>,
     pub schedulers: BTreeSet<usize>,
     pub replicaset_controllers: BTreeSet<usize>,
+    pub deployment_controllers: BTreeSet<usize>,
     pub pods: BTreeMap<u32, PodResource>,
     pub replica_sets: BTreeMap<u32, ReplicaSetResource>,
+    pub deployments: BTreeMap<u32, DeploymentResource>,
 }
 
 impl StateView {
@@ -206,6 +208,24 @@ impl StateView {
         self
     }
 
+    pub fn with_deployments(
+        mut self,
+        deployments: impl Iterator<Item = DeploymentResource>,
+    ) -> Self {
+        self.set_deployments(deployments);
+        self
+    }
+
+    pub fn set_deployments(
+        &mut self,
+        deployments: impl Iterator<Item = DeploymentResource>,
+    ) -> &mut Self {
+        for deployment in deployments {
+            self.deployments.insert(deployment.id, deployment);
+        }
+        self
+    }
+
     pub fn apply_change(&mut self, change: &Change) {
         match &change.operation {
             Operation::NodeJoin(i) => {
@@ -223,12 +243,24 @@ impl StateView {
             Operation::ReplicasetJoin(i) => {
                 self.replicaset_controllers.insert(*i);
             }
+            Operation::DeploymentJoin(i) => {
+                self.deployment_controllers.insert(*i);
+            }
             Operation::NewPod(i) => {
                 self.pods.insert(
                     *i,
                     PodResource {
                         id: *i,
                         node_name: None,
+                    },
+                );
+            }
+            Operation::NewReplicaset(i) => {
+                self.replica_sets.insert(
+                    *i,
+                    ReplicaSetResource {
+                        id: *i,
+                        replicas: 2,
                     },
                 );
             }
@@ -265,6 +297,18 @@ pub struct ReplicaSetResource {
 impl ReplicaSetResource {
     pub fn pods(&self) -> Vec<u32> {
         (0..self.replicas).map(|i| (self.id * 1000) + i).collect()
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct DeploymentResource {
+    pub id: u32,
+    pub replicas: u32,
+}
+
+impl DeploymentResource {
+    pub fn replicasets(&self) -> Vec<u32> {
+        vec![self.id]
     }
 }
 

@@ -21,6 +21,8 @@ pub struct OrchestrationModelCfg {
     pub nodes: usize,
     /// The number of replicaset controllers to run.
     pub replicaset_controllers: usize,
+    pub pods_per_replicaset: u32,
+    pub deployment_controllers: usize,
 }
 
 impl OrchestrationModelCfg {

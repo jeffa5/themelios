@@ -1,7 +1,8 @@
 use clap::Parser;
 use model_checked_orchestration::model;
-use model_checked_orchestration::state::ReadConsistencyLevel;
+use model_checked_orchestration::state::DeploymentResource;
 use model_checked_orchestration::state::PodResource;
+use model_checked_orchestration::state::ReadConsistencyLevel;
 use model_checked_orchestration::state::ReplicaSetResource;
 use model_checked_orchestration::state::StateView;
 use report::Reporter;
@@ -36,6 +37,10 @@ fn main() {
         .with_replicasets((1..=opts.replicasets).map(|i| ReplicaSetResource {
             id: i,
             replicas: opts.pods_per_replicaset,
+        }))
+        .with_deployments((1..=opts.deployments).map(|i| DeploymentResource {
+            id: i,
+            replicas: opts.pods_per_replicaset,
         }));
 
     let consistency_level = if let Some(k) = opts.bounded_staleness {
@@ -55,6 +60,8 @@ fn main() {
         nodes: opts.nodes,
         datastores: opts.datastores,
         replicaset_controllers: opts.replicaset_controllers,
+        deployment_controllers: opts.deployment_controllers,
+        pods_per_replicaset: opts.pods_per_replicaset,
     };
     if opts.actors {
         run(opts, model.into_actor_model())

@@ -26,6 +26,12 @@ pub struct Opts {
     #[clap(long, global = true, default_value = "1")]
     pub replicaset_controllers: usize,
 
+    #[clap(long, global = true, default_value = "1")]
+    pub deployments: u32,
+
+    #[clap(long, global = true, default_value = "1")]
+    pub deployment_controllers: usize,
+
     #[clap(long, short, global = true, default_value = "1")]
     pub schedulers: usize,
 
@@ -49,7 +55,7 @@ pub struct Opts {
 
     /// Model eventual consistency for the state.
     #[clap(long, global = true)]
-    pub eventual: bool
+    pub eventual: bool,
 }
 
 #[derive(clap::Subcommand, Debug)]

@@ -1,10 +1,12 @@
 use crate::abstract_model::Operation;
 use crate::state::StateView;
 
+pub use deployment::Deployment;
 pub use node::Node;
 pub use replicaset::ReplicaSet;
 pub use scheduler::Scheduler;
 
+mod deployment;
 mod node;
 mod replicaset;
 mod scheduler;
