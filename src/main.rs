@@ -1,5 +1,6 @@
 use clap::Parser;
 use model_checked_orchestration::model;
+use model_checked_orchestration::state::ConsistencyLevel;
 use model_checked_orchestration::state::PodResource;
 use model_checked_orchestration::state::ReplicaSetResource;
 use model_checked_orchestration::state::StateView;
@@ -37,8 +38,16 @@ fn main() {
             replicas: opts.pods_per_replicaset,
         }));
 
+    let consistency_level = if let Some(k) = opts.bounded_staleness {
+        ConsistencyLevel::BoundedStaleness(k)
+    } else
+    // default to strong
+    {
+        ConsistencyLevel::Strong
+    };
     let model = model::OrchestrationModelCfg {
         initial_state,
+        consistency_level,
         schedulers: opts.schedulers,
         nodes: opts.nodes,
         datastores: opts.datastores,

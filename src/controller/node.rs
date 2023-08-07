@@ -1,3 +1,4 @@
+use crate::abstract_model::Operation;
 use crate::state::StateView;
 use crate::{abstract_model::Change, controller::Controller};
 
@@ -15,12 +16,18 @@ impl Controller for Node {
                     .filter(|p| p.node_name.map_or(false, |n| n == id))
                 {
                     if !node.running.contains(&pod.id) {
-                        actions.push(Change::RunPod(pod.id, id));
+                        actions.push(Change {
+                            revision: state.revision,
+                            operation: Operation::RunPod(pod.id, id),
+                        });
                     }
                 }
             }
         } else {
-            actions.push(Change::NodeJoin(id));
+            actions.push(Change {
+                revision: state.revision,
+                operation: Operation::NodeJoin(id),
+            });
         }
         actions
     }

@@ -38,6 +38,10 @@ pub struct Opts {
     /// Max depth for the check run, 0 is no limit.
     #[clap(long, global = true, default_value = "0")]
     pub max_depth: usize,
+
+    /// Model bounded staleness consistency for the state.
+    #[clap(long, global = true)]
+    pub bounded_staleness: Option<usize>,
 }
 
 #[derive(clap::Subcommand, Debug)]

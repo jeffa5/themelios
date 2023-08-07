@@ -4,13 +4,15 @@ use crate::{
     abstract_model::AbstractModelCfg,
     actor_model::{ActorModelCfg, ActorState, Actors, ControllerActor, Datastore},
     controller::{Controllers, Node, ReplicaSet, Scheduler},
-    state::StateView,
+    state::{ConsistencyLevel, StateView},
 };
 
 #[derive(Clone, Debug)]
 pub struct OrchestrationModelCfg {
     /// The initial state.
     pub initial_state: StateView,
+    /// The consistency level of the state.
+    pub consistency_level: ConsistencyLevel,
     /// The number of datastores to run.
     pub datastores: usize,
     /// The number of schedulers to run.
@@ -78,6 +80,7 @@ impl OrchestrationModelCfg {
         let mut model = AbstractModelCfg {
             controllers: Vec::new(),
             initial_state: self.initial_state,
+            consistency_level: self.consistency_level,
         };
 
         assert!(self.datastores > 0);

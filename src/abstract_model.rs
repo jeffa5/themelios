@@ -9,10 +9,21 @@ pub struct AbstractModelCfg {
     pub controllers: Vec<Controllers>,
     /// The initial state.
     pub initial_state: StateView,
+    /// The consistency level of the state.
+    pub consistency_level: ConsistencyLevel,
+}
+
+/// Changes to a state.
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub struct Change {
+    /// The revision of the state that this change was generated from.
+    pub revision: usize,
+    /// The operation to perform on the state.
+    pub operation: Operation,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
-pub enum Change {
+pub enum Operation {
     NodeJoin(usize),
     SchedulerJoin(usize),
     ReplicasetJoin(usize),
@@ -36,7 +47,7 @@ impl Model for AbstractModelCfg {
     fn init_states(&self) -> Vec<Self::State> {
         vec![State::default()
             .with_initial(self.initial_state.clone())
-            .with_consistency_level(ConsistencyLevel::Strong)]
+            .with_consistency_level(self.consistency_level.clone())]
     }
 
     fn actions(&self, state: &Self::State, actions: &mut Vec<Self::Action>) {
@@ -63,7 +74,10 @@ impl Model for AbstractModelCfg {
             }
             Action::NodeCrash(node) => {
                 let mut state = last_state.clone();
-                state.push_change(Change::NodeCrash(node));
+                state.push_change(Change {
+                    revision: last_state.max_revision(),
+                    operation: Operation::NodeCrash(node),
+                });
                 Some(state)
             }
         }

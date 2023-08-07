@@ -1,12 +1,13 @@
 use std::collections::{BTreeMap, BTreeSet};
 
-use crate::abstract_model::Change;
+use crate::abstract_model::{Change, Operation};
 
 /// Consistency level for viewing the state with.
 #[derive(Default, Clone, Debug, PartialEq, Eq, Hash)]
 pub enum ConsistencyLevel {
     #[default]
     Strong,
+    BoundedStaleness(usize),
 }
 
 /// The history of the state, enabling generating views for different historical versions.
@@ -103,12 +104,19 @@ impl State {
                 let rev = self.changes.len();
                 vec![self.view_at(rev)]
             }
+            ConsistencyLevel::BoundedStaleness(k) => {
+                let max_rev = self.max_revision();
+                (max_rev.saturating_sub(k)..=max_rev)
+                    .map(|r| self.view_at(r))
+                    .collect()
+            }
         }
     }
 }
 
 #[derive(Default, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct StateView {
+    pub revision: usize,
     pub nodes: BTreeMap<usize, NodeResource>,
     pub schedulers: BTreeSet<usize>,
     pub replicaset_controllers: BTreeSet<usize>,
@@ -148,8 +156,8 @@ impl StateView {
     }
 
     pub fn apply_change(&mut self, change: &Change) {
-        match change {
-            Change::NodeJoin(i) => {
+        match &change.operation {
+            Operation::NodeJoin(i) => {
                 self.nodes.insert(
                     *i,
                     NodeResource {
@@ -158,13 +166,13 @@ impl StateView {
                     },
                 );
             }
-            Change::SchedulerJoin(i) => {
+            Operation::SchedulerJoin(i) => {
                 self.schedulers.insert(*i);
             }
-            Change::ReplicasetJoin(i) => {
+            Operation::ReplicasetJoin(i) => {
                 self.replicaset_controllers.insert(*i);
             }
-            Change::NewPod(i) => {
+            Operation::NewPod(i) => {
                 self.pods.insert(
                     *i,
                     PodResource {
@@ -173,20 +181,21 @@ impl StateView {
                     },
                 );
             }
-            Change::SchedulePod(pod, node) => {
+            Operation::SchedulePod(pod, node) => {
                 if let Some(pod) = self.pods.get_mut(pod) {
                     pod.node_name = Some(*node);
                 }
             }
-            Change::RunPod(pod, node) => {
+            Operation::RunPod(pod, node) => {
                 self.nodes.get_mut(node).unwrap().running.insert(*pod);
             }
-            Change::NodeCrash(node) => {
+            Operation::NodeCrash(node) => {
                 self.nodes.remove(node);
                 self.pods
                     .retain(|_, pod| pod.node_name.map_or(true, |n| n != *node));
             }
         }
+        self.revision += 1;
     }
 }
 
