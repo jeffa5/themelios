@@ -40,6 +40,8 @@ fn main() {
 
     let consistency_level = if let Some(k) = opts.bounded_staleness {
         ConsistencyLevel::BoundedStaleness(k)
+    } else if opts.session {
+        ConsistencyLevel::Session
     } else {
         // default to strong
         ConsistencyLevel::Strong

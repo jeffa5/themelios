@@ -42,6 +42,10 @@ pub struct Opts {
     /// Model bounded staleness consistency for the state.
     #[clap(long, global = true)]
     pub bounded_staleness: Option<usize>,
+
+    /// Model session consistency for the state.
+    #[clap(long, global = true)]
+    pub session: bool,
 }
 
 #[derive(clap::Subcommand, Debug)]
