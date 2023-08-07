@@ -9,10 +9,13 @@ mod replicaset;
 mod scheduler;
 
 pub trait Controller {
+    /// Take a step, generating changes, based on the current view of the state.
     fn step(&self, id: usize, state: &StateView) -> Vec<Change>;
 
+    /// Register with the state.
     fn register(&self, id: usize) -> Change;
 
+    /// Name of this controller.
     fn name(&self) -> String;
 }
 

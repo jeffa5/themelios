@@ -2,13 +2,17 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use crate::abstract_model::Change;
 
+/// Consistency level for viewing the state with.
 pub enum ConsistencyLevel {
     Strong,
 }
 
+/// The history of the state, enabling generating views for different historical versions.
 #[derive(Default, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct State {
+    /// The initial state, to enable starting from interesting places.
     initial: StateView,
+    /// The changes that have been made to the state.
     changes: Vec<Change>,
 }
 
@@ -23,11 +27,13 @@ impl State {
         self
     }
 
+    /// Record a change for this state.
     pub fn push_change(&mut self, change: Change) -> usize {
         self.changes.push(change);
         self.changes.len()
     }
 
+    /// Record changes for this state.
     pub fn push_changes(&mut self, changes: impl Iterator<Item = Change>) -> usize {
         for change in changes {
             self.push_change(change);
@@ -35,10 +41,12 @@ impl State {
         self.changes.len()
     }
 
+    /// Get the maximum revision for this change.
     pub fn max_revision(&self) -> usize {
         self.changes.len()
     }
 
+    /// Get a view for a specific revision in the change history.
     pub fn view_at(&self, revision: usize) -> StateView {
         let mut view = self.initial.clone();
         for change in &self.changes[..revision - 1] {
@@ -47,6 +55,7 @@ impl State {
         view
     }
 
+    /// Get all the possible views under the given consistency level.
     pub fn views_for(&self, consistency_level: ConsistencyLevel) -> Vec<StateView> {
         match consistency_level {
             ConsistencyLevel::Strong => {
