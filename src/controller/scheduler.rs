@@ -1,5 +1,5 @@
 use crate::state::State;
-use crate::{controller::Controller, model::Change};
+use crate::{abstract_model::Change, controller::Controller};
 
 #[derive(Clone, Debug)]
 pub struct Scheduler;

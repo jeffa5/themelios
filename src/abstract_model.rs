@@ -1,8 +1,8 @@
 use stateright::{Model, Property};
 
 use crate::controller::{Controller, Controllers};
-use crate::state::Pod;
-use crate::state::ReplicaSet;
+use crate::state::PodResource;
+use crate::state::ReplicaSetResource;
 use crate::state::State;
 
 #[derive(Debug)]
@@ -39,7 +39,7 @@ impl Model for ModelCfg {
         for i in 0..self.initial_pods {
             state.pods.insert(
                 i,
-                Pod {
+                PodResource {
                     id: i,
                     node_name: None,
                 },
@@ -48,7 +48,7 @@ impl Model for ModelCfg {
         for i in 1..=self.initial_replicasets {
             state.replica_sets.insert(
                 i,
-                ReplicaSet {
+                ReplicaSetResource {
                     id: i,
                     replicas: self.pods_per_replicaset,
                 },

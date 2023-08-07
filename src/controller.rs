@@ -1,4 +1,4 @@
-use crate::model::Change;
+use crate::abstract_model::Change;
 use crate::state::State;
 pub use node::Node;
 pub use replicaset::ReplicaSet;

@@ -1,36 +1,36 @@
 use std::collections::{BTreeMap, BTreeSet};
 
-use crate::model::Change;
+use crate::abstract_model::Change;
 
 #[derive(Default, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct State {
-    pub nodes: BTreeMap<usize, Node>,
+    pub nodes: BTreeMap<usize, NodeResource>,
     pub schedulers: BTreeSet<usize>,
     pub replicaset_controllers: BTreeSet<usize>,
-    pub pods: BTreeMap<u32, Pod>,
-    pub replica_sets: BTreeMap<u32, ReplicaSet>,
+    pub pods: BTreeMap<u32, PodResource>,
+    pub replica_sets: BTreeMap<u32, ReplicaSetResource>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub struct Pod {
+pub struct PodResource {
     pub id: u32,
     pub node_name: Option<usize>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub struct ReplicaSet {
+pub struct ReplicaSetResource {
     pub id: u32,
     pub replicas: u32,
 }
 
-impl ReplicaSet {
+impl ReplicaSetResource {
     pub fn pods(&self) -> Vec<u32> {
         (0..self.replicas).map(|i| (self.id * 1000) + i).collect()
     }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub struct Node {
+pub struct NodeResource {
     pub running: BTreeSet<u32>,
     pub ready: bool,
 }
@@ -41,7 +41,7 @@ impl State {
             Change::NodeJoin(i) => {
                 self.nodes.insert(
                     i,
-                    Node {
+                    NodeResource {
                         running: BTreeSet::new(),
                         ready: true,
                     },
@@ -56,7 +56,7 @@ impl State {
             Change::NewPod(i) => {
                 self.pods.insert(
                     i,
-                    Pod {
+                    PodResource {
                         id: i,
                         node_name: None,
                     },
