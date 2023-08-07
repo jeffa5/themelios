@@ -111,7 +111,7 @@ impl State {
         self
     }
 
-    /// Record a change for this state.
+    /// Record a change for this state from a given controller.
     pub fn push_change(&mut self, change: Change, from: usize) -> Revision {
         let rev = self.changes.add(change);
         self.sessions.insert(from, rev);
