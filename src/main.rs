@@ -5,6 +5,7 @@ use model_checked_orchestration::state::PodResource;
 use model_checked_orchestration::state::ReadConsistencyLevel;
 use model_checked_orchestration::state::ReplicaSetResource;
 use model_checked_orchestration::state::StateView;
+use model_checked_orchestration::state::StatefulSetResource;
 use report::Reporter;
 use stateright::Checker;
 use stateright::Model;
@@ -41,6 +42,10 @@ fn main() {
         .with_deployments((1..=opts.deployments).map(|i| DeploymentResource {
             id: i,
             replicas: opts.pods_per_replicaset,
+        }))
+        .with_statefulsets((1..=opts.statefulsets).map(|i| StatefulSetResource {
+            id: i,
+            replicas: opts.pods_per_replicaset,
         }));
 
     let consistency_level = if let Some(k) = opts.bounded_staleness {
@@ -61,6 +66,7 @@ fn main() {
         datastores: opts.datastores,
         replicaset_controllers: opts.replicaset_controllers,
         deployment_controllers: opts.deployment_controllers,
+        statefulset_controllers: opts.statefulset_controllers,
         pods_per_replicaset: opts.pods_per_replicaset,
     };
     if opts.actors {

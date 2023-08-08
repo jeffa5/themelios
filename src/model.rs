@@ -23,6 +23,7 @@ pub struct OrchestrationModelCfg {
     pub replicaset_controllers: usize,
     pub pods_per_replicaset: u32,
     pub deployment_controllers: usize,
+    pub statefulset_controllers: usize,
 }
 
 impl OrchestrationModelCfg {

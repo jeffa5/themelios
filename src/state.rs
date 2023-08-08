@@ -172,9 +172,11 @@ pub struct StateView {
     pub schedulers: BTreeSet<usize>,
     pub replicaset_controllers: BTreeSet<usize>,
     pub deployment_controllers: BTreeSet<usize>,
+    pub statefulset_controllers: BTreeSet<usize>,
     pub pods: BTreeMap<u32, PodResource>,
     pub replica_sets: BTreeMap<u32, ReplicaSetResource>,
     pub deployments: BTreeMap<u32, DeploymentResource>,
+    pub statefulsets: BTreeMap<u32, StatefulSetResource>,
 }
 
 impl StateView {
@@ -226,6 +228,24 @@ impl StateView {
         self
     }
 
+    pub fn with_statefulsets(
+        mut self,
+        statefulsets: impl Iterator<Item = StatefulSetResource>,
+    ) -> Self {
+        self.set_statefulsets(statefulsets);
+        self
+    }
+
+    pub fn set_statefulsets(
+        &mut self,
+        statefulsets: impl Iterator<Item = StatefulSetResource>,
+    ) -> &mut Self {
+        for statefulset in statefulsets {
+            self.statefulsets.insert(statefulset.id, statefulset);
+        }
+        self
+    }
+
     pub fn apply_change(&mut self, change: &Change) {
         match &change.operation {
             Operation::NodeJoin(i) => {
@@ -245,6 +265,9 @@ impl StateView {
             }
             Operation::DeploymentJoin(i) => {
                 self.deployment_controllers.insert(*i);
+            }
+            Operation::StatefulSetJoin(i) => {
+                self.statefulset_controllers.insert(*i);
             }
             Operation::NewPod(i) => {
                 self.pods.insert(
@@ -307,6 +330,18 @@ pub struct DeploymentResource {
 }
 
 impl DeploymentResource {
+    pub fn replicasets(&self) -> Vec<u32> {
+        vec![self.id]
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct StatefulSetResource {
+    pub id: u32,
+    pub replicas: u32,
+}
+
+impl StatefulSetResource {
     pub fn replicasets(&self) -> Vec<u32> {
         vec![self.id]
     }

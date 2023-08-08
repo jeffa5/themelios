@@ -28,6 +28,7 @@ pub enum Operation {
     SchedulerJoin(usize),
     ReplicasetJoin(usize),
     DeploymentJoin(usize),
+    StatefulSetJoin(usize),
     NewPod(u32),
     NewReplicaset(u32),
     SchedulePod(u32, usize),

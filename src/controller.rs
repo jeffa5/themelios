@@ -5,11 +5,13 @@ pub use deployment::Deployment;
 pub use node::Node;
 pub use replicaset::ReplicaSet;
 pub use scheduler::Scheduler;
+pub use statefulset::StatefulSet;
 
 mod deployment;
 mod node;
 mod replicaset;
 mod scheduler;
+mod statefulset;
 
 pub trait Controller {
     /// Take a step, generating changes, based on the current view of the state.
