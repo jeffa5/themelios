@@ -25,10 +25,7 @@ pub struct Change {
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum Operation {
     NodeJoin(usize),
-    SchedulerJoin(usize),
-    ReplicasetJoin(usize),
-    DeploymentJoin(usize),
-    StatefulSetJoin(usize),
+    ControllerJoin(usize),
     NewPod(String),
     NewReplicaset(String),
     SchedulePod(String, usize),

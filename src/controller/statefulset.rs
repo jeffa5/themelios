@@ -7,8 +7,8 @@ pub struct StatefulSet;
 impl Controller for StatefulSet {
     fn step(&self, id: usize, state: &StateView) -> Vec<Operation> {
         let mut actions = Vec::new();
-        if !state.statefulset_controllers.contains(&id) {
-            actions.push(Operation::StatefulSetJoin(id));
+        if !state.controllers.contains(&id) {
+            actions.push(Operation::ControllerJoin(id));
         } else {
             for statefulset in state.statefulsets.values() {
                 for replicaset in statefulset.replicasets() {

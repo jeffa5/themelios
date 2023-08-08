@@ -8,8 +8,8 @@ pub struct Deployment;
 impl Controller for Deployment {
     fn step(&self, id: usize, state: &StateView) -> Vec<Operation> {
         let mut actions = Vec::new();
-        if !state.deployment_controllers.contains(&id) {
-            actions.push(Operation::DeploymentJoin(id));
+        if !state.controllers.contains(&id) {
+            actions.push(Operation::ControllerJoin(id));
         } else {
             for deployment in state.deployments.values() {
                 for replicaset in deployment.replicasets() {

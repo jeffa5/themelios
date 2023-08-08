@@ -41,13 +41,9 @@ impl Actor for Datastore {
                     let rev = state.push_changes(changes.into_iter(), src.into());
                     let view = state.view_at(rev);
                     let node_ids = view.nodes.keys().copied();
-                    let scheduler_ids = view.schedulers.iter().copied();
-                    let replicaset_ids = view.replicaset_controllers.iter().copied();
+                    let controller_ids = view.controllers.iter().copied();
 
-                    let all_ids = node_ids
-                        .chain(scheduler_ids)
-                        .chain(replicaset_ids)
-                        .collect::<Vec<_>>();
+                    let all_ids = node_ids.chain(controller_ids).collect::<Vec<_>>();
                     for id in &all_ids {
                         for view in state.views(id) {
                             o.send(Id::from(*id), Message::StateUpdate(view.clone()));

@@ -8,8 +8,8 @@ pub struct ReplicaSet;
 impl Controller for ReplicaSet {
     fn step(&self, id: usize, state: &StateView) -> Vec<Operation> {
         let mut actions = Vec::new();
-        if !state.replicaset_controllers.contains(&id) {
-            actions.push(Operation::ReplicasetJoin(id))
+        if !state.controllers.contains(&id) {
+            actions.push(Operation::ControllerJoin(id))
         } else {
             for replicaset in state.replica_sets.values() {
                 for pod in replicaset.pods() {

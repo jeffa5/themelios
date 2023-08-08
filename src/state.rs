@@ -169,10 +169,8 @@ impl State {
 pub struct StateView {
     pub revision: Revision,
     pub nodes: BTreeMap<usize, NodeResource>,
-    pub schedulers: BTreeSet<usize>,
-    pub replicaset_controllers: BTreeSet<usize>,
-    pub deployment_controllers: BTreeSet<usize>,
-    pub statefulset_controllers: BTreeSet<usize>,
+    /// Set of the controllers that have joined the cluster.
+    pub controllers: BTreeSet<usize>,
     pub pods: BTreeMap<String, PodResource>,
     pub replica_sets: BTreeMap<String, ReplicaSetResource>,
     pub deployments: BTreeMap<String, DeploymentResource>,
@@ -258,17 +256,8 @@ impl StateView {
                     },
                 );
             }
-            Operation::SchedulerJoin(i) => {
-                self.schedulers.insert(*i);
-            }
-            Operation::ReplicasetJoin(i) => {
-                self.replicaset_controllers.insert(*i);
-            }
-            Operation::DeploymentJoin(i) => {
-                self.deployment_controllers.insert(*i);
-            }
-            Operation::StatefulSetJoin(i) => {
-                self.statefulset_controllers.insert(*i);
+            Operation::ControllerJoin(i) => {
+                self.controllers.insert(*i);
             }
             Operation::NewPod(i) => {
                 self.pods.insert(

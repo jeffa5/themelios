@@ -8,8 +8,8 @@ pub struct Scheduler;
 impl Controller for Scheduler {
     fn step(&self, id: usize, state: &StateView) -> Vec<Operation> {
         let mut actions = Vec::new();
-        if !state.schedulers.contains(&id) {
-            actions.push(Operation::SchedulerJoin(id))
+        if !state.controllers.contains(&id) {
+            actions.push(Operation::ControllerJoin(id))
         } else {
             for pod in state.pods.values() {
                 let least_loaded_node = state
