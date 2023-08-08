@@ -19,7 +19,7 @@ impl Controller for Scheduler {
                     .min_by_key(|(_, pods)| *pods);
                 if let Some((node, _)) = least_loaded_node {
                     if pod.node_name.is_none() {
-                        actions.push(Operation::SchedulePod(pod.id, *node));
+                        actions.push(Operation::SchedulePod(pod.id.clone(), *node));
                     }
                 }
             }

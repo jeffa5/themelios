@@ -16,7 +16,7 @@ impl Controller for Node {
                     .filter(|p| p.node_name.map_or(false, |n| n == id))
                 {
                     if !node.running.contains(&pod.id) {
-                        actions.push(Operation::RunPod(pod.id, id));
+                        actions.push(Operation::RunPod(pod.id.clone(), id));
                     }
                 }
             }

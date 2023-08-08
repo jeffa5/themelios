@@ -29,10 +29,10 @@ pub enum Operation {
     ReplicasetJoin(usize),
     DeploymentJoin(usize),
     StatefulSetJoin(usize),
-    NewPod(u32),
-    NewReplicaset(u32),
-    SchedulePod(u32, usize),
-    RunPod(u32, usize),
+    NewPod(String),
+    NewReplicaset(String),
+    SchedulePod(String, usize),
+    RunPod(String, usize),
     NodeCrash(usize),
 }
 

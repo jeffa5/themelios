@@ -173,10 +173,10 @@ pub struct StateView {
     pub replicaset_controllers: BTreeSet<usize>,
     pub deployment_controllers: BTreeSet<usize>,
     pub statefulset_controllers: BTreeSet<usize>,
-    pub pods: BTreeMap<u32, PodResource>,
-    pub replica_sets: BTreeMap<u32, ReplicaSetResource>,
-    pub deployments: BTreeMap<u32, DeploymentResource>,
-    pub statefulsets: BTreeMap<u32, StatefulSetResource>,
+    pub pods: BTreeMap<String, PodResource>,
+    pub replica_sets: BTreeMap<String, ReplicaSetResource>,
+    pub deployments: BTreeMap<String, DeploymentResource>,
+    pub statefulsets: BTreeMap<String, StatefulSetResource>,
 }
 
 impl StateView {
@@ -187,7 +187,7 @@ impl StateView {
 
     pub fn set_pods(&mut self, pods: impl Iterator<Item = PodResource>) -> &mut Self {
         for pod in pods {
-            self.pods.insert(pod.id, pod);
+            self.pods.insert(pod.id.clone(), pod);
         }
         self
     }
@@ -205,7 +205,7 @@ impl StateView {
         replicasets: impl Iterator<Item = ReplicaSetResource>,
     ) -> &mut Self {
         for replicaset in replicasets {
-            self.replica_sets.insert(replicaset.id, replicaset);
+            self.replica_sets.insert(replicaset.id.clone(), replicaset);
         }
         self
     }
@@ -223,7 +223,7 @@ impl StateView {
         deployments: impl Iterator<Item = DeploymentResource>,
     ) -> &mut Self {
         for deployment in deployments {
-            self.deployments.insert(deployment.id, deployment);
+            self.deployments.insert(deployment.id.clone(), deployment);
         }
         self
     }
@@ -241,7 +241,8 @@ impl StateView {
         statefulsets: impl Iterator<Item = StatefulSetResource>,
     ) -> &mut Self {
         for statefulset in statefulsets {
-            self.statefulsets.insert(statefulset.id, statefulset);
+            self.statefulsets
+                .insert(statefulset.id.clone(), statefulset);
         }
         self
     }
@@ -271,18 +272,18 @@ impl StateView {
             }
             Operation::NewPod(i) => {
                 self.pods.insert(
-                    *i,
+                    i.clone(),
                     PodResource {
-                        id: *i,
+                        id: i.clone(),
                         node_name: None,
                     },
                 );
             }
             Operation::NewReplicaset(i) => {
                 self.replica_sets.insert(
-                    *i,
+                    i.clone(),
                     ReplicaSetResource {
-                        id: *i,
+                        id: i.clone(),
                         replicas: 2,
                     },
                 );
@@ -293,7 +294,11 @@ impl StateView {
                 }
             }
             Operation::RunPod(pod, node) => {
-                self.nodes.get_mut(node).unwrap().running.insert(*pod);
+                self.nodes
+                    .get_mut(node)
+                    .unwrap()
+                    .running
+                    .insert(pod.clone());
             }
             Operation::NodeCrash(node) => {
                 self.nodes.remove(node);
@@ -307,48 +312,50 @@ impl StateView {
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct PodResource {
-    pub id: u32,
+    pub id: String,
     pub node_name: Option<usize>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct ReplicaSetResource {
-    pub id: u32,
+    pub id: String,
     pub replicas: u32,
 }
 
 impl ReplicaSetResource {
-    pub fn pods(&self) -> Vec<u32> {
-        (0..self.replicas).map(|i| (self.id * 1000) + i).collect()
+    pub fn pods(&self) -> Vec<String> {
+        (0..self.replicas)
+            .map(|i| format!("{}-{}", self.id, i))
+            .collect()
     }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct DeploymentResource {
-    pub id: u32,
+    pub id: String,
     pub replicas: u32,
 }
 
 impl DeploymentResource {
-    pub fn replicasets(&self) -> Vec<u32> {
-        vec![self.id]
+    pub fn replicasets(&self) -> Vec<String> {
+        vec![self.id.clone()]
     }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct StatefulSetResource {
-    pub id: u32,
+    pub id: String,
     pub replicas: u32,
 }
 
 impl StatefulSetResource {
-    pub fn replicasets(&self) -> Vec<u32> {
-        vec![self.id]
+    pub fn replicasets(&self) -> Vec<String> {
+        vec![self.id.clone()]
     }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct NodeResource {
-    pub running: BTreeSet<u32>,
+    pub running: BTreeSet<String>,
     pub ready: bool,
 }

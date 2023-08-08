@@ -32,19 +32,19 @@ fn main() {
 
     let initial_state = StateView::default()
         .with_pods((0..opts.initial_pods).map(|i| PodResource {
-            id: i,
+            id: format!("pod-{i}"),
             node_name: None,
         }))
         .with_replicasets((1..=opts.replicasets).map(|i| ReplicaSetResource {
-            id: i,
+            id: format!("rep-{i}"),
             replicas: opts.pods_per_replicaset,
         }))
         .with_deployments((1..=opts.deployments).map(|i| DeploymentResource {
-            id: i,
+            id: format!("dep-{i}"),
             replicas: opts.pods_per_replicaset,
         }))
         .with_statefulsets((1..=opts.statefulsets).map(|i| StatefulSetResource {
-            id: i,
+            id: format!("sts-{i}"),
             replicas: opts.pods_per_replicaset,
         }));
 
