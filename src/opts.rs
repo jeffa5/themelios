@@ -36,6 +36,9 @@ pub struct Opts {
     pub statefulsets: u32,
 
     #[clap(long, global = true, default_value = "1")]
+    pub pods_per_statefulset: u32,
+
+    #[clap(long, global = true, default_value = "1")]
     pub statefulset_controllers: usize,
 
     #[clap(long, short, global = true, default_value = "1")]

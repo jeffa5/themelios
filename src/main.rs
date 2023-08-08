@@ -45,7 +45,7 @@ fn main() {
         }))
         .with_statefulsets((1..=opts.statefulsets).map(|i| StatefulSetResource {
             id: format!("sts-{i}"),
-            replicas: opts.pods_per_replicaset,
+            replicas: opts.pods_per_statefulset,
         }));
 
     let consistency_level = if let Some(k) = opts.bounded_staleness {
@@ -67,7 +67,6 @@ fn main() {
         replicaset_controllers: opts.replicaset_controllers,
         deployment_controllers: opts.deployment_controllers,
         statefulset_controllers: opts.statefulset_controllers,
-        pods_per_replicaset: opts.pods_per_replicaset,
     };
     if opts.actors {
         run(opts, model.into_actor_model())

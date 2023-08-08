@@ -11,9 +11,9 @@ impl Controller for StatefulSet {
             actions.push(Operation::ControllerJoin(id));
         } else {
             for statefulset in state.statefulsets.values() {
-                for replicaset in statefulset.replicasets() {
-                    if !state.replica_sets.contains_key(&replicaset) {
-                        actions.push(Operation::NewReplicaset(replicaset));
+                for pod in statefulset.pods() {
+                    if !state.pods.contains_key(&pod) {
+                        actions.push(Operation::NewPod(pod));
                     }
                 }
             }

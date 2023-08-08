@@ -338,8 +338,10 @@ pub struct StatefulSetResource {
 }
 
 impl StatefulSetResource {
-    pub fn replicasets(&self) -> Vec<String> {
-        vec![self.id.clone()]
+    pub fn pods(&self) -> Vec<String> {
+        (0..self.replicas)
+            .map(|i| format!("{}-{}", self.id, i))
+            .collect()
     }
 }
 
