@@ -3,7 +3,7 @@ use stateright::actor::{ActorModel, Network};
 use crate::{
     abstract_model::AbstractModelCfg,
     actor_model::{ActorModelCfg, ActorState, Actors, ControllerActor, Datastore},
-    controller::{Controllers, Node, ReplicaSet, Scheduler},
+    controller::{Controllers, Deployment, Node, ReplicaSet, Scheduler, StatefulSet},
     state::{ReadConsistencyLevel, StateView},
 };
 
@@ -55,6 +55,14 @@ impl OrchestrationModelCfg {
             model = model.actor(Actors::ReplicaSet(ControllerActor::new(ReplicaSet)));
         }
 
+        for _ in 0..self.deployment_controllers {
+            model = model.actor(Actors::Deployment(ControllerActor::new(Deployment)));
+        }
+
+        for _ in 0..self.replicaset_controllers {
+            model = model.actor(Actors::StatefulSet(ControllerActor::new(StatefulSet)));
+        }
+
         model = model.init_network(Network::new_unordered_nonduplicating(vec![]));
 
         model.property(
@@ -98,6 +106,16 @@ impl OrchestrationModelCfg {
 
         for _ in 0..self.replicaset_controllers {
             model.controllers.push(Controllers::ReplicaSet(ReplicaSet));
+        }
+
+        for _ in 0..self.deployment_controllers {
+            model.controllers.push(Controllers::Deployment(Deployment));
+        }
+
+        for _ in 0..self.statefulset_controllers {
+            model
+                .controllers
+                .push(Controllers::StatefulSet(StatefulSet));
         }
 
         model

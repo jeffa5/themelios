@@ -26,6 +26,8 @@ pub enum Controllers {
     Node(Node),
     Scheduler(Scheduler),
     ReplicaSet(ReplicaSet),
+    Deployment(Deployment),
+    StatefulSet(StatefulSet),
 }
 
 impl Controller for Controllers {
@@ -34,6 +36,8 @@ impl Controller for Controllers {
             Controllers::Node(c) => c.step(id, state),
             Controllers::Scheduler(c) => c.step(id, state),
             Controllers::ReplicaSet(c) => c.step(id, state),
+            Controllers::Deployment(c) => c.step(id, state),
+            Controllers::StatefulSet(c) => c.step(id, state),
         }
     }
 
@@ -42,6 +46,8 @@ impl Controller for Controllers {
             Controllers::Node(c) => c.name(),
             Controllers::Scheduler(c) => c.name(),
             Controllers::ReplicaSet(c) => c.name(),
+            Controllers::Deployment(c) => c.name(),
+            Controllers::StatefulSet(c) => c.name(),
         }
     }
 }

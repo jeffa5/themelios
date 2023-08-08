@@ -2,6 +2,7 @@ use std::borrow::Cow;
 
 use stateright::actor::{Actor, Out};
 
+use crate::controller::{Deployment, StatefulSet};
 use crate::state::{State, StateView};
 use crate::{
     abstract_model::Change, controller::Node, controller::ReplicaSet, controller::Scheduler,
@@ -28,6 +29,8 @@ pub enum Actors {
     Node(ControllerActor<Node>),
     Scheduler(ControllerActor<Scheduler>),
     ReplicaSet(ControllerActor<ReplicaSet>),
+    Deployment(ControllerActor<Deployment>),
+    StatefulSet(ControllerActor<StatefulSet>),
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -74,6 +77,18 @@ impl Actor for Actors {
                 o.append(&mut client_out);
                 ActorState::Controller
             }
+            Actors::Deployment(a) => {
+                let mut client_out = Out::new();
+                a.on_start(id, &mut client_out);
+                o.append(&mut client_out);
+                ActorState::Controller
+            }
+            Actors::StatefulSet(a) => {
+                let mut client_out = Out::new();
+                a.on_start(id, &mut client_out);
+                o.append(&mut client_out);
+                ActorState::Controller
+            }
         }
     }
 
@@ -106,6 +121,16 @@ impl Actor for Actors {
                 o.append(&mut client_out);
             }
             (Actors::ReplicaSet(a), ActorState::Controller) => {
+                let mut client_out = Out::new();
+                a.on_msg(id, &mut Cow::Owned(()), src, msg, &mut client_out);
+                o.append(&mut client_out);
+            }
+            (Actors::Deployment(a), ActorState::Controller) => {
+                let mut client_out = Out::new();
+                a.on_msg(id, &mut Cow::Owned(()), src, msg, &mut client_out);
+                o.append(&mut client_out);
+            }
+            (Actors::StatefulSet(a), ActorState::Controller) => {
                 let mut client_out = Out::new();
                 a.on_msg(id, &mut Cow::Owned(()), src, msg, &mut client_out);
                 o.append(&mut client_out);
@@ -146,6 +171,16 @@ impl Actor for Actors {
                 a.on_timeout(id, &mut Cow::Owned(()), timer, &mut client_out);
                 o.append(&mut client_out);
             }
+            (Actors::Deployment(a), ActorState::Controller) => {
+                let mut client_out = Out::new();
+                a.on_timeout(id, &mut Cow::Owned(()), timer, &mut client_out);
+                o.append(&mut client_out);
+            }
+            (Actors::StatefulSet(a), ActorState::Controller) => {
+                let mut client_out = Out::new();
+                a.on_timeout(id, &mut Cow::Owned(()), timer, &mut client_out);
+                o.append(&mut client_out);
+            }
             _ => unreachable!(),
         }
     }
@@ -156,6 +191,8 @@ impl Actor for Actors {
             Actors::Node(a) => a.name(),
             Actors::Scheduler(a) => a.name(),
             Actors::ReplicaSet(a) => a.name(),
+            Actors::Deployment(a) => a.name(),
+            Actors::StatefulSet(a) => a.name(),
         }
     }
 }
