@@ -94,12 +94,34 @@ impl Model for AbstractModelCfg {
     }
 
     fn properties(&self) -> Vec<stateright::Property<Self>> {
-        vec![Property::<Self>::eventually(
-            "every pod gets scheduled",
-            |_model, state| {
+        vec![
+            Property::<Self>::eventually("every pod gets scheduled", |_model, state| {
                 let state = state.view_at(state.max_revision());
                 state.pods.values().all(|pod| pod.node_name.is_some())
-            },
-        )]
+            }),
+            Property::<Self>::always(
+                "statefulsets always have consecutive pods",
+                |_model, state| {
+                    // point one and two from https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/#deployment-and-scaling-guarantees
+                    let state = state.view_at(state.max_revision());
+                    for sts in state.statefulsets.values() {
+                        let mut found_end = false;
+                        for pod in sts.pods() {
+                            if state.pods.contains_key(&pod) {
+                                if found_end {
+                                    // violation of the property
+                                    // we have found a missing pod but then continued to find an existing one
+                                    // for this statefulset.
+                                    return false;
+                                }
+                            } else {
+                                found_end = true
+                            }
+                        }
+                    }
+                    true
+                },
+            ),
+        ]
     }
 }
