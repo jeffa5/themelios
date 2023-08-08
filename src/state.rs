@@ -62,7 +62,7 @@ impl ChangeHistory {
 }
 
 /// The history of the state, enabling generating views for different historical versions.
-#[derive(Default, Clone, Eq)]
+#[derive(Default, Clone, PartialEq, Eq, Hash)]
 pub struct State {
     /// Consistency level for this state.
     consistency_level: ReadConsistencyLevel,
@@ -71,21 +71,6 @@ pub struct State {
     /// The changes that have been made to the state.
     changes: ChangeHistory,
     sessions: BTreeMap<usize, Revision>,
-}
-
-impl PartialEq for State {
-    fn eq(&self, other: &Self) -> bool {
-        let self_views = self.all_views();
-        let other_views = other.all_views();
-        self_views == other_views
-    }
-}
-
-impl std::hash::Hash for State {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        let views = self.all_views();
-        views.hash(state);
-    }
 }
 
 impl std::fmt::Debug for State {
