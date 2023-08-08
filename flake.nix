@@ -28,6 +28,7 @@
           (rust.override {
             extensions = ["rust-src"];
           })
+          pkgs.cargo-flamegraph
         ];
       };
     });
