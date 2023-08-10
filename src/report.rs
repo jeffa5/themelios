@@ -1,4 +1,7 @@
 use std::collections::BTreeMap;
+use sysinfo::ProcessExt;
+use sysinfo::System;
+use sysinfo::SystemExt;
 
 use stateright::{Expectation, Model};
 
@@ -36,8 +39,18 @@ where
         let unique_rate = (data.unique_states as f64 / data.duration.as_secs_f64()).round();
         let status = if data.done { "Done    " } else { "Checking" };
         let depth = data.max_depth;
+
+        let memory = {
+            let s = System::new_all();
+            if let Some(process) = s.process(sysinfo::get_current_pid().unwrap()) {
+                process.memory()
+            } else {
+                0
+            }
+        };
+
         println!(
-            "{} states={: >8} (+{: <8} {: >8.0}/s), unique={: >8} (+{: <8} {: >8}/s), max_depth={: >4}, duration={:?}",
+            "{} states={: >8} (+{: <8} {: >8.0}/s), unique={: >8} (+{: <8} {: >8}/s), max_depth={: >5}, memory_bytes={: >10}, duration={:?}",
             status,
             data.total_states,
             new_total,
@@ -46,7 +59,8 @@ where
             new_unique,
             unique_rate,
             depth,
-            data.duration
+            memory,
+            data.duration,
         );
 
         self.last_total = data.total_states;
