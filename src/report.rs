@@ -35,8 +35,9 @@ where
         let new_unique = data.unique_states - self.last_unique;
         let unique_rate = (data.unique_states as f64 / data.duration.as_secs_f64()).round();
         let status = if data.done { "Done    " } else { "Checking" };
+        let depth = data.max_depth;
         println!(
-            "{} states={: >8} (+{: <8} {: >8.0}/s), unique={: >8} (+{: <8} {: >8}/s), duration={:?}",
+            "{} states={: >8} (+{: <8} {: >8.0}/s), unique={: >8} (+{: <8} {: >8}/s), max_depth={: >4}, duration={:?}",
             status,
             data.total_states,
             new_total,
@@ -44,6 +45,7 @@ where
             data.unique_states,
             new_unique,
             unique_rate,
+            depth,
             data.duration
         );
 
