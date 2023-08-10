@@ -266,18 +266,10 @@ impl StateHistory {
 pub struct Revision(usize);
 
 /// The history of the state, enabling generating views for different historical versions.
-#[derive(Default, Clone, PartialEq, Eq, Hash)]
+#[derive(Default, Debug, Clone, PartialEq, Eq, Hash)]
 pub struct State {
     /// The changes that have been made to the state.
     states: StateHistory,
-}
-
-impl std::fmt::Debug for State {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("State")
-            .field("changes", &self.states)
-            .finish()
-    }
 }
 
 impl State {
