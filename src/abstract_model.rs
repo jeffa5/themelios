@@ -53,7 +53,7 @@ impl Model for AbstractModelCfg {
 
     fn actions(&self, state: &Self::State, actions: &mut Vec<Self::Action>) {
         for (i, controller) in self.controllers.iter().enumerate() {
-            for view in state.views(&i) {
+            for view in state.views(i) {
                 let operations = controller.step(i, &view);
                 let changes = operations
                     .into_iter()

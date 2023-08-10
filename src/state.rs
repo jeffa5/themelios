@@ -17,16 +17,16 @@ pub enum ReadConsistencyLevel {
 }
 
 pub trait History {
-    fn add_change(&mut self, change: Change) -> Revision;
+    fn add_change(&mut self, change: Change, from: usize) -> Revision;
 
     fn max_revision(&self) -> Revision;
 
     fn state_at(&self, revision: Revision) -> &StateView;
 
-    fn valid_revisions(&self, session: Revision) -> Vec<Revision>;
+    fn valid_revisions(&self, from: usize) -> Vec<Revision>;
 
-    fn states_for(&self, session: Revision) -> Vec<&StateView> {
-        let revisions = self.valid_revisions(session);
+    fn states_for(&self, from: usize) -> Vec<&StateView> {
+        let revisions = self.valid_revisions(from);
         revisions.into_iter().map(|r| self.state_at(r)).collect()
     }
 }
@@ -45,7 +45,7 @@ impl StrongHistory {
 }
 
 impl History for StrongHistory {
-    fn add_change(&mut self, change: Change) -> Revision {
+    fn add_change(&mut self, change: Change, _from: usize) -> Revision {
         self.state.apply_change(&change);
         self.max_revision()
     }
@@ -59,7 +59,7 @@ impl History for StrongHistory {
         &self.state
     }
 
-    fn valid_revisions(&self, _session: Revision) -> Vec<Revision> {
+    fn valid_revisions(&self, _from: usize) -> Vec<Revision> {
         vec![self.state.revision]
     }
 }
@@ -80,7 +80,7 @@ impl BoundedHistory {
 }
 
 impl History for BoundedHistory {
-    fn add_change(&mut self, change: Change) -> Revision {
+    fn add_change(&mut self, change: Change, _from: usize) -> Revision {
         let mut state = self.last_k_states.last().unwrap().clone();
         state.apply_change(&change);
         if self.last_k_states.len() > self.k {
@@ -102,8 +102,66 @@ impl History for BoundedHistory {
         &self.last_k_states[index]
     }
 
-    fn valid_revisions(&self, _session: Revision) -> Vec<Revision> {
+    fn valid_revisions(&self, _from: usize) -> Vec<Revision> {
         self.last_k_states.iter().map(|s| s.revision).collect()
+    }
+}
+
+#[derive(Clone, PartialEq, Eq, Hash, Debug)]
+pub struct SessionHistory {
+    sessions: BTreeMap<usize, Revision>,
+    states: Vec<StateView>,
+}
+
+impl SessionHistory {
+    fn new(initial_state: StateView) -> Self {
+        Self {
+            sessions: BTreeMap::new(),
+            states: vec![initial_state],
+        }
+    }
+}
+
+impl History for SessionHistory {
+    fn add_change(&mut self, change: Change, from: usize) -> Revision {
+        let mut state = self.states.last().unwrap().clone();
+        state.apply_change(&change);
+        self.states.push(state);
+        let max = self.max_revision();
+        self.sessions.insert(from, max);
+
+        let min_revision = *self.sessions.values().min().unwrap();
+        loop {
+            let val = self.states.first().unwrap().revision;
+            if val < min_revision {
+                self.states.remove(0);
+            } else {
+                break;
+            }
+        }
+
+        max
+    }
+
+    fn max_revision(&self) -> Revision {
+        self.states.last().unwrap().revision
+    }
+
+    fn state_at(&self, revision: Revision) -> &StateView {
+        let index = self
+            .states
+            .binary_search_by_key(&revision, |s| s.revision)
+            .unwrap();
+        &self.states[index]
+    }
+
+    fn valid_revisions(&self, from: usize) -> Vec<Revision> {
+        let min_revision = self.sessions.get(&from).copied().unwrap_or_default();
+        self.states
+            .iter()
+            .filter(|s| s.revision >= min_revision)
+            .map(|s| s.revision)
+            .collect()
     }
 }
 
@@ -121,7 +179,7 @@ impl EventualHistory {
 }
 
 impl History for EventualHistory {
-    fn add_change(&mut self, change: Change) -> Revision {
+    fn add_change(&mut self, change: Change, _from: usize) -> Revision {
         let mut state = self.states.last().unwrap().clone();
         state.apply_change(&change);
         self.states.push(state);
@@ -136,7 +194,7 @@ impl History for EventualHistory {
         &self.states[revision.0]
     }
 
-    fn valid_revisions(&self, _session: Revision) -> Vec<Revision> {
+    fn valid_revisions(&self, _from: usize) -> Vec<Revision> {
         self.states.iter().map(|s| s.revision).collect()
     }
 }
@@ -145,6 +203,7 @@ impl History for EventualHistory {
 pub enum ChangeHistory {
     Strong(StrongHistory),
     Bounded(BoundedHistory),
+    Session(SessionHistory),
     Eventual(EventualHistory),
 }
 
@@ -161,16 +220,17 @@ impl ChangeHistory {
             ReadConsistencyLevel::BoundedStaleness(k) => {
                 Self::Bounded(BoundedHistory::new(initial_state, k))
             }
-            ReadConsistencyLevel::Session => todo!(),
+            ReadConsistencyLevel::Session => Self::Session(SessionHistory::new(initial_state)),
             ReadConsistencyLevel::Eventual => Self::Eventual(EventualHistory::new(initial_state)),
         }
     }
 
-    fn add_change(&mut self, change: Change) -> Revision {
+    fn add_change(&mut self, change: Change, from: usize) -> Revision {
         match self {
-            ChangeHistory::Strong(s) => s.add_change(change),
-            ChangeHistory::Bounded(s) => s.add_change(change),
-            ChangeHistory::Eventual(s) => s.add_change(change),
+            ChangeHistory::Strong(s) => s.add_change(change, from),
+            ChangeHistory::Bounded(s) => s.add_change(change, from),
+            ChangeHistory::Session(s) => s.add_change(change, from),
+            ChangeHistory::Eventual(s) => s.add_change(change, from),
         }
     }
 
@@ -178,6 +238,7 @@ impl ChangeHistory {
         match self {
             ChangeHistory::Strong(s) => s.max_revision(),
             ChangeHistory::Bounded(s) => s.max_revision(),
+            ChangeHistory::Session(s) => s.max_revision(),
             ChangeHistory::Eventual(s) => s.max_revision(),
         }
     }
@@ -186,15 +247,17 @@ impl ChangeHistory {
         match self {
             ChangeHistory::Strong(s) => s.state_at(revision),
             ChangeHistory::Bounded(s) => s.state_at(revision),
+            ChangeHistory::Session(s) => s.state_at(revision),
             ChangeHistory::Eventual(s) => s.state_at(revision),
         }
     }
 
-    fn states_for(&self, session: Revision) -> Vec<&StateView> {
+    fn states_for(&self, from: usize) -> Vec<&StateView> {
         match self {
-            ChangeHistory::Strong(s) => s.states_for(session),
-            ChangeHistory::Bounded(s) => s.states_for(session),
-            ChangeHistory::Eventual(s) => s.states_for(session),
+            ChangeHistory::Strong(s) => s.states_for(from),
+            ChangeHistory::Bounded(s) => s.states_for(from),
+            ChangeHistory::Session(s) => s.states_for(from),
+            ChangeHistory::Eventual(s) => s.states_for(from),
         }
     }
 }
@@ -207,13 +270,11 @@ pub struct Revision(usize);
 pub struct State {
     /// The changes that have been made to the state.
     changes: ChangeHistory,
-    sessions: BTreeMap<usize, Revision>,
 }
 
 impl std::fmt::Debug for State {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("State")
-            .field("sessions", &self.sessions)
             .field("changes", &self.changes)
             .finish()
     }
@@ -223,14 +284,12 @@ impl State {
     pub fn new(initial_state: StateView, consistency_level: ReadConsistencyLevel) -> Self {
         Self {
             changes: ChangeHistory::new(consistency_level, initial_state),
-            sessions: Default::default(),
         }
     }
 
     /// Record a change for this state from a given controller.
     pub fn push_change(&mut self, change: Change, from: usize) -> Revision {
-        let rev = self.changes.add_change(change);
-        self.sessions.insert(from, rev);
+        let rev = self.changes.add_change(change, from);
         rev
     }
 
@@ -253,9 +312,8 @@ impl State {
     }
 
     /// Get all the possible views under the given consistency level.
-    pub fn views(&self, from: &usize) -> Vec<&StateView> {
-        self.changes
-            .states_for(self.sessions.get(from).copied().unwrap_or_default())
+    pub fn views(&self, from: usize) -> Vec<&StateView> {
+        self.changes.states_for(from)
     }
 }
 

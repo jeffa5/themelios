@@ -43,7 +43,7 @@ impl Actor for Datastore {
 
                     let all_ids = node_ids.chain(controller_ids).collect::<Vec<_>>();
                     for id in &all_ids {
-                        for view in state.views(id) {
+                        for view in state.views(*id) {
                             o.send(Id::from(*id), Message::StateUpdate(view.clone()));
                         }
                     }
