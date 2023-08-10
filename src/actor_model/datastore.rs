@@ -20,9 +20,7 @@ impl Actor for Datastore {
         _id: stateright::actor::Id,
         _o: &mut stateright::actor::Out<Self>,
     ) -> Self::State {
-        State::default()
-            .with_initial(self.initial_state.clone())
-            .with_consistency_level(ReadConsistencyLevel::Strong)
+        State::new(self.initial_state.clone(), ReadConsistencyLevel::Strong)
     }
 
     fn on_msg(

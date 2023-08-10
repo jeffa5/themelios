@@ -16,67 +16,156 @@ pub enum ReadConsistencyLevel {
     Eventual,
 }
 
-#[derive(Default, Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub struct Revision(usize);
+pub trait History {
+    fn add_change(&mut self, change: Change) -> Revision;
 
-#[derive(Default, Debug, Clone, PartialEq, Eq, Hash)]
-// TODO: rework this history to be based on a DAG of changes or a linear history, depending on
-// config.
-pub struct ChangeHistory {
-    changes: Vec<Change>,
-    states: Vec<StateView>,
-    initial_state: StateView,
+    fn max_revision(&self) -> Revision;
+
+    fn state_at(&self, revision: Revision) -> &StateView;
+
+    fn valid_revisions(&self, session: Revision) -> Vec<Revision>;
+
+    fn states_for(&self, session: Revision) -> Vec<&StateView> {
+        let revisions = self.valid_revisions(session);
+        revisions.into_iter().map(|r| self.state_at(r)).collect()
+    }
 }
 
-impl ChangeHistory {
-    pub fn is_empty(&self) -> bool {
-        self.changes.is_empty()
-    }
+#[derive(Default, Clone, PartialEq, Eq, Hash, Debug)]
+pub struct StrongHistory {
+    state: StateView,
+}
 
-    pub fn get_state(&self, revision: Revision) -> &StateView {
-        &self.states.get(revision.0).unwrap_or(&self.initial_state)
-    }
-
-    pub fn max_revision(&self) -> Revision {
-        Revision(self.changes.len())
-    }
-
-    pub fn add(&mut self, change: Change) -> Revision {
-        let mut state = self.states.last().unwrap_or(&self.initial_state).clone();
-        state.apply_change(&change);
-        self.changes.push(change);
-        self.states.push(state);
-        self.max_revision()
-    }
-
-    pub fn valid_revisions(
-        &self,
-        consistency_level: ReadConsistencyLevel,
-        session: Revision,
-    ) -> Vec<Revision> {
-        match consistency_level {
-            ReadConsistencyLevel::Strong => vec![self.max_revision()],
-            ReadConsistencyLevel::BoundedStaleness(k) => {
-                let max = self.max_revision().0;
-                (max.saturating_sub(k)..=max).map(Revision).collect()
-            }
-            ReadConsistencyLevel::Session => {
-                let max = self.max_revision().0;
-                (session.0..=max).map(Revision).collect()
-            }
-            ReadConsistencyLevel::Eventual => {
-                let max = self.max_revision().0;
-                (0..=max).map(Revision).collect()
-            }
+impl StrongHistory {
+    fn new(initial_state: StateView) -> Self {
+        Self {
+            state: initial_state,
         }
     }
 }
 
+impl History for StrongHistory {
+    fn add_change(&mut self, change: Change) -> Revision {
+        self.state.apply_change(&change);
+        self.max_revision()
+    }
+
+    fn max_revision(&self) -> Revision {
+        self.state.revision
+    }
+
+    fn state_at(&self, revision: Revision) -> &StateView {
+        assert_eq!(revision, self.state.revision);
+        &self.state
+    }
+
+    fn valid_revisions(&self, _session: Revision) -> Vec<Revision> {
+        vec![self.state.revision]
+    }
+}
+
+#[derive(Clone, PartialEq, Eq, Hash, Debug)]
+pub struct BoundedHistory {
+    k: usize,
+    last_k_states: Vec<StateView>,
+}
+
+impl BoundedHistory {
+    fn new(initial_state: StateView, k: usize) -> Self {
+        Self {
+            k,
+            last_k_states: vec![initial_state],
+        }
+    }
+}
+
+impl History for BoundedHistory {
+    fn add_change(&mut self, change: Change) -> Revision {
+        let mut state = self.last_k_states.last().unwrap().clone();
+        state.apply_change(&change);
+        if self.last_k_states.len() > self.k {
+            self.last_k_states.remove(0);
+        }
+        self.last_k_states.push(state);
+        self.max_revision()
+    }
+
+    fn max_revision(&self) -> Revision {
+        self.last_k_states.last().unwrap().revision
+    }
+
+    fn state_at(&self, revision: Revision) -> &StateView {
+        let index = self
+            .last_k_states
+            .binary_search_by_key(&revision, |s| s.revision)
+            .unwrap();
+        &self.last_k_states[index]
+    }
+
+    fn valid_revisions(&self, _session: Revision) -> Vec<Revision> {
+        self.last_k_states.iter().map(|s| s.revision).collect()
+    }
+}
+
+#[derive(Clone, PartialEq, Eq, Hash, Debug)]
+pub enum ChangeHistory {
+    Strong(StrongHistory),
+    Bounded(BoundedHistory),
+}
+
+impl Default for ChangeHistory {
+    fn default() -> Self {
+        Self::Strong(StrongHistory::default())
+    }
+}
+
+impl ChangeHistory {
+    fn new(consistency_level: ReadConsistencyLevel, initial_state: StateView) -> Self {
+        match consistency_level {
+            ReadConsistencyLevel::Strong => Self::Strong(StrongHistory::new(initial_state)),
+            ReadConsistencyLevel::BoundedStaleness(k) => {
+                Self::Bounded(BoundedHistory::new(initial_state, k))
+            }
+            ReadConsistencyLevel::Session => todo!(),
+            ReadConsistencyLevel::Eventual => todo!(),
+        }
+    }
+
+    fn add_change(&mut self, change: Change) -> Revision {
+        match self {
+            ChangeHistory::Strong(s) => s.add_change(change),
+            ChangeHistory::Bounded(s) => s.add_change(change),
+        }
+    }
+
+    fn max_revision(&self) -> Revision {
+        match self {
+            ChangeHistory::Strong(s) => s.max_revision(),
+            ChangeHistory::Bounded(s) => s.max_revision(),
+        }
+    }
+
+    fn state_at(&self, revision: Revision) -> &StateView {
+        match self {
+            ChangeHistory::Strong(s) => s.state_at(revision),
+            ChangeHistory::Bounded(s) => s.state_at(revision),
+        }
+    }
+
+    fn states_for(&self, session: Revision) -> Vec<&StateView> {
+        match self {
+            ChangeHistory::Strong(s) => s.states_for(session),
+            ChangeHistory::Bounded(s) => s.states_for(session),
+        }
+    }
+}
+
+#[derive(Default, Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct Revision(usize);
+
 /// The history of the state, enabling generating views for different historical versions.
 #[derive(Default, Clone, PartialEq, Eq, Hash)]
 pub struct State {
-    /// Consistency level for this state.
-    consistency_level: ReadConsistencyLevel,
     /// The changes that have been made to the state.
     changes: ChangeHistory,
     sessions: BTreeMap<usize, Revision>,
@@ -84,40 +173,24 @@ pub struct State {
 
 impl std::fmt::Debug for State {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let views = self.all_views();
         f.debug_struct("State")
-            .field("consistency_level", &self.consistency_level)
             .field("sessions", &self.sessions)
             .field("changes", &self.changes)
-            .field("views", &views)
             .finish()
     }
 }
 
 impl State {
-    pub fn with_initial(mut self, initial: StateView) -> Self {
-        self.set_initial(initial);
-        self
-    }
-
-    pub fn set_initial(&mut self, initial: StateView) -> &mut Self {
-        self.changes.initial_state = initial;
-        self
-    }
-
-    pub fn with_consistency_level(mut self, consistency_level: ReadConsistencyLevel) -> Self {
-        self.set_consistency_level(consistency_level);
-        self
-    }
-
-    pub fn set_consistency_level(&mut self, consistency_level: ReadConsistencyLevel) -> &mut Self {
-        self.consistency_level = consistency_level;
-        self
+    pub fn new(initial_state: StateView, consistency_level: ReadConsistencyLevel) -> Self {
+        Self {
+            changes: ChangeHistory::new(consistency_level, initial_state),
+            sessions: Default::default(),
+        }
     }
 
     /// Record a change for this state from a given controller.
     pub fn push_change(&mut self, change: Change, from: usize) -> Revision {
-        let rev = self.changes.add(change);
+        let rev = self.changes.add_change(change);
         self.sessions.insert(from, rev);
         rev
     }
@@ -130,10 +203,6 @@ impl State {
         self.max_revision()
     }
 
-    pub fn view_for(&self, revision: Revision) -> &StateView {
-        self.changes.get_state(revision)
-    }
-
     /// Get the maximum revision for this change.
     pub fn max_revision(&self) -> Revision {
         self.changes.max_revision()
@@ -141,20 +210,13 @@ impl State {
 
     /// Get a view for a specific revision in the change history.
     pub fn view_at(&self, revision: Revision) -> &StateView {
-        self.view_for(revision)
+        self.changes.state_at(revision)
     }
 
     /// Get all the possible views under the given consistency level.
     pub fn views(&self, from: &usize) -> Vec<&StateView> {
-        let revisions = self.changes.valid_revisions(
-            self.consistency_level.clone(),
-            self.sessions.get(from).copied().unwrap_or_default(),
-        );
-        revisions.into_iter().map(|r| self.view_at(r)).collect()
-    }
-
-    fn all_views(&self) -> BTreeSet<&StateView> {
-        self.sessions.keys().flat_map(|s| self.views(s)).collect()
+        self.changes
+            .states_for(self.sessions.get(from).copied().unwrap_or_default())
     }
 }
 
