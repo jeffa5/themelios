@@ -200,20 +200,20 @@ impl History for EventualHistory {
 }
 
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
-pub enum ChangeHistory {
+pub enum StateHistory {
     Strong(StrongHistory),
     Bounded(BoundedHistory),
     Session(SessionHistory),
     Eventual(EventualHistory),
 }
 
-impl Default for ChangeHistory {
+impl Default for StateHistory {
     fn default() -> Self {
         Self::Strong(StrongHistory::default())
     }
 }
 
-impl ChangeHistory {
+impl StateHistory {
     fn new(consistency_level: ReadConsistencyLevel, initial_state: StateView) -> Self {
         match consistency_level {
             ReadConsistencyLevel::Strong => Self::Strong(StrongHistory::new(initial_state)),
@@ -227,37 +227,37 @@ impl ChangeHistory {
 
     fn add_change(&mut self, change: Change, from: usize) -> Revision {
         match self {
-            ChangeHistory::Strong(s) => s.add_change(change, from),
-            ChangeHistory::Bounded(s) => s.add_change(change, from),
-            ChangeHistory::Session(s) => s.add_change(change, from),
-            ChangeHistory::Eventual(s) => s.add_change(change, from),
+            StateHistory::Strong(s) => s.add_change(change, from),
+            StateHistory::Bounded(s) => s.add_change(change, from),
+            StateHistory::Session(s) => s.add_change(change, from),
+            StateHistory::Eventual(s) => s.add_change(change, from),
         }
     }
 
     fn max_revision(&self) -> Revision {
         match self {
-            ChangeHistory::Strong(s) => s.max_revision(),
-            ChangeHistory::Bounded(s) => s.max_revision(),
-            ChangeHistory::Session(s) => s.max_revision(),
-            ChangeHistory::Eventual(s) => s.max_revision(),
+            StateHistory::Strong(s) => s.max_revision(),
+            StateHistory::Bounded(s) => s.max_revision(),
+            StateHistory::Session(s) => s.max_revision(),
+            StateHistory::Eventual(s) => s.max_revision(),
         }
     }
 
     fn state_at(&self, revision: Revision) -> &StateView {
         match self {
-            ChangeHistory::Strong(s) => s.state_at(revision),
-            ChangeHistory::Bounded(s) => s.state_at(revision),
-            ChangeHistory::Session(s) => s.state_at(revision),
-            ChangeHistory::Eventual(s) => s.state_at(revision),
+            StateHistory::Strong(s) => s.state_at(revision),
+            StateHistory::Bounded(s) => s.state_at(revision),
+            StateHistory::Session(s) => s.state_at(revision),
+            StateHistory::Eventual(s) => s.state_at(revision),
         }
     }
 
     fn states_for(&self, from: usize) -> Vec<&StateView> {
         match self {
-            ChangeHistory::Strong(s) => s.states_for(from),
-            ChangeHistory::Bounded(s) => s.states_for(from),
-            ChangeHistory::Session(s) => s.states_for(from),
-            ChangeHistory::Eventual(s) => s.states_for(from),
+            StateHistory::Strong(s) => s.states_for(from),
+            StateHistory::Bounded(s) => s.states_for(from),
+            StateHistory::Session(s) => s.states_for(from),
+            StateHistory::Eventual(s) => s.states_for(from),
         }
     }
 }
@@ -269,13 +269,13 @@ pub struct Revision(usize);
 #[derive(Default, Clone, PartialEq, Eq, Hash)]
 pub struct State {
     /// The changes that have been made to the state.
-    changes: ChangeHistory,
+    states: StateHistory,
 }
 
 impl std::fmt::Debug for State {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("State")
-            .field("changes", &self.changes)
+            .field("changes", &self.states)
             .finish()
     }
 }
@@ -283,13 +283,13 @@ impl std::fmt::Debug for State {
 impl State {
     pub fn new(initial_state: StateView, consistency_level: ReadConsistencyLevel) -> Self {
         Self {
-            changes: ChangeHistory::new(consistency_level, initial_state),
+            states: StateHistory::new(consistency_level, initial_state),
         }
     }
 
     /// Record a change for this state from a given controller.
     pub fn push_change(&mut self, change: Change, from: usize) -> Revision {
-        let rev = self.changes.add_change(change, from);
+        let rev = self.states.add_change(change, from);
         rev
     }
 
@@ -303,17 +303,17 @@ impl State {
 
     /// Get the maximum revision for this change.
     pub fn max_revision(&self) -> Revision {
-        self.changes.max_revision()
+        self.states.max_revision()
     }
 
     /// Get a view for a specific revision in the change history.
     pub fn view_at(&self, revision: Revision) -> &StateView {
-        self.changes.state_at(revision)
+        self.states.state_at(revision)
     }
 
     /// Get all the possible views under the given consistency level.
     pub fn views(&self, from: usize) -> Vec<&StateView> {
-        self.changes.states_for(from)
+        self.states.states_for(from)
     }
 }
 
