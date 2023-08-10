@@ -108,9 +108,44 @@ impl History for BoundedHistory {
 }
 
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
+pub struct EventualHistory {
+    states: Vec<StateView>,
+}
+
+impl EventualHistory {
+    fn new(initial_state: StateView) -> Self {
+        Self {
+            states: vec![initial_state],
+        }
+    }
+}
+
+impl History for EventualHistory {
+    fn add_change(&mut self, change: Change) -> Revision {
+        let mut state = self.states.last().unwrap().clone();
+        state.apply_change(&change);
+        self.states.push(state);
+        self.max_revision()
+    }
+
+    fn max_revision(&self) -> Revision {
+        self.states.last().unwrap().revision
+    }
+
+    fn state_at(&self, revision: Revision) -> &StateView {
+        &self.states[revision.0]
+    }
+
+    fn valid_revisions(&self, _session: Revision) -> Vec<Revision> {
+        self.states.iter().map(|s| s.revision).collect()
+    }
+}
+
+#[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub enum ChangeHistory {
     Strong(StrongHistory),
     Bounded(BoundedHistory),
+    Eventual(EventualHistory),
 }
 
 impl Default for ChangeHistory {
@@ -127,7 +162,7 @@ impl ChangeHistory {
                 Self::Bounded(BoundedHistory::new(initial_state, k))
             }
             ReadConsistencyLevel::Session => todo!(),
-            ReadConsistencyLevel::Eventual => todo!(),
+            ReadConsistencyLevel::Eventual => Self::Eventual(EventualHistory::new(initial_state)),
         }
     }
 
@@ -135,6 +170,7 @@ impl ChangeHistory {
         match self {
             ChangeHistory::Strong(s) => s.add_change(change),
             ChangeHistory::Bounded(s) => s.add_change(change),
+            ChangeHistory::Eventual(s) => s.add_change(change),
         }
     }
 
@@ -142,6 +178,7 @@ impl ChangeHistory {
         match self {
             ChangeHistory::Strong(s) => s.max_revision(),
             ChangeHistory::Bounded(s) => s.max_revision(),
+            ChangeHistory::Eventual(s) => s.max_revision(),
         }
     }
 
@@ -149,6 +186,7 @@ impl ChangeHistory {
         match self {
             ChangeHistory::Strong(s) => s.state_at(revision),
             ChangeHistory::Bounded(s) => s.state_at(revision),
+            ChangeHistory::Eventual(s) => s.state_at(revision),
         }
     }
 
@@ -156,6 +194,7 @@ impl ChangeHistory {
         match self {
             ChangeHistory::Strong(s) => s.states_for(session),
             ChangeHistory::Bounded(s) => s.states_for(session),
+            ChangeHistory::Eventual(s) => s.states_for(session),
         }
     }
 }
