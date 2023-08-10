@@ -309,8 +309,12 @@ impl State {
     }
 }
 
-#[derive(Default, Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(derivative::Derivative)]
+#[derivative(PartialEq, Hash)]
+#[derive(Default, Clone, Debug, Eq, PartialOrd, Ord)]
 pub struct StateView {
+    // Ignore the revision field as we just care whether the rest of the state is the same.
+    #[derivative(PartialEq = "ignore", Hash = "ignore")]
     pub revision: Revision,
     pub nodes: BTreeMap<usize, NodeResource>,
     /// Set of the controllers that have joined the cluster.
