@@ -1,7 +1,7 @@
 use stateright::{Model, Property};
 
 use crate::controller::{Controller, Controllers};
-use crate::state::{ReadConsistencyLevel, Revision, State, StateView};
+use crate::state::{ReadConsistencyLevel, ResourceQuantities, Revision, State, StateView};
 
 #[derive(Debug)]
 pub struct AbstractModelCfg {
@@ -24,7 +24,7 @@ pub struct Change {
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum Operation {
-    NodeJoin(usize),
+    NodeJoin(usize, ResourceQuantities),
     ControllerJoin(usize),
     NewPod(String),
     NewReplicaset(String),

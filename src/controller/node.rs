@@ -1,6 +1,6 @@
 use crate::abstract_model::Operation;
 use crate::controller::Controller;
-use crate::state::StateView;
+use crate::state::{ResourceQuantities, StateView};
 
 #[derive(Clone, Debug)]
 pub struct Node;
@@ -21,7 +21,13 @@ impl Controller for Node {
                 }
             }
         } else {
-            actions.push(Operation::NodeJoin(id));
+            actions.push(Operation::NodeJoin(
+                id,
+                ResourceQuantities {
+                    cpu_cores: Some(4),
+                    memory_mb: Some(4000),
+                },
+            ));
         }
         actions
     }

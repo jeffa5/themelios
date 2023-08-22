@@ -395,12 +395,13 @@ impl StateView {
 
     pub fn apply_change(&mut self, change: &Change) {
         match &change.operation {
-            Operation::NodeJoin(i) => {
+            Operation::NodeJoin(i, capacity) => {
                 self.nodes.insert(
                     *i,
                     NodeResource {
                         running: BTreeSet::new(),
                         ready: true,
+                        capacity: capacity.clone(),
                     },
                 );
             }
@@ -518,4 +519,6 @@ impl StatefulSetResource {
 pub struct NodeResource {
     pub running: BTreeSet<String>,
     pub ready: bool,
+    /// The total resources of the node.
+    pub capacity: ResourceQuantities,
 }
