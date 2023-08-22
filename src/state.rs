@@ -413,6 +413,7 @@ impl StateView {
                     PodResource {
                         id: i.clone(),
                         node_name: None,
+                        resources: None,
                     },
                 );
             }
@@ -451,6 +452,26 @@ impl StateView {
 pub struct PodResource {
     pub id: String,
     pub node_name: Option<usize>,
+    /// The resources that the pod will use
+    /// This is a simplification, really this should be per container in the pod, but that doesn't
+    /// impact things really.
+    pub resources: Option<ResourceRequirements>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct ResourceRequirements {
+    /// What a pod/container is guaranteed to have (minimums).
+    pub requests: Option<ResourceQuantities>,
+    /// What a pod/container cannot use more than (maximums).
+    pub limits: Option<ResourceQuantities>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct ResourceQuantities {
+    /// Number of cpu cores.
+    pub cpu_cores: Option<u32>,
+    /// Amount of memory (in megabytes).
+    pub memory_mb: Option<u32>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]

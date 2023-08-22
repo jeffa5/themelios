@@ -34,6 +34,7 @@ fn main() {
         .with_pods((0..opts.initial_pods).map(|i| PodResource {
             id: format!("pod-{i}"),
             node_name: None,
+            resources: None,
         }))
         .with_replicasets((1..=opts.replicasets).map(|i| ReplicaSetResource {
             id: format!("rep-{i}"),
