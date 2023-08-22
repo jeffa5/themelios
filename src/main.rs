@@ -4,6 +4,8 @@ use model_checked_orchestration::state::DeploymentResource;
 use model_checked_orchestration::state::PodResource;
 use model_checked_orchestration::state::ReadConsistencyLevel;
 use model_checked_orchestration::state::ReplicaSetResource;
+use model_checked_orchestration::state::ResourceQuantities;
+use model_checked_orchestration::state::ResourceRequirements;
 use model_checked_orchestration::state::StateView;
 use model_checked_orchestration::state::StatefulSetResource;
 use report::Reporter;
@@ -34,7 +36,13 @@ fn main() {
         .with_pods((0..opts.initial_pods).map(|i| PodResource {
             id: format!("pod-{i}"),
             node_name: None,
-            resources: None,
+            resources: Some(ResourceRequirements {
+                requests: Some(ResourceQuantities {
+                    cpu_cores: Some(2),
+                    memory_mb: Some(3000),
+                }),
+                limits: None,
+            }),
         }))
         .with_replicasets((1..=opts.replicasets).map(|i| ReplicaSetResource {
             id: format!("rep-{i}"),

@@ -1,4 +1,7 @@
-use std::collections::{BTreeMap, BTreeSet};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    ops::{Sub, SubAssign},
+};
 
 use crate::abstract_model::{Change, Operation};
 
@@ -467,12 +470,37 @@ pub struct ResourceRequirements {
     pub limits: Option<ResourceQuantities>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct ResourceQuantities {
     /// Number of cpu cores.
     pub cpu_cores: Option<u32>,
     /// Amount of memory (in megabytes).
     pub memory_mb: Option<u32>,
+}
+
+impl Sub for ResourceQuantities {
+    type Output = Self;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        Self {
+            cpu_cores: Some(
+                self.cpu_cores
+                    .unwrap_or_default()
+                    .saturating_sub(rhs.cpu_cores.unwrap_or_default()),
+            ),
+            memory_mb: Some(
+                self.memory_mb
+                    .unwrap_or_default()
+                    .saturating_sub(rhs.memory_mb.unwrap_or_default()),
+            ),
+        }
+    }
+}
+
+impl SubAssign for ResourceQuantities {
+    fn sub_assign(&mut self, rhs: Self) {
+        *self = self.clone() - rhs;
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]

@@ -21,9 +21,27 @@ impl Controller for Scheduler {
             for pod in state.pods.values() {
                 // find a pod that needs scheduling
                 if pod.node_name.is_none() {
+                    let requests = pod
+                        .resources
+                        .as_ref()
+                        .and_then(|r| r.requests.as_ref())
+                        .cloned()
+                        .unwrap_or_default();
                     // try to find a node suitable
-                    if let Some((node, _)) = nodes.first() {
-                        return Some(Operation::SchedulePod(pod.id.clone(), *node));
+                    for (n, node) in &nodes {
+                        let mut remaining_capacity = node.capacity.clone();
+                        for running_pod in &node.running {
+                            if let Some(running_pod) = state.pods.get(running_pod) {
+                                if let Some(resources) = &running_pod.resources {
+                                    if let Some(requests) = &resources.requests {
+                                        remaining_capacity -= requests.clone();
+                                    }
+                                }
+                            }
+                        }
+                        if remaining_capacity >= requests {
+                            return Some(Operation::SchedulePod(pod.id.clone(), *n));
+                        }
                     }
                 }
             }
