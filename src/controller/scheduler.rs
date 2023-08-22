@@ -13,7 +13,7 @@ impl Controller for Scheduler {
             let mut nodes = state
                 .nodes
                 .iter()
-                .map(|(k, v)| (k.clone(), v.clone()))
+                .map(|(k, v)| (k, v.clone()))
                 .collect::<Vec<_>>();
             // TODO: sort nodes by load
             nodes.sort_by_key(|(_, node)| node.running.len());
@@ -40,7 +40,7 @@ impl Controller for Scheduler {
                             }
                         }
                         if remaining_capacity >= requests {
-                            return Some(Operation::SchedulePod(pod.id.clone(), *n));
+                            return Some(Operation::SchedulePod(pod.id.clone(), **n));
                         }
                     }
                 }

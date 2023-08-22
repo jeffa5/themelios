@@ -284,8 +284,7 @@ impl State {
 
     /// Record a change for this state from a given controller.
     pub fn push_change(&mut self, change: Change, from: usize) -> Revision {
-        let rev = self.states.add_change(change, from);
-        rev
+        self.states.add_change(change, from)
     }
 
     /// Record changes for this state.
