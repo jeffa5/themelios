@@ -5,20 +5,19 @@ use crate::{abstract_model::Operation, state::StateView};
 pub struct StatefulSet;
 
 impl Controller for StatefulSet {
-    fn step(&self, id: usize, state: &StateView) -> Vec<Operation> {
-        let mut actions = Vec::new();
+    fn step(&self, id: usize, state: &StateView) -> Option<Operation> {
         if !state.controllers.contains(&id) {
-            actions.push(Operation::ControllerJoin(id));
+            return Some(Operation::ControllerJoin(id));
         } else {
             for statefulset in state.statefulsets.values() {
                 for pod in statefulset.pods() {
                     if !state.pods.contains_key(&pod) {
-                        actions.push(Operation::NewPod(pod));
+                        return Some(Operation::NewPod(pod));
                     }
                 }
             }
         }
-        actions
+        None
     }
 
     fn name(&self) -> String {

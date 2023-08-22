@@ -6,10 +6,9 @@ use crate::state::StateView;
 pub struct Scheduler;
 
 impl Controller for Scheduler {
-    fn step(&self, id: usize, state: &StateView) -> Vec<Operation> {
-        let mut actions = Vec::new();
+    fn step(&self, id: usize, state: &StateView) -> Option<Operation> {
         if !state.controllers.contains(&id) {
-            actions.push(Operation::ControllerJoin(id))
+            return Some(Operation::ControllerJoin(id));
         } else {
             let mut nodes = state
                 .nodes
@@ -24,13 +23,12 @@ impl Controller for Scheduler {
                 if pod.node_name.is_none() {
                     // try to find a node suitable
                     if let Some((node, _)) = nodes.first() {
-                        actions.push(Operation::SchedulePod(pod.id.clone(), *node));
-                        break;
+                        return Some(Operation::SchedulePod(pod.id.clone(), *node));
                     }
                 }
             }
         }
-        actions
+        None
     }
 
     fn name(&self) -> String {

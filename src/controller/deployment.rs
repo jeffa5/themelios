@@ -6,20 +6,19 @@ use super::Controller;
 pub struct Deployment;
 
 impl Controller for Deployment {
-    fn step(&self, id: usize, state: &StateView) -> Vec<Operation> {
-        let mut actions = Vec::new();
+    fn step(&self, id: usize, state: &StateView) -> Option<Operation> {
         if !state.controllers.contains(&id) {
-            actions.push(Operation::ControllerJoin(id));
+            return Some(Operation::ControllerJoin(id));
         } else {
             for deployment in state.deployments.values() {
                 for replicaset in deployment.replicasets() {
                     if !state.replica_sets.contains_key(&replicaset) {
-                        actions.push(Operation::NewReplicaset(replicaset));
+                        return Some(Operation::NewReplicaset(replicaset));
                     }
                 }
             }
         }
-        actions
+        None
     }
 
     fn name(&self) -> String {

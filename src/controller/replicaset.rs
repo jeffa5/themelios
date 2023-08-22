@@ -6,20 +6,19 @@ use crate::state::StateView;
 pub struct ReplicaSet;
 
 impl Controller for ReplicaSet {
-    fn step(&self, id: usize, state: &StateView) -> Vec<Operation> {
-        let mut actions = Vec::new();
+    fn step(&self, id: usize, state: &StateView) -> Option<Operation> {
         if !state.controllers.contains(&id) {
-            actions.push(Operation::ControllerJoin(id))
+            return Some(Operation::ControllerJoin(id));
         } else {
             for replicaset in state.replica_sets.values() {
                 for pod in replicaset.pods() {
                     if !state.pods.contains_key(&pod) {
-                        actions.push(Operation::NewPod(pod));
+                        return Some(Operation::NewPod(pod));
                     }
                 }
             }
         }
-        actions
+        None
     }
 
     fn name(&self) -> String {

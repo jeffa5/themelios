@@ -15,7 +15,7 @@ mod statefulset;
 
 pub trait Controller {
     /// Take a step, generating changes, based on the current view of the state.
-    fn step(&self, id: usize, state: &StateView) -> Vec<Operation>;
+    fn step(&self, id: usize, state: &StateView) -> Option<Operation>;
 
     /// Name of this controller.
     fn name(&self) -> String;
@@ -31,7 +31,7 @@ pub enum Controllers {
 }
 
 impl Controller for Controllers {
-    fn step(&self, id: usize, state: &StateView) -> Vec<Operation> {
+    fn step(&self, id: usize, state: &StateView) -> Option<Operation> {
         match self {
             Controllers::Node(c) => c.step(id, state),
             Controllers::Scheduler(c) => c.step(id, state),
