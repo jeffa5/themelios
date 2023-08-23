@@ -471,8 +471,14 @@ impl StateHistory {
     }
 }
 
-#[derive(Default, Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct Revision(Vec<usize>);
+
+impl Default for Revision {
+    fn default() -> Self {
+        Self(vec![0])
+    }
+}
 
 impl Revision {
     fn increment(mut self) -> Self {
