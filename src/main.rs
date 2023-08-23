@@ -65,6 +65,8 @@ fn main() {
         ConsistencySetup::Eventual
     } else if opts.optimistic_linear {
         ConsistencySetup::OptimisticLinear
+    } else if opts.causal {
+        ConsistencySetup::Causal
     } else {
         // default to strong
         ConsistencySetup::Strong
