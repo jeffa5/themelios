@@ -65,6 +65,10 @@ pub struct Opts {
     /// Model eventual consistency for the state.
     #[clap(long, global = true)]
     pub eventual: bool,
+
+    /// Model optimistic linear consistency for the state.
+    #[clap(long, global = true)]
+    pub optimistic_linear: bool,
 }
 
 #[derive(clap::Subcommand, Debug)]

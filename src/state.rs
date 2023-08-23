@@ -9,16 +9,28 @@ use crate::{
 
 /// Consistency level for viewing the state with.
 #[derive(Default, Clone, Debug, PartialEq, Eq, Hash)]
-pub enum ReadConsistencyLevel {
+pub enum ConsistencySetup {
     /// Always work off the latest state.
+    /// Linearizable reads.
+    /// Linearizable writes.
     #[default]
     Strong,
     /// Work off a state that is close to the latest, bounded by the `k`.
+    /// Bounded staleness on reads.
+    /// Linearizable writes.
     BoundedStaleness(usize),
     /// Work off a state that derives from the last one seen.
+    /// Session consistency on reads.
+    /// Linearizable writes.
     Session,
     /// Work off any historical state.
+    /// Eventually consistent reads.
+    /// Linearizable writes.
     Eventual,
+    /// Optimistically apply changes without guarantee that they are committed.
+    /// Optimistic reads.
+    /// Optimistic writes.
+    OptimisticLinear,
 }
 
 pub trait History {
@@ -205,11 +217,79 @@ impl History for EventualHistory {
 }
 
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
+pub struct OptimisticLinearHistory {
+    states: Vec<StateView>,
+}
+
+impl OptimisticLinearHistory {
+    fn new(initial_state: StateView) -> Self {
+        Self {
+            states: vec![initial_state],
+        }
+    }
+}
+
+impl History for OptimisticLinearHistory {
+    fn add_change(&mut self, change: Change, _from: usize) -> Revision {
+        // find the state for the revision that the change operated on, we'll treat this as the
+        // committed one if they didn't operate on the latest (optimistic)
+        let index = self
+            .states
+            .binary_search_by_key(&change.revision, |s| s.revision)
+            .unwrap();
+        let mut state_to_mutate = self.states[index].clone();
+        state_to_mutate.apply_change(&change);
+
+        if index + 1 == self.states.len() {
+            // this was a mutation on the optimistic state
+            // just extend the current states
+            self.states.push(state_to_mutate);
+        } else {
+            // this was a mutation on a committed state (leader changed)
+            // Discard all states before and after this one
+            let committed_state = self.states.swap_remove(index);
+            self.states.clear();
+            self.states.push(committed_state);
+            self.states.push(state_to_mutate);
+        }
+
+        self.max_revision()
+    }
+
+    fn max_revision(&self) -> Revision {
+        self.states.last().unwrap().revision
+    }
+
+    fn state_at(&self, revision: Revision) -> &StateView {
+        let index = self
+            .states
+            .binary_search_by_key(&revision, |s| s.revision)
+            .unwrap();
+        &self.states[index]
+    }
+
+    fn valid_revisions(&self, _from: usize) -> Vec<Revision> {
+        self.states.iter().map(|s| s.revision).collect()
+    }
+}
+
+#[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub enum StateHistory {
+    /// Linearizable reads.
+    /// Linearizable writes.
     Strong(StrongHistory),
+    /// Bounded staleness on reads.
+    /// Linearizable writes.
     Bounded(BoundedHistory),
+    /// Session consistency on reads.
+    /// Linearizable writes.
     Session(SessionHistory),
+    /// Eventually consistent reads.
+    /// Linearizable writes.
     Eventual(EventualHistory),
+    /// Optimistic reads.
+    /// Optimistic writes.
+    OptimisticLinear(OptimisticLinearHistory),
 }
 
 impl Default for StateHistory {
@@ -219,14 +299,17 @@ impl Default for StateHistory {
 }
 
 impl StateHistory {
-    fn new(consistency_level: ReadConsistencyLevel, initial_state: StateView) -> Self {
+    fn new(consistency_level: ConsistencySetup, initial_state: StateView) -> Self {
         match consistency_level {
-            ReadConsistencyLevel::Strong => Self::Strong(StrongHistory::new(initial_state)),
-            ReadConsistencyLevel::BoundedStaleness(k) => {
+            ConsistencySetup::Strong => Self::Strong(StrongHistory::new(initial_state)),
+            ConsistencySetup::BoundedStaleness(k) => {
                 Self::Bounded(BoundedHistory::new(initial_state, k))
             }
-            ReadConsistencyLevel::Session => Self::Session(SessionHistory::new(initial_state)),
-            ReadConsistencyLevel::Eventual => Self::Eventual(EventualHistory::new(initial_state)),
+            ConsistencySetup::Session => Self::Session(SessionHistory::new(initial_state)),
+            ConsistencySetup::Eventual => Self::Eventual(EventualHistory::new(initial_state)),
+            ConsistencySetup::OptimisticLinear => {
+                Self::OptimisticLinear(OptimisticLinearHistory::new(initial_state))
+            }
         }
     }
 
@@ -236,6 +319,7 @@ impl StateHistory {
             StateHistory::Bounded(s) => s.add_change(change, from),
             StateHistory::Session(s) => s.add_change(change, from),
             StateHistory::Eventual(s) => s.add_change(change, from),
+            StateHistory::OptimisticLinear(s) => s.add_change(change, from),
         }
     }
 
@@ -245,6 +329,7 @@ impl StateHistory {
             StateHistory::Bounded(s) => s.max_revision(),
             StateHistory::Session(s) => s.max_revision(),
             StateHistory::Eventual(s) => s.max_revision(),
+            StateHistory::OptimisticLinear(s) => s.max_revision(),
         }
     }
 
@@ -254,6 +339,7 @@ impl StateHistory {
             StateHistory::Bounded(s) => s.state_at(revision),
             StateHistory::Session(s) => s.state_at(revision),
             StateHistory::Eventual(s) => s.state_at(revision),
+            StateHistory::OptimisticLinear(s) => s.state_at(revision),
         }
     }
 
@@ -263,6 +349,7 @@ impl StateHistory {
             StateHistory::Bounded(s) => s.states_for(from),
             StateHistory::Session(s) => s.states_for(from),
             StateHistory::Eventual(s) => s.states_for(from),
+            StateHistory::OptimisticLinear(s) => s.states_for(from),
         }
     }
 }
@@ -278,7 +365,7 @@ pub struct State {
 }
 
 impl State {
-    pub fn new(initial_state: StateView, consistency_level: ReadConsistencyLevel) -> Self {
+    pub fn new(initial_state: StateView, consistency_level: ConsistencySetup) -> Self {
         Self {
             states: StateHistory::new(consistency_level, initial_state),
         }

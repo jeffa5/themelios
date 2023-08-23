@@ -6,7 +6,7 @@ use model_checked_orchestration::resources::ReplicaSetResource;
 use model_checked_orchestration::resources::ResourceQuantities;
 use model_checked_orchestration::resources::ResourceRequirements;
 use model_checked_orchestration::resources::StatefulSetResource;
-use model_checked_orchestration::state::ReadConsistencyLevel;
+use model_checked_orchestration::state::ConsistencySetup;
 use model_checked_orchestration::state::StateView;
 use report::Reporter;
 use stateright::Checker;
@@ -58,14 +58,16 @@ fn main() {
         }));
 
     let consistency_level = if let Some(k) = opts.bounded_staleness {
-        ReadConsistencyLevel::BoundedStaleness(k)
+        ConsistencySetup::BoundedStaleness(k)
     } else if opts.session {
-        ReadConsistencyLevel::Session
+        ConsistencySetup::Session
     } else if opts.eventual {
-        ReadConsistencyLevel::Eventual
+        ConsistencySetup::Eventual
+    } else if opts.optimistic_linear {
+        ConsistencySetup::OptimisticLinear
     } else {
         // default to strong
-        ReadConsistencyLevel::Strong
+        ConsistencySetup::Strong
     };
     let model = model::OrchestrationModelCfg {
         initial_state,
