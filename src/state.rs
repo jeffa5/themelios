@@ -31,6 +31,8 @@ pub enum ConsistencySetup {
     /// Optimistic reads.
     /// Optimistic writes.
     OptimisticLinear,
+    /// Apply changes to a causal graph.
+    Causal,
 }
 
 pub trait History {
@@ -38,11 +40,11 @@ pub trait History {
 
     fn max_revision(&self) -> Revision;
 
-    fn state_at(&self, revision: Revision) -> &StateView;
+    fn state_at(&self, revision: Revision) -> StateView;
 
     fn valid_revisions(&self, from: usize) -> Vec<Revision>;
 
-    fn states_for(&self, from: usize) -> Vec<&StateView> {
+    fn states_for(&self, from: usize) -> Vec<StateView> {
         let revisions = self.valid_revisions(from);
         revisions.into_iter().map(|r| self.state_at(r)).collect()
     }
@@ -63,21 +65,22 @@ impl StrongHistory {
 
 impl History for StrongHistory {
     fn add_change(&mut self, change: Change, _from: usize) -> Revision {
-        self.state.apply_change(&change);
+        let new_revision = self.max_revision().increment();
+        self.state.apply_change(&change, new_revision);
         self.max_revision()
     }
 
     fn max_revision(&self) -> Revision {
-        self.state.revision
+        self.state.revision.clone()
     }
 
-    fn state_at(&self, revision: Revision) -> &StateView {
+    fn state_at(&self, revision: Revision) -> StateView {
         assert_eq!(revision, self.state.revision);
-        &self.state
+        self.state.clone()
     }
 
     fn valid_revisions(&self, _from: usize) -> Vec<Revision> {
-        vec![self.state.revision]
+        vec![self.state.revision.clone()]
     }
 }
 
@@ -99,7 +102,8 @@ impl BoundedHistory {
 impl History for BoundedHistory {
     fn add_change(&mut self, change: Change, _from: usize) -> Revision {
         let mut state = self.last_k_states.last().unwrap().clone();
-        state.apply_change(&change);
+        let new_revision = self.max_revision().increment();
+        state.apply_change(&change, new_revision);
         if self.last_k_states.len() > self.k {
             self.last_k_states.remove(0);
         }
@@ -108,19 +112,22 @@ impl History for BoundedHistory {
     }
 
     fn max_revision(&self) -> Revision {
-        self.last_k_states.last().unwrap().revision
+        self.last_k_states.last().unwrap().revision.clone()
     }
 
-    fn state_at(&self, revision: Revision) -> &StateView {
+    fn state_at(&self, revision: Revision) -> StateView {
         let index = self
             .last_k_states
-            .binary_search_by_key(&revision, |s| s.revision)
+            .binary_search_by_key(&&revision, |s| &s.revision)
             .unwrap();
-        &self.last_k_states[index]
+        self.last_k_states[index].clone()
     }
 
     fn valid_revisions(&self, _from: usize) -> Vec<Revision> {
-        self.last_k_states.iter().map(|s| s.revision).collect()
+        self.last_k_states
+            .iter()
+            .map(|s| s.revision.clone())
+            .collect()
     }
 }
 
@@ -142,14 +149,15 @@ impl SessionHistory {
 impl History for SessionHistory {
     fn add_change(&mut self, change: Change, from: usize) -> Revision {
         let mut state = self.states.last().unwrap().clone();
-        state.apply_change(&change);
+        let new_revision = self.max_revision().increment();
+        state.apply_change(&change, new_revision);
         self.states.push(state);
         let max = self.max_revision();
-        self.sessions.insert(from, max);
+        self.sessions.insert(from, max.clone());
 
-        let min_revision = *self.sessions.values().min().unwrap();
+        let min_revision = self.sessions.values().min().unwrap();
         loop {
-            let val = self.states.first().unwrap().revision;
+            let val = &self.states.first().unwrap().revision;
             if val < min_revision {
                 self.states.remove(0);
             } else {
@@ -161,23 +169,23 @@ impl History for SessionHistory {
     }
 
     fn max_revision(&self) -> Revision {
-        self.states.last().unwrap().revision
+        self.states.last().unwrap().revision.clone()
     }
 
-    fn state_at(&self, revision: Revision) -> &StateView {
+    fn state_at(&self, revision: Revision) -> StateView {
         let index = self
             .states
-            .binary_search_by_key(&revision, |s| s.revision)
+            .binary_search_by_key(&&revision, |s| &s.revision)
             .unwrap();
-        &self.states[index]
+        self.states[index].clone()
     }
 
     fn valid_revisions(&self, from: usize) -> Vec<Revision> {
-        let min_revision = self.sessions.get(&from).copied().unwrap_or_default();
+        let min_revision = self.sessions.get(&from).cloned().unwrap_or_default();
         self.states
             .iter()
             .filter(|s| s.revision >= min_revision)
-            .map(|s| s.revision)
+            .map(|s| s.revision.clone())
             .collect()
     }
 }
@@ -198,21 +206,22 @@ impl EventualHistory {
 impl History for EventualHistory {
     fn add_change(&mut self, change: Change, _from: usize) -> Revision {
         let mut state = self.states.last().unwrap().clone();
-        state.apply_change(&change);
+        let new_revision = self.max_revision().increment();
+        state.apply_change(&change, new_revision);
         self.states.push(state);
         self.max_revision()
     }
 
     fn max_revision(&self) -> Revision {
-        self.states.last().unwrap().revision
+        self.states.last().unwrap().revision.clone()
     }
 
-    fn state_at(&self, revision: Revision) -> &StateView {
-        &self.states[revision.0]
+    fn state_at(&self, revision: Revision) -> StateView {
+        self.states[revision.0[0]].clone()
     }
 
     fn valid_revisions(&self, _from: usize) -> Vec<Revision> {
-        self.states.iter().map(|s| s.revision).collect()
+        self.states.iter().map(|s| s.revision.clone()).collect()
     }
 }
 
@@ -235,10 +244,11 @@ impl History for OptimisticLinearHistory {
         // committed one if they didn't operate on the latest (optimistic)
         let index = self
             .states
-            .binary_search_by_key(&change.revision, |s| s.revision)
+            .binary_search_by_key(&&change.revision, |s| &s.revision)
             .unwrap();
         let mut state_to_mutate = self.states[index].clone();
-        state_to_mutate.apply_change(&change);
+        let new_revision = self.max_revision().increment();
+        state_to_mutate.apply_change(&change, new_revision);
 
         if index + 1 == self.states.len() {
             // this was a mutation on the optimistic state
@@ -257,19 +267,92 @@ impl History for OptimisticLinearHistory {
     }
 
     fn max_revision(&self) -> Revision {
-        self.states.last().unwrap().revision
+        self.states.last().unwrap().revision.clone()
     }
 
-    fn state_at(&self, revision: Revision) -> &StateView {
+    fn state_at(&self, revision: Revision) -> StateView {
         let index = self
             .states
-            .binary_search_by_key(&revision, |s| s.revision)
+            .binary_search_by_key(&&revision, |s| &s.revision)
             .unwrap();
-        &self.states[index]
+        self.states[index].clone()
     }
 
     fn valid_revisions(&self, _from: usize) -> Vec<Revision> {
-        self.states.iter().map(|s| s.revision).collect()
+        self.states.iter().map(|s| s.revision.clone()).collect()
+    }
+}
+
+#[derive(Clone, PartialEq, Eq, Hash, Debug)]
+pub struct CausalHistory {
+    /// Mapping of states and their dependencies.
+    states: Vec<(StateView, Vec<usize>)>,
+}
+
+impl CausalHistory {
+    fn new(initial_state: StateView) -> Self {
+        Self {
+            states: vec![(initial_state, Vec::new())],
+        }
+    }
+}
+
+impl History for CausalHistory {
+    fn add_change(&mut self, change: Change, _from: usize) -> Revision {
+        // TODO: do a more fine-grained merge of the states from the revisions
+        // for now just use the highest revision number (last writer wins)
+        let target_revision = Revision(vec![*change.revision.0.iter().max().unwrap()]);
+        let index = self
+            .states
+            .binary_search_by_key(&&target_revision, |(s, _)| &s.revision)
+            .unwrap();
+        let mut state_to_mutate = self.states[index].0.clone();
+        state_to_mutate.apply_change(&change, self.max_revision().increment());
+
+        // find the dependencies of the change
+        let mut dependencies = Vec::new();
+        for revision in change.revision.0 {
+            let index = self
+                .states
+                .binary_search_by_key(&&Revision(vec![revision]), |(s, _)| &s.revision)
+                .unwrap();
+            dependencies.push(index);
+        }
+
+        self.states.push((state_to_mutate, dependencies));
+
+        self.max_revision()
+    }
+
+    fn max_revision(&self) -> Revision {
+        self.states.last().unwrap().0.revision.clone()
+    }
+
+    fn state_at(&self, revision: Revision) -> StateView {
+        // TODO: do a more fine-grained merge of the states from the revisions
+        // for now just use the highest revision number (last writer wins)
+        let target_revision = Revision(vec![*revision.0.iter().max().unwrap()]);
+        let index = self
+            .states
+            .binary_search_by_key(&&target_revision, |(s, _)| &s.revision)
+            .unwrap();
+
+        let mut s = self.states[index].0.clone();
+        s.revision = revision;
+        s
+    }
+
+    fn valid_revisions(&self, _from: usize) -> Vec<Revision> {
+        // all individual revisions are valid to work from
+        let base_revisions = self
+            .states
+            .iter()
+            .map(|(s, _)| s.revision.clone())
+            .collect();
+        // we can also find combinations of concurrent edits
+        // TODO
+
+        base_revisions
     }
 }
 
@@ -290,6 +373,7 @@ pub enum StateHistory {
     /// Optimistic reads.
     /// Optimistic writes.
     OptimisticLinear(OptimisticLinearHistory),
+    Causal(CausalHistory),
 }
 
 impl Default for StateHistory {
@@ -310,6 +394,7 @@ impl StateHistory {
             ConsistencySetup::OptimisticLinear => {
                 Self::OptimisticLinear(OptimisticLinearHistory::new(initial_state))
             }
+            ConsistencySetup::Causal => Self::Causal(CausalHistory::new(initial_state)),
         }
     }
 
@@ -320,6 +405,7 @@ impl StateHistory {
             StateHistory::Session(s) => s.add_change(change, from),
             StateHistory::Eventual(s) => s.add_change(change, from),
             StateHistory::OptimisticLinear(s) => s.add_change(change, from),
+            StateHistory::Causal(s) => s.add_change(change, from),
         }
     }
 
@@ -330,32 +416,43 @@ impl StateHistory {
             StateHistory::Session(s) => s.max_revision(),
             StateHistory::Eventual(s) => s.max_revision(),
             StateHistory::OptimisticLinear(s) => s.max_revision(),
+            StateHistory::Causal(s) => s.max_revision(),
         }
     }
 
-    fn state_at(&self, revision: Revision) -> &StateView {
+    fn state_at(&self, revision: Revision) -> StateView {
         match self {
             StateHistory::Strong(s) => s.state_at(revision),
             StateHistory::Bounded(s) => s.state_at(revision),
             StateHistory::Session(s) => s.state_at(revision),
             StateHistory::Eventual(s) => s.state_at(revision),
             StateHistory::OptimisticLinear(s) => s.state_at(revision),
+            StateHistory::Causal(s) => s.state_at(revision),
         }
     }
 
-    fn states_for(&self, from: usize) -> Vec<&StateView> {
+    fn states_for(&self, from: usize) -> Vec<StateView> {
         match self {
             StateHistory::Strong(s) => s.states_for(from),
             StateHistory::Bounded(s) => s.states_for(from),
             StateHistory::Session(s) => s.states_for(from),
             StateHistory::Eventual(s) => s.states_for(from),
             StateHistory::OptimisticLinear(s) => s.states_for(from),
+            StateHistory::Causal(s) => s.states_for(from),
         }
     }
 }
 
-#[derive(Default, Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub struct Revision(usize);
+#[derive(Default, Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct Revision(Vec<usize>);
+
+impl Revision {
+    fn increment(mut self) -> Self {
+        assert_eq!(self.0.len(), 1);
+        self.0[0] += 1;
+        self
+    }
+}
 
 /// The history of the state, enabling generating views for different historical versions.
 #[derive(Default, Debug, Clone, PartialEq, Eq, Hash)]
@@ -390,12 +487,12 @@ impl State {
     }
 
     /// Get a view for a specific revision in the change history.
-    pub fn view_at(&self, revision: Revision) -> &StateView {
+    pub fn view_at(&self, revision: Revision) -> StateView {
         self.states.state_at(revision)
     }
 
     /// Get all the possible views under the given consistency level.
-    pub fn views(&self, from: usize) -> Vec<&StateView> {
+    pub fn views(&self, from: usize) -> Vec<StateView> {
         self.states.states_for(from)
     }
 }
@@ -484,7 +581,7 @@ impl StateView {
         self
     }
 
-    pub fn apply_change(&mut self, change: &Change) {
+    pub fn apply_change(&mut self, change: &Change, new_revision: Revision) {
         match &change.operation {
             Operation::NodeJoin(i, capacity) => {
                 self.nodes.insert(
@@ -536,6 +633,6 @@ impl StateView {
                     .retain(|_, pod| pod.node_name.map_or(true, |n| n != *node));
             }
         }
-        self.revision = Revision(self.revision.0 + 1);
+        self.revision = new_revision;
     }
 }

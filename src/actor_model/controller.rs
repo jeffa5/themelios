@@ -34,7 +34,7 @@ where
         let changes = operations
             .into_iter()
             .map(|o| Change {
-                revision: view.revision,
+                revision: view.revision.clone(),
                 operation: o,
             })
             .collect();
@@ -55,7 +55,7 @@ where
                 let changes = operations
                     .into_iter()
                     .map(|o| Change {
-                        revision: s.revision,
+                        revision: s.revision.clone(),
                         operation: o,
                     })
                     .collect();
