@@ -286,13 +286,24 @@ impl History for OptimisticLinearHistory {
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub struct CausalHistory {
     /// Mapping of states and their dependencies.
-    states: Vec<(StateView, Vec<usize>)>,
+    states: Vec<CausalState>,
+}
+
+#[derive(Clone, PartialEq, Eq, Hash, Debug)]
+struct CausalState {
+    state: StateView,
+    predecessors: Vec<usize>,
+    successors: Vec<usize>,
 }
 
 impl CausalHistory {
     fn new(initial_state: StateView) -> Self {
         Self {
-            states: vec![(initial_state, Vec::new())],
+            states: vec![CausalState {
+                state: initial_state,
+                predecessors: Vec::new(),
+                successors: Vec::new(),
+            }],
         }
     }
 }
@@ -304,28 +315,34 @@ impl History for CausalHistory {
         let target_revision = Revision(vec![*change.revision.0.iter().max().unwrap()]);
         let index = self
             .states
-            .binary_search_by_key(&&target_revision, |(s, _)| &s.revision)
+            .binary_search_by_key(&&target_revision, |s| &s.state.revision)
             .unwrap();
-        let mut state_to_mutate = self.states[index].0.clone();
+        let mut state_to_mutate = self.states[index].state.clone();
         state_to_mutate.apply_change(&change, self.max_revision().increment());
 
         // find the dependencies of the change
-        let mut dependencies = Vec::new();
+        let mut predecessors = Vec::new();
+        let new_index = self.states.len();
         for revision in change.revision.0 {
             let index = self
                 .states
-                .binary_search_by_key(&&Revision(vec![revision]), |(s, _)| &s.revision)
+                .binary_search_by_key(&&Revision(vec![revision]), |s| &s.state.revision)
                 .unwrap();
-            dependencies.push(index);
+            predecessors.push(index);
+            self.states[index].successors.push(new_index);
         }
 
-        self.states.push((state_to_mutate, dependencies));
+        self.states.push(CausalState {
+            state: state_to_mutate,
+            predecessors,
+            successors: Vec::new(),
+        });
 
         self.max_revision()
     }
 
     fn max_revision(&self) -> Revision {
-        self.states.last().unwrap().0.revision.clone()
+        self.states.last().unwrap().state.revision.clone()
     }
 
     fn state_at(&self, revision: Revision) -> StateView {
@@ -334,10 +351,10 @@ impl History for CausalHistory {
         let target_revision = Revision(vec![*revision.0.iter().max().unwrap()]);
         let index = self
             .states
-            .binary_search_by_key(&&target_revision, |(s, _)| &s.revision)
+            .binary_search_by_key(&&target_revision, |s| &s.state.revision)
             .unwrap();
 
-        let mut s = self.states[index].0.clone();
+        let mut s = self.states[index].state.clone();
         s.revision = revision;
         s
     }
@@ -347,7 +364,7 @@ impl History for CausalHistory {
         let base_revisions = self
             .states
             .iter()
-            .map(|(s, _)| s.revision.clone())
+            .map(|s| s.state.revision.clone())
             .collect();
         // we can also find combinations of concurrent edits
         // TODO
