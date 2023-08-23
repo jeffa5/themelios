@@ -63,8 +63,8 @@ fn main() {
         ConsistencySetup::Session
     } else if opts.eventual {
         ConsistencySetup::Eventual
-    } else if opts.optimistic_linear {
-        ConsistencySetup::OptimisticLinear
+    } else if let Some(commit_every) = opts.optimistic_linear {
+        ConsistencySetup::OptimisticLinear(commit_every)
     } else if opts.causal {
         ConsistencySetup::Causal
     } else {

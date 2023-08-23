@@ -28,9 +28,10 @@ pub enum ConsistencySetup {
     /// Linearizable writes.
     Eventual,
     /// Optimistically apply changes without guarantee that they are committed.
+    /// Commits automatically happen every `k` changes.
     /// Optimistic reads.
     /// Optimistic writes.
-    OptimisticLinear,
+    OptimisticLinear(usize),
     /// Apply changes to a causal graph.
     Causal,
 }
@@ -227,13 +228,18 @@ impl History for EventualHistory {
 
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub struct OptimisticLinearHistory {
+    /// First is the last committed state.
+    /// Last is the optimistic one.
+    /// In between are states that could be committed.
     states: Vec<StateView>,
+    commit_every: usize,
 }
 
 impl OptimisticLinearHistory {
-    fn new(initial_state: StateView) -> Self {
+    fn new(initial_state: StateView, commit_every: usize) -> Self {
         Self {
             states: vec![initial_state],
+            commit_every,
         }
     }
 }
@@ -252,7 +258,12 @@ impl History for OptimisticLinearHistory {
 
         if index + 1 == self.states.len() {
             // this was a mutation on the optimistic state
-            // just extend the current states
+            if self.states.len() > self.commit_every {
+                // we have triggered a commit point, the last state is now the committed one
+                self.states.clear();
+            } else {
+                // we haven't reached a guaranteed commit yet, just extend the current states
+            }
             self.states.push(state_to_mutate);
         } else {
             // this was a mutation on a committed state (leader changed)
@@ -408,8 +419,8 @@ impl StateHistory {
             }
             ConsistencySetup::Session => Self::Session(SessionHistory::new(initial_state)),
             ConsistencySetup::Eventual => Self::Eventual(EventualHistory::new(initial_state)),
-            ConsistencySetup::OptimisticLinear => {
-                Self::OptimisticLinear(OptimisticLinearHistory::new(initial_state))
+            ConsistencySetup::OptimisticLinear(commit_every) => {
+                Self::OptimisticLinear(OptimisticLinearHistory::new(initial_state, commit_every))
             }
             ConsistencySetup::Causal => Self::Causal(CausalHistory::new(initial_state)),
         }
