@@ -1,6 +1,7 @@
 use crate::abstract_model::Operation;
 use crate::controller::Controller;
-use crate::state::{ResourceQuantities, StateView};
+use crate::resources::ResourceQuantities;
+use crate::state::StateView;
 
 #[derive(Clone, Debug)]
 pub struct Node;
