@@ -42,8 +42,10 @@ impl OrchestrationModelCfg {
             }));
         }
 
-        for _ in 0..self.nodes {
-            model = model.actor(Actors::Node(ControllerActor::new(Node)));
+        for i in 0..self.nodes {
+            model = model.actor(Actors::Node(ControllerActor::new(Node {
+                name: format!("node-{i}"),
+            })));
         }
 
         for _ in 0..self.schedulers {
@@ -95,8 +97,10 @@ impl OrchestrationModelCfg {
 
         assert!(self.datastores > 0);
 
-        for _ in 0..self.nodes {
-            model.controllers.push(Controllers::Node(Node));
+        for i in 0..self.nodes {
+            model.controllers.push(Controllers::Node(Node {
+                name: format!("node-{i}"),
+            }));
         }
 
         for _ in 0..self.schedulers {

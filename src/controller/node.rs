@@ -4,7 +4,9 @@ use crate::resources::ResourceQuantities;
 use crate::state::StateView;
 
 #[derive(Clone, Debug)]
-pub struct Node;
+pub struct Node {
+    pub name: String,
+}
 
 impl Controller for Node {
     fn step(&self, id: usize, state: &StateView) -> Option<Operation> {
@@ -13,7 +15,7 @@ impl Controller for Node {
                 for pod in state
                     .pods
                     .values()
-                    .filter(|p| p.node_name.map_or(false, |n| n == id))
+                    .filter(|p| p.node_name.as_ref().map_or(false, |n| n == &self.name))
                 {
                     if !node.running.contains(&pod.id) {
                         return Some(Operation::RunPod(pod.id.clone(), id));

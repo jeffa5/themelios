@@ -28,7 +28,7 @@ impl Controller for Scheduler {
                         .cloned()
                         .unwrap_or_default();
                     // try to find a node suitable
-                    for (n, node) in &nodes {
+                    for (_, node) in &nodes {
                         let mut remaining_capacity = node.capacity.clone();
                         for running_pod in &node.running {
                             if let Some(running_pod) = state.pods.get(running_pod) {
@@ -40,7 +40,7 @@ impl Controller for Scheduler {
                             }
                         }
                         if remaining_capacity >= requests {
-                            return Some(Operation::SchedulePod(pod.id.clone(), **n));
+                            return Some(Operation::SchedulePod(pod.id.clone(), node.name.clone()));
                         }
                     }
                 }

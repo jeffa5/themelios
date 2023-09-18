@@ -621,6 +621,7 @@ impl StateView {
                 self.nodes.insert(
                     *i,
                     NodeResource {
+                        name: format!("node-{i}"),
                         running: BTreeSet::new(),
                         ready: true,
                         capacity: capacity.clone(),
@@ -651,7 +652,7 @@ impl StateView {
             }
             Operation::SchedulePod(pod, node) => {
                 if let Some(pod) = self.pods.get_mut(pod) {
-                    pod.node_name = Some(*node);
+                    pod.node_name = Some(node.clone());
                 }
             }
             Operation::RunPod(pod, node) => {
@@ -662,9 +663,10 @@ impl StateView {
                     .insert(pod.clone());
             }
             Operation::NodeCrash(node) => {
-                self.nodes.remove(node);
-                self.pods
-                    .retain(|_, pod| pod.node_name.map_or(true, |n| n != *node));
+                if let Some(node) = self.nodes.remove(node) {
+                    self.pods
+                        .retain(|_, pod| pod.node_name.as_ref().map_or(true, |n| n != &node.name));
+                }
             }
         }
         self.revision = new_revision;

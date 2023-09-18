@@ -29,7 +29,7 @@ pub enum Operation {
     ControllerJoin(usize),
     NewPod(String),
     NewReplicaset(String),
-    SchedulePod(String, usize),
+    SchedulePod(String, String),
     RunPod(String, usize),
     NodeCrash(usize),
 }

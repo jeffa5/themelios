@@ -6,7 +6,7 @@ use std::{
 #[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct PodResource {
     pub id: String,
-    pub node_name: Option<usize>,
+    pub node_name: Option<String>,
     /// The resources that the pod will use
     /// This is a simplification, really this should be per container in the pod, but that doesn't
     /// impact things really.
@@ -96,6 +96,7 @@ impl StatefulSetResource {
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct NodeResource {
+    pub name: String,
     pub running: BTreeSet<String>,
     pub ready: bool,
     /// The total resources of the node.
