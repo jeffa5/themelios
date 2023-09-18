@@ -34,7 +34,7 @@ fn main() {
 
     let initial_state = StateView::default()
         .with_pods((0..opts.initial_pods).map(|i| PodResource {
-            id: format!("pod-{i}"),
+            name: format!("pod-{i}"),
             node_name: None,
             resources: Some(ResourceRequirements {
                 requests: Some(ResourceQuantities {

@@ -17,8 +17,8 @@ impl Controller for Node {
                     .values()
                     .filter(|p| p.node_name.as_ref().map_or(false, |n| n == &self.name))
                 {
-                    if !node.running.contains(&pod.id) {
-                        return Some(Operation::RunPod(pod.id.clone(), id));
+                    if !node.running.contains(&pod.name) {
+                        return Some(Operation::RunPod(pod.name.clone(), id));
                     }
                 }
             }

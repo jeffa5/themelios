@@ -5,7 +5,7 @@ use std::{
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct PodResource {
-    pub id: String,
+    pub name: String,
     pub node_name: Option<String>,
     /// The resources that the pod will use
     /// This is a simplification, really this should be per container in the pod, but that doesn't

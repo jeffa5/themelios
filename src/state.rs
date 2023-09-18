@@ -555,7 +555,7 @@ impl StateView {
 
     pub fn set_pods(&mut self, pods: impl Iterator<Item = PodResource>) -> &mut Self {
         for pod in pods {
-            self.pods.insert(pod.id.clone(), pod);
+            self.pods.insert(pod.name.clone(), pod);
         }
         self
     }
@@ -635,7 +635,7 @@ impl StateView {
                 self.pods.insert(
                     i.clone(),
                     PodResource {
-                        id: i.clone(),
+                        name: i.clone(),
                         node_name: None,
                         resources: None,
                     },

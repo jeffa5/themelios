@@ -40,7 +40,7 @@ impl Controller for Scheduler {
                             }
                         }
                         if remaining_capacity >= requests {
-                            return Some(Operation::SchedulePod(pod.id.clone(), node.name.clone()));
+                            return Some(Operation::SchedulePod(pod.name.clone(), node.name.clone()));
                         }
                     }
                 }
