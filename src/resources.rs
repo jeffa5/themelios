@@ -56,40 +56,40 @@ impl SubAssign for ResourceQuantities {
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct ReplicaSetResource {
-    pub id: String,
+    pub name: String,
     pub replicas: u32,
 }
 
 impl ReplicaSetResource {
     pub fn pods(&self) -> Vec<String> {
         (0..self.replicas)
-            .map(|i| format!("{}-{}", self.id, i))
+            .map(|i| format!("{}-{}", self.name, i))
             .collect()
     }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct DeploymentResource {
-    pub id: String,
+    pub name: String,
     pub replicas: u32,
 }
 
 impl DeploymentResource {
     pub fn replicasets(&self) -> Vec<String> {
-        vec![self.id.clone()]
+        vec![self.name.clone()]
     }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct StatefulSetResource {
-    pub id: String,
+    pub name: String,
     pub replicas: u32,
 }
 
 impl StatefulSetResource {
     pub fn pods(&self) -> Vec<String> {
         (0..self.replicas)
-            .map(|i| format!("{}-{}", self.id, i))
+            .map(|i| format!("{}-{}", self.name, i))
             .collect()
     }
 }

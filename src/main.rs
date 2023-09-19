@@ -45,15 +45,15 @@ fn main() {
             }),
         }))
         .with_replicasets((1..=opts.replicasets).map(|i| ReplicaSetResource {
-            id: format!("rep-{i}"),
+            name: format!("rep-{i}"),
             replicas: opts.pods_per_replicaset,
         }))
         .with_deployments((1..=opts.deployments).map(|i| DeploymentResource {
-            id: format!("dep-{i}"),
+            name: format!("dep-{i}"),
             replicas: opts.pods_per_replicaset,
         }))
         .with_statefulsets((1..=opts.statefulsets).map(|i| StatefulSetResource {
-            id: format!("sts-{i}"),
+            name: format!("sts-{i}"),
             replicas: opts.pods_per_statefulset,
         }));
 

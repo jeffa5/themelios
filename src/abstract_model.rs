@@ -1,3 +1,5 @@
+use std::collections::BTreeSet;
+
 use stateright::{Model, Property};
 
 use crate::controller::{Controller, Controllers};
@@ -97,6 +99,25 @@ impl Model for AbstractModelCfg {
 
     fn properties(&self) -> Vec<stateright::Property<Self>> {
         vec![
+            Property::<Self>::always("all resources have unique names", |_model, state| {
+                let state = state.view_at(state.max_revision());
+                if !all_unique(state.nodes.values().map(|n| &n.name)) {
+                    return false;
+                }
+                if !all_unique(state.pods.values().map(|n| &n.name)) {
+                    return false;
+                }
+                if !all_unique(state.replica_sets.values().map(|n| &n.name)) {
+                    return false;
+                }
+                if !all_unique(state.deployments.values().map(|n| &n.name)) {
+                    return false;
+                }
+                if !all_unique(state.statefulsets.values().map(|n| &n.name)) {
+                    return false;
+                }
+                return true;
+            }),
             Property::<Self>::eventually("every pod gets scheduled", |_model, state| {
                 let state = state.view_at(state.max_revision());
                 state.pods.values().all(|pod| pod.node_name.is_some())
@@ -126,4 +147,14 @@ impl Model for AbstractModelCfg {
             ),
         ]
     }
+}
+
+fn all_unique<T: Ord>(iter: impl Iterator<Item = T>) -> bool {
+    let mut set = BTreeSet::new();
+    for item in iter {
+        if !set.insert(item) {
+            return false;
+        }
+    }
+    true
 }

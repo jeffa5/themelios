@@ -573,7 +573,7 @@ impl StateView {
         replicasets: impl Iterator<Item = ReplicaSetResource>,
     ) -> &mut Self {
         for replicaset in replicasets {
-            self.replica_sets.insert(replicaset.id.clone(), replicaset);
+            self.replica_sets.insert(replicaset.name.clone(), replicaset);
         }
         self
     }
@@ -591,7 +591,7 @@ impl StateView {
         deployments: impl Iterator<Item = DeploymentResource>,
     ) -> &mut Self {
         for deployment in deployments {
-            self.deployments.insert(deployment.id.clone(), deployment);
+            self.deployments.insert(deployment.name.clone(), deployment);
         }
         self
     }
@@ -610,7 +610,7 @@ impl StateView {
     ) -> &mut Self {
         for statefulset in statefulsets {
             self.statefulsets
-                .insert(statefulset.id.clone(), statefulset);
+                .insert(statefulset.name.clone(), statefulset);
         }
         self
     }
@@ -645,7 +645,7 @@ impl StateView {
                 self.replica_sets.insert(
                     i.clone(),
                     ReplicaSetResource {
-                        id: i.clone(),
+                        name: i.clone(),
                         replicas: 2,
                     },
                 );
