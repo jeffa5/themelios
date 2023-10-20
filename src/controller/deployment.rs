@@ -5,14 +5,23 @@ use super::Controller;
 #[derive(Clone, Debug)]
 pub struct Deployment;
 
+pub struct DeploymentState;
+
 impl Controller for Deployment {
-    fn step(&self, id: usize, state: &StateView) -> Option<Operation> {
-        if !state.controllers.contains(&id) {
+    type State = DeploymentState;
+
+    fn step(
+        &self,
+        id: usize,
+        global_state: &StateView,
+        local_state: &mut Self::State,
+    ) -> Option<Operation> {
+        if !global_state.controllers.contains(&id) {
             return Some(Operation::ControllerJoin(id));
         } else {
-            for deployment in state.deployments.values() {
+            for deployment in global_state.deployments.values() {
                 for replicaset in deployment.replicasets() {
-                    if !state.replica_sets.contains_key(&replicaset) {
+                    if !global_state.replica_sets.contains_key(&replicaset) {
                         return Some(Operation::NewReplicaset(replicaset));
                     }
                 }

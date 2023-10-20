@@ -30,7 +30,7 @@ where
         o: &mut stateright::actor::Out<Self>,
     ) -> Self::State {
         let view = StateView::default();
-        let operations = self.controller.step(id.into(), &view);
+        let operations = self.controller.step(id.into(), &view, todo!());
         let changes = operations
             .into_iter()
             .map(|o| Change {
@@ -51,7 +51,7 @@ where
     ) {
         match msg {
             Message::StateUpdate(s) => {
-                let operations = self.controller.step(id.into(), &s);
+                let operations = self.controller.step(id.into(), &s, todo!());
                 let changes = operations
                     .into_iter()
                     .map(|o| Change {

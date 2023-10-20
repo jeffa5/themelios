@@ -1,3 +1,4 @@
+use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 
 use stateright::{Model, Property};
@@ -25,7 +26,7 @@ pub struct Change {
     pub operation: Operation,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Operation {
     NodeJoin(usize, ResourceQuantities),
     ControllerJoin(usize),
@@ -57,7 +58,7 @@ impl Model for AbstractModelCfg {
     fn actions(&self, state: &Self::State, actions: &mut Vec<Self::Action>) {
         for (i, controller) in self.controllers.iter().enumerate() {
             for view in state.views(i) {
-                let operations = controller.step(i, &view);
+                let operations = controller.step(i, &view, todo!());
                 let changes = operations
                     .into_iter()
                     .map(|o| Change {
@@ -69,11 +70,12 @@ impl Model for AbstractModelCfg {
             }
         }
         // at max revision as this isn't a controller event
-        for (node_id, node) in &state.view_at(state.max_revision()).nodes {
-            if node.ready {
-                actions.push(Action::NodeCrash(*node_id));
-            }
-        }
+        // for (node_id, node) in &state.view_at(state.max_revision()).nodes {
+        //     if node.ready {
+        //         actions.push(Action::NodeCrash(*node_id));
+        //     }
+        // }
+        // TODO: re-enable node crashes
     }
 
     fn next_state(&self, last_state: &Self::State, action: Self::Action) -> Option<Self::State> {
@@ -101,26 +103,26 @@ impl Model for AbstractModelCfg {
         vec![
             Property::<Self>::always("all resources have unique names", |_model, state| {
                 let state = state.view_at(state.max_revision());
-                if !all_unique(state.nodes.values().map(|n| &n.name)) {
+                if !all_unique(state.nodes.values().map(|n| &n.metadata.name)) {
                     return false;
                 }
-                if !all_unique(state.pods.values().map(|n| &n.name)) {
+                if !all_unique(state.pods.values().map(|n| &n.metadata.name)) {
                     return false;
                 }
-                if !all_unique(state.replica_sets.values().map(|n| &n.name)) {
+                if !all_unique(state.replica_sets.values().map(|n| &n.metadata.name)) {
                     return false;
                 }
-                if !all_unique(state.deployments.values().map(|n| &n.name)) {
+                if !all_unique(state.deployments.values().map(|n| &n.metadata.name)) {
                     return false;
                 }
-                if !all_unique(state.statefulsets.values().map(|n| &n.name)) {
+                if !all_unique(state.statefulsets.values().map(|n| &n.metadata.name)) {
                     return false;
                 }
                 return true;
             }),
             Property::<Self>::eventually("every pod gets scheduled", |_model, state| {
                 let state = state.view_at(state.max_revision());
-                state.pods.values().all(|pod| pod.node_name.is_some())
+                state.pods.values().all(|pod| pod.spec.node_name.is_some())
             }),
             Property::<Self>::always(
                 "statefulsets always have consecutive pods",

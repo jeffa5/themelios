@@ -1,7 +1,10 @@
 use clap::Parser;
 use model_checked_orchestration::model;
 use model_checked_orchestration::resources::DeploymentResource;
+use model_checked_orchestration::resources::Metadata;
 use model_checked_orchestration::resources::PodResource;
+use model_checked_orchestration::resources::PodSpec;
+use model_checked_orchestration::resources::PodStatus;
 use model_checked_orchestration::resources::ReplicaSetResource;
 use model_checked_orchestration::resources::ResourceQuantities;
 use model_checked_orchestration::resources::ResourceRequirements;
@@ -12,6 +15,9 @@ use report::Reporter;
 use stateright::Checker;
 use stateright::Model;
 use stateright::UniformChooser;
+use tokio::runtime::Runtime;
+use tower_http::trace::TraceLayer;
+use tracing::info;
 use tracing::metadata::LevelFilter;
 use tracing_subscriber::fmt;
 use tracing_subscriber::layer::SubscriberExt;
@@ -34,26 +40,39 @@ fn main() {
 
     let initial_state = StateView::default()
         .with_pods((0..opts.initial_pods).map(|i| PodResource {
-            name: format!("pod-{i}"),
-            node_name: None,
-            resources: Some(ResourceRequirements {
-                requests: Some(ResourceQuantities {
-                    cpu_cores: Some(2),
-                    memory_mb: Some(3000),
+            metadata: Metadata {
+                name: format!("pod-{i}"),
+            },
+            spec: PodSpec {
+                node_name: None,
+                scheduler_name: None,
+                resources: Some(ResourceRequirements {
+                    requests: Some(ResourceQuantities {
+                        cpu_cores: Some(2.into()),
+                        memory_mb: Some(3000.into()),
+                        pods: Some(32.into()),
+                    }),
+                    limits: None,
                 }),
-                limits: None,
-            }),
+            },
+            status: PodStatus {},
         }))
         .with_replicasets((1..=opts.replicasets).map(|i| ReplicaSetResource {
-            name: format!("rep-{i}"),
+            metadata: Metadata {
+                name: format!("rep-{i}"),
+            },
             replicas: opts.pods_per_replicaset,
         }))
         .with_deployments((1..=opts.deployments).map(|i| DeploymentResource {
-            name: format!("dep-{i}"),
+            metadata: Metadata {
+                name: format!("dep-{i}"),
+            },
             replicas: opts.pods_per_replicaset,
         }))
         .with_statefulsets((1..=opts.statefulsets).map(|i| StatefulSetResource {
-            name: format!("sts-{i}"),
+            metadata: Metadata {
+                name: format!("sts-{i}"),
+            },
             replicas: opts.pods_per_statefulset,
         }));
 
@@ -125,6 +144,19 @@ where
                 .spawn_simulation(seed, UniformChooser)
                 .report(&mut reporter)
                 .join();
+        }
+        opts::SubCmd::Serve { port } => {
+            let rt = Runtime::new().unwrap();
+            rt.block_on(async {
+                let trace_layer = TraceLayer::new_for_http();
+                let app = model_checked_orchestration::serve::app().layer(trace_layer);
+                let address = format!("127.0.0.1:{port}");
+                info!("Serving on {address}");
+                axum::Server::bind(&address.parse().unwrap())
+                    .serve(app.into_make_service())
+                    .await
+                    .unwrap();
+            });
         }
     }
 }

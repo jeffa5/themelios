@@ -77,7 +77,7 @@ impl OrchestrationModelCfg {
                 if let ActorState::Datastore(datastore) = &**state.actor_states.first().unwrap() {
                     let datastore_state = datastore.view_at(datastore.max_revision());
                     let all_apps_scheduled =
-                        datastore_state.pods.values().all(|a| a.node_name.is_some());
+                        datastore_state.pods.values().all(|a| a.spec.node_name.is_some());
                     let num_scheduled_apps = datastore_state.pods.len();
                     if all_apps_scheduled && num_scheduled_apps == total_apps {
                         any = true;

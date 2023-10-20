@@ -3,7 +3,8 @@ use std::collections::{BTreeMap, BTreeSet};
 use crate::{
     abstract_model::{Change, Operation},
     resources::{
-        DeploymentResource, NodeResource, PodResource, ReplicaSetResource, StatefulSetResource,
+        DeploymentResource, Metadata, NodeResource, PodResource, PodSpec, PodStatus,
+        ReplicaSetResource, StatefulSetResource,
     },
 };
 
@@ -555,7 +556,7 @@ impl StateView {
 
     pub fn set_pods(&mut self, pods: impl Iterator<Item = PodResource>) -> &mut Self {
         for pod in pods {
-            self.pods.insert(pod.name.clone(), pod);
+            self.pods.insert(pod.metadata.name.clone(), pod);
         }
         self
     }
@@ -573,7 +574,8 @@ impl StateView {
         replicasets: impl Iterator<Item = ReplicaSetResource>,
     ) -> &mut Self {
         for replicaset in replicasets {
-            self.replica_sets.insert(replicaset.name.clone(), replicaset);
+            self.replica_sets
+                .insert(replicaset.metadata.name.clone(), replicaset);
         }
         self
     }
@@ -591,7 +593,8 @@ impl StateView {
         deployments: impl Iterator<Item = DeploymentResource>,
     ) -> &mut Self {
         for deployment in deployments {
-            self.deployments.insert(deployment.name.clone(), deployment);
+            self.deployments
+                .insert(deployment.metadata.name.clone(), deployment);
         }
         self
     }
@@ -610,7 +613,7 @@ impl StateView {
     ) -> &mut Self {
         for statefulset in statefulsets {
             self.statefulsets
-                .insert(statefulset.name.clone(), statefulset);
+                .insert(statefulset.metadata.name.clone(), statefulset);
         }
         self
     }
@@ -621,10 +624,14 @@ impl StateView {
                 self.nodes.insert(
                     *i,
                     NodeResource {
-                        name: format!("node-{i}"),
-                        running: BTreeSet::new(),
-                        ready: true,
-                        capacity: capacity.clone(),
+                        metadata: Metadata {
+                            name: format!("node-{i}"),
+                        },
+                        spec: crate::resources::NodeSpec {},
+                        status: crate::resources::NodeStatus {
+                            capacity: capacity.clone(),
+                            allocatable: capacity.clone(),
+                        },
                     },
                 );
             }
@@ -635,9 +642,13 @@ impl StateView {
                 self.pods.insert(
                     i.clone(),
                     PodResource {
-                        name: i.clone(),
-                        node_name: None,
-                        resources: None,
+                        metadata: Metadata { name: i.clone() },
+                        spec: PodSpec {
+                            scheduler_name: None,
+                            node_name: None,
+                            resources: None,
+                        },
+                        status: PodStatus {},
                     },
                 );
             }
@@ -645,30 +656,38 @@ impl StateView {
                 self.replica_sets.insert(
                     i.clone(),
                     ReplicaSetResource {
-                        name: i.clone(),
+                        metadata: Metadata { name: i.clone() },
                         replicas: 2,
                     },
                 );
             }
             Operation::SchedulePod(pod, node) => {
                 if let Some(pod) = self.pods.get_mut(pod) {
-                    pod.node_name = Some(node.clone());
+                    pod.spec.node_name = Some(node.clone());
                 }
             }
             Operation::RunPod(pod, node) => {
-                self.nodes
-                    .get_mut(node)
-                    .unwrap()
-                    .running
-                    .insert(pod.clone());
+                // self.nodes.get_mut(node).unwrap().pods.push(pod.clone());
+                // TODO: is there anything to do here? should just be on the nodes local state?
             }
             Operation::NodeCrash(node) => {
+                // TODO: reset local state for the node
                 if let Some(node) = self.nodes.remove(node) {
-                    self.pods
-                        .retain(|_, pod| pod.node_name.as_ref().map_or(true, |n| n != &node.name));
+                    self.pods.retain(|_, pod| {
+                        pod.spec.node_name
+                            .as_ref()
+                            .map_or(true, |n| n != &node.metadata.name)
+                    });
                 }
             }
         }
         self.revision = new_revision;
+    }
+
+    pub fn pods_for_node(&self, node: &str) -> Vec<&PodResource> {
+        self.pods
+            .values()
+            .filter(|p| p.spec.node_name.as_ref().map_or(false, |n| n == node))
+            .collect()
     }
 }

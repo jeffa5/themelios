@@ -7,6 +7,12 @@ pub use replicaset::ReplicaSet;
 pub use scheduler::Scheduler;
 pub use statefulset::StatefulSet;
 
+pub use self::deployment::DeploymentState;
+pub use self::node::NodeState;
+pub use self::replicaset::ReplicaSetState;
+pub use self::scheduler::SchedulerState;
+pub use self::statefulset::StatefulSetState;
+
 mod deployment;
 mod node;
 mod replicaset;
@@ -14,8 +20,15 @@ mod scheduler;
 mod statefulset;
 
 pub trait Controller {
+    type State;
+
     /// Take a step, generating changes, based on the current view of the state.
-    fn step(&self, id: usize, state: &StateView) -> Option<Operation>;
+    fn step(
+        &self,
+        id: usize,
+        global_state: &StateView,
+        local_state: &mut Self::State,
+    ) -> Option<Operation>;
 
     /// Name of this controller.
     fn name(&self) -> String;
@@ -30,14 +43,38 @@ pub enum Controllers {
     StatefulSet(StatefulSet),
 }
 
+pub enum ControllerStates {
+    Node(NodeState),
+    Scheduler(SchedulerState),
+    ReplicaSet(ReplicaSetState),
+    Deployment(DeploymentState),
+    StatefulSet(StatefulSetState),
+}
+
 impl Controller for Controllers {
-    fn step(&self, id: usize, state: &StateView) -> Option<Operation> {
-        match self {
-            Controllers::Node(c) => c.step(id, state),
-            Controllers::Scheduler(c) => c.step(id, state),
-            Controllers::ReplicaSet(c) => c.step(id, state),
-            Controllers::Deployment(c) => c.step(id, state),
-            Controllers::StatefulSet(c) => c.step(id, state),
+    type State = ControllerStates;
+
+    fn step(
+        &self,
+        id: usize,
+        global_state: &StateView,
+        local_state: &mut Self::State,
+    ) -> Option<Operation> {
+        match (self, local_state) {
+            (Controllers::Node(c), ControllerStates::Node(s)) => c.step(id, global_state, s),
+            (Controllers::Scheduler(c), ControllerStates::Scheduler(s)) => {
+                c.step(id, global_state, s)
+            }
+            (Controllers::ReplicaSet(c), ControllerStates::ReplicaSet(s)) => {
+                c.step(id, global_state, s)
+            }
+            (Controllers::Deployment(c), ControllerStates::Deployment(s)) => {
+                c.step(id, global_state, s)
+            }
+            (Controllers::StatefulSet(c), ControllerStates::StatefulSet(s)) => {
+                c.step(id, global_state, s)
+            }
+            _ => unreachable!(),
         }
     }
 

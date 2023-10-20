@@ -5,14 +5,22 @@ use crate::state::StateView;
 #[derive(Clone, Debug)]
 pub struct ReplicaSet;
 
+pub struct ReplicaSetState;
+
 impl Controller for ReplicaSet {
-    fn step(&self, id: usize, state: &StateView) -> Option<Operation> {
-        if !state.controllers.contains(&id) {
+    type State = ReplicaSetState;
+    fn step(
+        &self,
+        id: usize,
+        global_state: &StateView,
+        local_state: &mut Self::State,
+    ) -> Option<Operation> {
+        if !global_state.controllers.contains(&id) {
             return Some(Operation::ControllerJoin(id));
         } else {
-            for replicaset in state.replica_sets.values() {
+            for replicaset in global_state.replica_sets.values() {
                 for pod in replicaset.pods() {
-                    if !state.pods.contains_key(&pod) {
+                    if !global_state.pods.contains_key(&pod) {
                         return Some(Operation::NewPod(pod));
                     }
                 }

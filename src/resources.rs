@@ -1,19 +1,34 @@
-use std::{
-    collections::BTreeSet,
-    ops::{Sub, SubAssign},
-};
+use serde::{Deserialize, Serialize};
+use std::ops::{Sub, SubAssign};
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub struct PodResource {
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
+pub struct Metadata {
     pub name: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
+pub struct PodResource {
+    pub metadata: Metadata,
+    pub spec: PodSpec,
+    pub status: PodStatus,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PodSpec {
     pub node_name: Option<String>,
+    pub scheduler_name: Option<String>,
     /// The resources that the pod will use
     /// This is a simplification, really this should be per container in the pod, but that doesn't
     /// impact things really.
     pub resources: Option<ResourceRequirements>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PodStatus {}
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct ResourceRequirements {
     /// What a pod/container is guaranteed to have (minimums).
     pub requests: Option<ResourceQuantities>,
@@ -21,12 +36,14 @@ pub struct ResourceRequirements {
     pub limits: Option<ResourceQuantities>,
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct ResourceQuantities {
     /// Number of cpu cores.
-    pub cpu_cores: Option<u32>,
+    pub cpu_cores: Option<Quantity>,
     /// Amount of memory (in megabytes).
-    pub memory_mb: Option<u32>,
+    pub memory_mb: Option<Quantity>,
+    /// Number of pods.
+    pub pods: Option<Quantity>,
 }
 
 impl Sub for ResourceQuantities {
@@ -37,12 +54,23 @@ impl Sub for ResourceQuantities {
             cpu_cores: Some(
                 self.cpu_cores
                     .unwrap_or_default()
-                    .saturating_sub(rhs.cpu_cores.unwrap_or_default()),
+                    .to_int()
+                    .saturating_sub(rhs.cpu_cores.unwrap_or_default().to_int())
+                    .into(),
             ),
             memory_mb: Some(
                 self.memory_mb
                     .unwrap_or_default()
-                    .saturating_sub(rhs.memory_mb.unwrap_or_default()),
+                    .to_int()
+                    .saturating_sub(rhs.memory_mb.unwrap_or_default().to_int())
+                    .into(),
+            ),
+            pods: Some(
+                self.pods
+                    .unwrap_or_default()
+                    .to_int()
+                    .saturating_sub(rhs.pods.unwrap_or_default().to_int())
+                    .into(),
             ),
         }
     }
@@ -56,49 +84,96 @@ impl SubAssign for ResourceQuantities {
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct ReplicaSetResource {
-    pub name: String,
+    pub metadata: Metadata,
     pub replicas: u32,
 }
 
 impl ReplicaSetResource {
     pub fn pods(&self) -> Vec<String> {
         (0..self.replicas)
-            .map(|i| format!("{}-{}", self.name, i))
+            .map(|i| format!("{}-{}", self.metadata.name, i))
             .collect()
     }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct DeploymentResource {
-    pub name: String,
+    pub metadata: Metadata,
     pub replicas: u32,
 }
 
 impl DeploymentResource {
     pub fn replicasets(&self) -> Vec<String> {
-        vec![self.name.clone()]
+        vec![self.metadata.name.clone()]
     }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct StatefulSetResource {
-    pub name: String,
+    pub metadata: Metadata,
     pub replicas: u32,
 }
 
 impl StatefulSetResource {
     pub fn pods(&self) -> Vec<String> {
         (0..self.replicas)
-            .map(|i| format!("{}-{}", self.name, i))
+            .map(|i| format!("{}-{}", self.metadata.name, i))
             .collect()
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct NodeResource {
-    pub name: String,
-    pub running: BTreeSet<String>,
-    pub ready: bool,
+    pub metadata: Metadata,
+    pub spec: NodeSpec,
+    pub status: NodeStatus,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
+pub struct NodeSpec {}
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
+pub struct NodeStatus {
     /// The total resources of the node.
+    #[serde(default)]
     pub capacity: ResourceQuantities,
+
+    /// The total resources of the node.
+    #[serde(default)]
+    pub allocatable: ResourceQuantities,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum Quantity {
+    Str(String),
+    Int(u32),
+}
+
+impl Default for Quantity {
+    fn default() -> Self {
+        Self::Int(0)
+    }
+}
+
+impl Quantity {
+    pub fn to_int(&self) -> u32 {
+        match self {
+            Quantity::Str(s) => {
+                let (digit, unit) = s.split_once(char::is_alphabetic).unwrap();
+                let digit = digit.parse().unwrap();
+                match unit {
+                    u => panic!("unhandled unit {u}"),
+                };
+                digit
+            }
+            Quantity::Int(i) => *i,
+        }
+    }
+}
+
+impl From<u32> for Quantity {
+    fn from(value: u32) -> Self {
+        Quantity::Int(value)
+    }
 }

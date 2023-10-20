@@ -8,26 +8,36 @@ pub struct Node {
     pub name: String,
 }
 
+pub struct NodeState {
+    pub running: Vec<String>,
+}
+
 impl Controller for Node {
-    fn step(&self, id: usize, state: &StateView) -> Option<Operation> {
-        if let Some(node) = state.nodes.get(&id) {
-            if node.ready {
-                for pod in state
-                    .pods
-                    .values()
-                    .filter(|p| p.node_name.as_ref().map_or(false, |n| n == &self.name))
-                {
-                    if !node.running.contains(&pod.name) {
-                        return Some(Operation::RunPod(pod.name.clone(), id));
-                    }
+    type State = NodeState;
+
+    fn step(
+        &self,
+        id: usize,
+        global_state: &StateView,
+        local_state: &mut Self::State,
+    ) -> Option<Operation> {
+        if let Some(node) = global_state.nodes.get(&id) {
+            for pod in global_state
+                .pods
+                .values()
+                .filter(|p| p.spec.node_name.as_ref().map_or(false, |n| n == &self.name))
+            {
+                if !local_state.running.contains(&pod.metadata.name) {
+                    return Some(Operation::RunPod(pod.metadata.name.clone(), id));
                 }
             }
         } else {
             return Some(Operation::NodeJoin(
                 id,
                 ResourceQuantities {
-                    cpu_cores: Some(4),
-                    memory_mb: Some(4000),
+                    cpu_cores: Some(4.into()),
+                    memory_mb: Some(4000.into()),
+                    pods: Some(32.into()),
                 },
             ));
         }
