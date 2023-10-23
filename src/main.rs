@@ -1,16 +1,21 @@
 use clap::Parser;
 use model_checked_orchestration::model;
 use model_checked_orchestration::resources::DeploymentResource;
-use model_checked_orchestration::resources::Metadata;
+use model_checked_orchestration::resources::DeploymentSpec;
+use model_checked_orchestration::resources::DeploymentStatus;
 use model_checked_orchestration::resources::PodResource;
 use model_checked_orchestration::resources::PodSpec;
 use model_checked_orchestration::resources::PodStatus;
+use model_checked_orchestration::resources::PodTemplateSpec;
 use model_checked_orchestration::resources::ReplicaSetResource;
+use model_checked_orchestration::resources::ReplicaSetSpec;
+use model_checked_orchestration::resources::ReplicaSetStatus;
 use model_checked_orchestration::resources::ResourceQuantities;
 use model_checked_orchestration::resources::ResourceRequirements;
 use model_checked_orchestration::resources::StatefulSetResource;
 use model_checked_orchestration::state::ConsistencySetup;
 use model_checked_orchestration::state::StateView;
+use model_checked_orchestration::utils;
 use report::Reporter;
 use stateright::Checker;
 use stateright::Model;
@@ -40,9 +45,7 @@ fn main() {
 
     let initial_state = StateView::default()
         .with_pods((0..opts.initial_pods).map(|i| PodResource {
-            metadata: Metadata {
-                name: format!("pod-{i}"),
-            },
+            metadata: utils::metadata(format!("pod-{i}")),
             spec: PodSpec {
                 node_name: None,
                 scheduler_name: None,
@@ -54,25 +57,49 @@ fn main() {
                     }),
                     limits: None,
                 }),
+                containers: Vec::new(),
             },
             status: PodStatus {},
         }))
         .with_replicasets((1..=opts.replicasets).map(|i| ReplicaSetResource {
-            metadata: Metadata {
-                name: format!("rep-{i}"),
+            metadata: utils::metadata(format!("rep-{i}")),
+            spec: ReplicaSetSpec {
+                replicas: Some(opts.pods_per_replicaset),
+                template: PodTemplateSpec {
+                    metadata: utils::metadata(format!("rep-{i}-container")),
+                    spec: PodSpec {
+                        node_name: None,
+                        scheduler_name: None,
+                        resources: None,
+                        containers: Vec::new(),
+                    },
+                },
+                min_ready_seconds: 0,
             },
-            replicas: opts.pods_per_replicaset,
+            status: ReplicaSetStatus {
+                replicas: 0,
+                available_replicas: 0,
+            },
         }))
         .with_deployments((1..=opts.deployments).map(|i| DeploymentResource {
-            metadata: Metadata {
-                name: format!("dep-{i}"),
+            metadata: utils::metadata(format!("dep-{i}")),
+            spec: DeploymentSpec {
+                replicas: opts.pods_per_replicaset,
+                template: PodTemplateSpec {
+                    metadata: utils::metadata(format!("dep-{i}-container")),
+                    spec: PodSpec {
+                        node_name: None,
+                        scheduler_name: None,
+                        resources: None,
+                        containers: Vec::new(),
+                    },
+                },
+                min_ready_seconds: 0,
             },
-            replicas: opts.pods_per_replicaset,
+            status: DeploymentStatus {},
         }))
         .with_statefulsets((1..=opts.statefulsets).map(|i| StatefulSetResource {
-            metadata: Metadata {
-                name: format!("sts-{i}"),
-            },
+            metadata: utils::metadata(format!("sts-{i}")),
             replicas: opts.pods_per_statefulset,
         }));
 

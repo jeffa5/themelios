@@ -5,14 +5,17 @@ use axum::{Json, Router};
 use maplit::btreemap;
 use maplit::btreeset;
 use serde_json::json;
+use tracing::debug;
 
 use crate::abstract_model::Operation;
-use crate::controller::{Controller, Scheduler, SchedulerState};
-use crate::resources::{NodeResource, PodResource};
+use crate::controller::{Controller, Deployment, DeploymentState, Scheduler, SchedulerState};
+use crate::resources::{DeploymentResource, NodeResource, PodResource, ReplicaSetResource};
 use crate::state::{Revision, StateView};
 
 pub fn app() -> Router {
-    Router::new().route("/scheduler", post(scheduler))
+    Router::new()
+        .route("/scheduler", post(scheduler))
+        .route("/deployment", post(deployment))
 }
 
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
@@ -24,6 +27,19 @@ struct SchedulerRequest {
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 struct SchedulerResponse {
     node_name: String,
+}
+
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+struct DeploymentRequest {
+    deployment: DeploymentResource,
+    replicasets: Vec<ReplicaSetResource>,
+}
+
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+#[serde(tag = "action", rename_all = "camelCase")]
+enum DeploymentResponse {
+    UpdateDeployment{deployment: DeploymentResource },
+    UpdateReplicaSet{ replicaset:ReplicaSetResource },
 }
 
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
@@ -75,6 +91,32 @@ async fn scheduler(
     let mut local_state = SchedulerState;
     match s.step(controller_id, &state_view, &mut local_state) {
         Some(Operation::SchedulePod(_, node)) => Ok(Json(SchedulerResponse { node_name: node })),
+        Some(op) => Err(ErrorResponse::InvalidOperationReturned(op)),
+        None => Err(ErrorResponse::NoOperation),
+    }
+}
+
+async fn deployment(
+    Json(payload): Json<DeploymentRequest>,
+) -> Result<Json<DeploymentResponse>, ErrorResponse> {
+    let s = Deployment;
+    let dp = payload.deployment;
+    let rss = payload.replicasets;
+    debug!(?dp, ?rss, "Got deployment controller request");
+    let controller_id = 0;
+    let state_view = StateView {
+        revision: Revision::default(),
+        deployments: btreemap!(dp.metadata.name.clone() => dp),
+        replica_sets:rss.into_iter().map(|rs| (rs.metadata.name.clone(), rs)).collect(),
+        controllers: btreeset![controller_id],
+        ..Default::default()
+    };
+    let mut local_state = DeploymentState;
+    let operation = s.step(controller_id, &state_view, &mut local_state);
+    debug!(?operation, "Got operation");
+    match operation {
+        Some(Operation::UpdateDeployment(dep)) => Ok(Json(DeploymentResponse::UpdateDeployment{ deployment:dep })),
+        Some(Operation::UpdateReplicaSet(rs)) => Ok(Json(DeploymentResponse::UpdateReplicaSet{ replicaset:rs })),
         Some(op) => Err(ErrorResponse::InvalidOperationReturned(op)),
         None => Err(ErrorResponse::NoOperation),
     }

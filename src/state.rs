@@ -1,10 +1,11 @@
+use crate::{resources::PodTemplateSpec, utils};
 use std::collections::{BTreeMap, BTreeSet};
 
 use crate::{
     abstract_model::{Change, Operation},
     resources::{
-        DeploymentResource, Metadata, NodeResource, PodResource, PodSpec, PodStatus,
-        ReplicaSetResource, StatefulSetResource,
+        DeploymentResource, NodeResource, PodResource, PodSpec, PodStatus, ReplicaSetResource,
+        ReplicaSetSpec, ReplicaSetStatus, StatefulSetResource,
     },
 };
 
@@ -624,9 +625,7 @@ impl StateView {
                 self.nodes.insert(
                     *i,
                     NodeResource {
-                        metadata: Metadata {
-                            name: format!("node-{i}"),
-                        },
+                        metadata: utils::metadata(format!("node-{i}")),
                         spec: crate::resources::NodeSpec {},
                         status: crate::resources::NodeStatus {
                             capacity: capacity.clone(),
@@ -642,11 +641,12 @@ impl StateView {
                 self.pods.insert(
                     i.clone(),
                     PodResource {
-                        metadata: Metadata { name: i.clone() },
+                        metadata: utils::metadata(i.clone()),
                         spec: PodSpec {
                             scheduler_name: None,
                             node_name: None,
                             resources: None,
+                            containers: Vec::new(),
                         },
                         status: PodStatus {},
                     },
@@ -656,8 +656,24 @@ impl StateView {
                 self.replica_sets.insert(
                     i.clone(),
                     ReplicaSetResource {
-                        metadata: Metadata { name: i.clone() },
-                        replicas: 2,
+                        metadata: utils::metadata(i.clone()),
+                        spec: ReplicaSetSpec {
+                            replicas: Some(2),
+                            template: PodTemplateSpec {
+                                metadata: utils::metadata(i.clone()),
+                                spec: PodSpec {
+                                    node_name: None,
+                                    scheduler_name: None,
+                                    resources: None,
+                                    containers: Vec::new(),
+                                },
+                            },
+                            min_ready_seconds: 0,
+                        },
+                        status: ReplicaSetStatus {
+                            replicas: 0,
+                            available_replicas: 0,
+                        },
                     },
                 );
             }
@@ -674,11 +690,20 @@ impl StateView {
                 // TODO: reset local state for the node
                 if let Some(node) = self.nodes.remove(node) {
                     self.pods.retain(|_, pod| {
-                        pod.spec.node_name
+                        pod.spec
+                            .node_name
                             .as_ref()
                             .map_or(true, |n| n != &node.metadata.name)
                     });
                 }
+            }
+            Operation::UpdateDeployment(dep) => {
+                self.deployments
+                    .insert(dep.metadata.name.clone(), dep.clone());
+            }
+            Operation::UpdateReplicaSet(rs) => {
+                self.replica_sets
+                    .insert(rs.metadata.name.clone(), rs.clone());
             }
         }
         self.revision = new_revision;

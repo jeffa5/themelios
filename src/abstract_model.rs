@@ -4,7 +4,7 @@ use std::collections::BTreeSet;
 use stateright::{Model, Property};
 
 use crate::controller::{Controller, Controllers};
-use crate::resources::ResourceQuantities;
+use crate::resources::{DeploymentResource, ReplicaSetResource, ResourceQuantities};
 use crate::state::{ConsistencySetup, Revision, State, StateView};
 
 #[derive(Debug)]
@@ -34,6 +34,8 @@ pub enum Operation {
     NewReplicaset(String),
     SchedulePod(String, String),
     RunPod(String, usize),
+    UpdateDeployment(DeploymentResource),
+    UpdateReplicaSet(ReplicaSetResource),
     NodeCrash(usize),
 }
 
