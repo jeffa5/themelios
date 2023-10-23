@@ -1,4 +1,3 @@
-use crate::{resources::PodTemplateSpec, utils};
 use std::collections::{BTreeMap, BTreeSet};
 
 use crate::{
@@ -8,6 +7,7 @@ use crate::{
         ReplicaSetSpec, ReplicaSetStatus, StatefulSetResource,
     },
 };
+use crate::{resources::LabelSelector, resources::PodTemplateSpec, utils};
 
 /// Consistency level for viewing the state with.
 #[derive(Default, Clone, Debug, PartialEq, Eq, Hash)]
@@ -669,6 +669,9 @@ impl StateView {
                                 },
                             },
                             min_ready_seconds: 0,
+                            selector: LabelSelector {
+                                match_labels: Default::default(),
+                            },
                         },
                         status: ReplicaSetStatus {
                             replicas: 0,

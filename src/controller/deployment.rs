@@ -326,8 +326,9 @@ fn find_active_or_latest(
     old_replicasets.reverse();
 
     let mut all_replicasets = old_replicasets.clone();
-    let binding = new_replicaset.as_ref().unwrap();
-    all_replicasets.push(&binding);
+    if let Some(binding)  = new_replicaset {
+        all_replicasets.push(&binding);
+    }
     let active_replicasets = filter_active_replicasets(&all_replicasets);
 
     match active_replicasets.len() {
@@ -411,7 +412,7 @@ fn scale_replicaset(
     );
     let mut scaled = false;
     if size_needs_update || annotations_need_update {
-        debug!("Scaling replicaset");
+        debug!(from=replicaset.spec.replicas, to=new_scale, "Scaling replicaset");
         let oldscale = replicaset.spec.replicas;
         let mut new_rs = replicaset.clone();
         new_rs.spec.replicas = Some(new_scale);

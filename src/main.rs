@@ -1,6 +1,9 @@
+use std::collections::BTreeMap;
+
 use clap::Parser;
 use model_checked_orchestration::model;
 use model_checked_orchestration::resources::DeploymentResource;
+use model_checked_orchestration::resources::LabelSelector;
 use model_checked_orchestration::resources::DeploymentSpec;
 use model_checked_orchestration::resources::DeploymentStatus;
 use model_checked_orchestration::resources::PodResource;
@@ -75,6 +78,9 @@ fn main() {
                     },
                 },
                 min_ready_seconds: 0,
+                selector: LabelSelector{
+                    match_labels:Default::default(),
+                }
             },
             status: ReplicaSetStatus {
                 replicas: 0,
@@ -95,6 +101,9 @@ fn main() {
                     },
                 },
                 min_ready_seconds: 0,
+                selector: LabelSelector {
+                    match_labels: BTreeMap::default(),
+                },
             },
             status: DeploymentStatus {},
         }))
