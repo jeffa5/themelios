@@ -36,6 +36,7 @@ pub enum Operation {
     RunPod(String, usize),
     UpdateDeployment(DeploymentResource),
     UpdateReplicaSet(ReplicaSetResource),
+    DeleteReplicaSet(ReplicaSetResource),
     NodeCrash(usize),
 }
 

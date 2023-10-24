@@ -15,6 +15,8 @@ pub fn metadata(name: String) -> Metadata {
         name,
         namespace:"default".to_owned(),
         creation_timestamp: None,
+        deletion_timestamp:None,
+        generation:0,
         uid: new_uid(),
         labels: Default::default(),
         annotations: Default::default(),

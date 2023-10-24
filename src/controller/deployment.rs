@@ -79,6 +79,13 @@ fn sync(
     }
 
     // TODO: Clean up the deployment when it's paused and no rollback is in flight.
+    if deployment.spec.paused
+    // && get_rollback_to(deployment).is_none()
+    {
+        if let Some(op) = cleanup_deployment(&old_replicasets, deployment) {
+            return Some(op);
+        }
+    }
 
     let mut all_replicasets = old_replicasets;
     if let Some(new_rs) = &new_replicaset {
@@ -326,7 +333,7 @@ fn find_active_or_latest(
     old_replicasets.reverse();
 
     let mut all_replicasets = old_replicasets.clone();
-    if let Some(binding)  = new_replicaset {
+    if let Some(binding) = new_replicaset {
         all_replicasets.push(&binding);
     }
     let active_replicasets = filter_active_replicasets(&all_replicasets);
@@ -412,7 +419,11 @@ fn scale_replicaset(
     );
     let mut scaled = false;
     if size_needs_update || annotations_need_update {
-        debug!(from=replicaset.spec.replicas, to=new_scale, "Scaling replicaset");
+        debug!(
+            from = replicaset.spec.replicas,
+            to = new_scale,
+            "Scaling replicaset"
+        );
         let oldscale = replicaset.spec.replicas;
         let mut new_rs = replicaset.clone();
         new_rs.spec.replicas = Some(new_scale);
@@ -498,4 +509,57 @@ fn set_deployment_revision(deployment: &mut DeploymentResource, revision: String
     } else {
         false
     }
+}
+
+// cleanupDeployment is responsible for cleaning up a deployment ie. retains all but the latest N old replica sets
+// where N=d.Spec.RevisionHistoryLimit. Old replica sets are older versions of the podtemplate of a deployment kept
+// around by default 1) for historical reasons and 2) for the ability to rollback a deployment.
+fn cleanup_deployment(
+    old_replicasets: &[&ReplicaSetResource],
+    deployment: &DeploymentResource,
+) -> Option<Operation> {
+    if has_revision_history_limit(deployment) {
+        return None;
+    }
+
+    // Avoid deleting replica set with deletion timestamp set
+    let mut cleanable_replicasets = old_replicasets
+        .iter()
+        .filter(|rs| rs.metadata.deletion_timestamp.is_none())
+        .collect::<Vec<_>>();
+
+    let diff = cleanable_replicasets.len() - deployment.spec.revision_history_limit as usize;
+    if diff <= 0 {
+        return None;
+    }
+
+    cleanable_replicasets.sort_by_key(|rs| {
+        rs.metadata
+            .annotations
+            .get(REVISION_ANNOTATION)
+            .and_then(|r| r.parse().ok())
+            .unwrap_or(0)
+    });
+
+    for rs in cleanable_replicasets.iter().take(diff) {
+        // Avoid delete replica set with non-zero replica counts
+        if rs.status.replicas != 0
+            || (!rs.spec.replicas.is_none() && rs.spec.replicas != Some(0))
+            || rs.metadata.generation > rs.status.observed_generation
+            || rs.metadata.deletion_timestamp.is_some()
+        {
+            continue;
+        }
+        debug!("Trying to cleanup replica set for deployment");
+        return Some(Operation::DeleteReplicaSet((**rs).clone()));
+    }
+    None
+}
+
+// HasRevisionHistoryLimit checks if the Deployment d is expected to keep a specified number of
+// old replicaSets. These replicaSets are mainly kept with the purpose of rollback.
+// The RevisionHistoryLimit can start from 0 (no retained replicasSet). When set to math.MaxInt32,
+// the Deployment will keep all revisions.
+fn has_revision_history_limit(deployment: &DeploymentResource) -> bool {
+    deployment.spec.revision_history_limit != u32::MAX
 }

@@ -3,9 +3,9 @@ use std::collections::BTreeMap;
 use clap::Parser;
 use model_checked_orchestration::model;
 use model_checked_orchestration::resources::DeploymentResource;
-use model_checked_orchestration::resources::LabelSelector;
 use model_checked_orchestration::resources::DeploymentSpec;
 use model_checked_orchestration::resources::DeploymentStatus;
+use model_checked_orchestration::resources::LabelSelector;
 use model_checked_orchestration::resources::PodResource;
 use model_checked_orchestration::resources::PodSpec;
 use model_checked_orchestration::resources::PodStatus;
@@ -78,13 +78,14 @@ fn main() {
                     },
                 },
                 min_ready_seconds: 0,
-                selector: LabelSelector{
-                    match_labels:Default::default(),
-                }
+                selector: LabelSelector {
+                    match_labels: Default::default(),
+                },
             },
             status: ReplicaSetStatus {
                 replicas: 0,
                 available_replicas: 0,
+                observed_generation: 0,
             },
         }))
         .with_deployments((1..=opts.deployments).map(|i| DeploymentResource {
@@ -104,6 +105,8 @@ fn main() {
                 selector: LabelSelector {
                     match_labels: BTreeMap::default(),
                 },
+                paused:false,
+                revision_history_limit: 0,
             },
             status: DeploymentStatus {},
         }))

@@ -676,6 +676,7 @@ impl StateView {
                         status: ReplicaSetStatus {
                             replicas: 0,
                             available_replicas: 0,
+                            observed_generation:0,
                         },
                     },
                 );
@@ -707,6 +708,10 @@ impl StateView {
             Operation::UpdateReplicaSet(rs) => {
                 self.replica_sets
                     .insert(rs.metadata.name.clone(), rs.clone());
+            }
+            Operation::DeleteReplicaSet(rs) => {
+                self.replica_sets
+                    .remove(&rs.metadata.name);
             }
         }
         self.revision = new_revision;
