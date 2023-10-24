@@ -1,16 +1,31 @@
-use diff::Diff;
 use crate::{
     abstract_model::Operation,
     resources::{
         DeploymentCondition, DeploymentResource, DeploymentStatus, DeploymentStrategyType,
-        ReplicaSetResource, PodTemplateSpec
+        PodTemplateSpec, ReplicaSetResource,
     },
     state::StateView,
     utils::now,
 };
+use diff::Diff;
 use tracing::debug;
 
 use super::Controller;
+
+// Progressing means the deployment is progressing. Progress for a deployment is
+// considered when a new replica set is created or adopted, and when new pods scale
+// up or old pods scale down. Progress is not estimated for paused deployments or
+// when progressDeadlineSeconds is not specified.
+const DEPLOYMENT_PROGRESSING: &str = "Progressing";
+
+// FoundNewRSReason is added in a deployment when it adopts an existing replica set.
+const FOUND_NEW_RSREASON: &str = "FoundNewReplicaSet";
+
+const DEPRECATED_ROLLBACK_TO: &str = "deprecated.deployment.rollback.to";
+
+// const KUBE_CTL_PREFIX: &str = "kubectl.kubernetes.io/";
+// TODO: should use a const format thing with KUBE_CTL_PREFIX
+const LAST_APPLIED_CONFIG_ANNOTATION: &str = "kubectl.kubernetes.io/last-applied-configuration";
 
 // DefaultDeploymentUniqueLabelKey is the default key of the selector that is added
 // to existing ReplicaSets (and label key that is added to its pods) to prevent the existing ReplicaSets
@@ -23,6 +38,9 @@ const DEPLOYMENT_AVAILABLE: &str = "Available";
 
 // RevisionAnnotation is the revision annotation of a deployment's replica sets which records its rollout sequence
 const REVISION_ANNOTATION: &str = "deployment.kubernetes.io/revision";
+
+// RevisionHistoryAnnotation maintains the history of all old revisions that a replica set has served for a deployment.
+const REVISION_HISTORY_ANNOTATION: &str = "deployment.kubernetes.io/revision-history";
 
 // DesiredReplicasAnnotation is the desired replicas for a deployment recorded as an annotation
 // in its replica sets. Helps in separating scaling events from the rollout process and for
@@ -40,6 +58,9 @@ const MINIMUM_REPLICAS_AVAILABLE: &str = "MinimumReplicasAvailable";
 // MinimumReplicasUnavailable is added in a deployment when it doesn't have the minimum required replicas
 // available.
 const MINIMUM_REPLICAS_UNAVAILABLE: &str = "MinimumReplicasUnavailable";
+
+// limit revision history length to 100 element (~2000 chars)
+const MAX_REV_HISTORY_LENGTH_IN_CHARS: usize = 2000;
 
 enum ResourceOrOp<R> {
     Resource(R),
@@ -216,14 +237,15 @@ fn get_new_replicaset(
     if let Some(existing_new_rs) = existing_new_rs {
         // Set existing new replica set's annotation
         let mut rs_copy = existing_new_rs.clone();
-        let annotations_updated = false;
-        //     set_new_replicaset_annotations(
-        //     deployment,
-        //     rs_copy,
-        //     new_revision,
-        //     true,
-        //     maxRevHistoryLengthInChars,
-        // );
+        debug!("Got existing replicaset");
+
+        let annotations_updated = set_new_replicaset_annotations(
+            deployment,
+            &mut rs_copy,
+            new_revision.to_string(),
+            true,
+            MAX_REV_HISTORY_LENGTH_IN_CHARS,
+        );
         let min_ready_seconds_need_update =
             rs_copy.spec.min_ready_seconds != deployment.spec.min_ready_seconds;
         if annotations_updated || min_ready_seconds_need_update {
@@ -231,7 +253,7 @@ fn get_new_replicaset(
             return Some(ResourceOrOp::Op(Operation::UpdateReplicaSet(rs_copy)));
         }
 
-        let needs_update = set_deployment_revision(
+        let mut needs_update = set_deployment_revision(
             deployment,
             rs_copy
                 .metadata
@@ -240,13 +262,22 @@ fn get_new_replicaset(
                 .cloned()
                 .unwrap_or_default(),
         );
-        // TODO: apply a condition
-        // let cond = get_deployment_condition(deployment.status, DEPLOYMENT_PROGRESSING);
-        // if has_progress_deadline(deployment) && cond.is_none() {
-        // }
+
+        let cond = get_deployment_condition(&deployment.status, DEPLOYMENT_PROGRESSING);
+        if has_progress_deadline(deployment) && cond.is_none() {
+            let message = format!("Found new replica set {}", rs_copy.metadata.name);
+            let condition = new_deployment_condition(
+                DEPLOYMENT_PROGRESSING.to_owned(),
+                "True".to_owned(),
+                FOUND_NEW_RSREASON.to_owned(),
+                message,
+            );
+            set_deployment_condition(&mut deployment.status, condition);
+            needs_update = true;
+        }
 
         if needs_update {
-            return Some(ResourceOrOp::Op(Operation::UpdateDeployment(
+            return Some(ResourceOrOp::Op(Operation::UpdateDeploymentStatus(
                 deployment.clone(),
             )));
         }
@@ -347,7 +378,7 @@ fn scale(
     let active_or_latest = find_active_or_latest(new_replicaset, old_replicasets);
     if let Some(active_or_latest) = active_or_latest {
         if active_or_latest.spec.replicas == Some(deployment.spec.replicas) {
-            debug!("already fully scaled");
+            debug!(deployment.spec.replicas, "already fully scaled");
             return None;
         }
         return scale_replicaset_and_record_event(
@@ -758,4 +789,143 @@ fn equal_ignore_hash(t1: &PodTemplateSpec, t2: &PodTemplateSpec) -> bool {
         .labels
         .remove(DEFAULT_DEPLOYMENT_UNIQUE_LABEL_KEY);
     t1 == t2
+}
+
+// SetNewReplicaSetAnnotations sets new replica set's annotations appropriately by updating its revision and
+// copying required deployment annotations to it; it returns true if replica set's annotation is changed.
+fn set_new_replicaset_annotations(
+    deployment: &DeploymentResource,
+    new_replicaset: &mut ReplicaSetResource,
+    new_revision: String,
+    exists: bool,
+    rev_history_limit_in_chars: usize,
+) -> bool {
+    // First, copy deployment's annotations (except for apply and revision annotations)
+    let mut annotation_changed =
+        copy_deployment_annotations_to_replica_set(deployment, new_replicaset);
+    // Then, update replica set's revision annotation
+    let old_revision = new_replicaset
+        .metadata
+        .annotations
+        .get(REVISION_ANNOTATION)
+        .cloned();
+    // The newRS's revision should be the greatest among all RSes. Usually, its revision number is newRevision (the max revision number
+    // of all old RSes + 1). However, it's possible that some of the old RSes are deleted after the newRS revision being updated, and
+    // newRevision becomes smaller than newRS's revision. We should only update newRS revision when it's smaller than newRevision.
+    let old_revision_int = match old_revision.as_ref().map(|r| r.parse().ok()) {
+        Some(Some(r)) => r,
+        Some(None) => {
+            debug!("Updating replica set revision oldrevision not int");
+            return false;
+        }
+        None => 0,
+    };
+    let Ok(new_revision_int) = new_revision.parse() else {
+        debug!("Updating replica set revision newrevision not int");
+        return false;
+    };
+
+    if old_revision_int < new_revision_int {
+        new_replicaset
+            .metadata
+            .annotations
+            .insert(REVISION_ANNOTATION.to_owned(), new_revision.clone());
+        annotation_changed = true;
+        debug!(new_revision, "Updating replica set revision");
+    }
+    // If a revision annotation already existed and this replica set was updated with a new revision
+    // then that means we are rolling back to this replica set. We need to preserve the old revisions
+    // for historical information.
+    if old_revision.is_some() && old_revision_int < new_revision_int {
+        let revision_history_annotation = new_replicaset
+            .metadata
+            .annotations
+            .get(REVISION_HISTORY_ANNOTATION);
+        let mut old_revisions = revision_history_annotation
+            .cloned()
+            .unwrap_or_default()
+            .split(",")
+            .map(|s| s.to_owned())
+            .collect::<Vec<String>>();
+        if old_revisions[0].is_empty() {
+            new_replicaset.metadata.annotations.insert(
+                REVISION_HISTORY_ANNOTATION.to_owned(),
+                old_revision.unwrap().clone(),
+            );
+        } else {
+            let mut total_len = revision_history_annotation.map_or(0, |a| a.len())
+                + old_revision.as_ref().map_or(0, |r| r.len())
+                + 1;
+            // index for the starting position in oldRevisions
+            let mut start = 0;
+            while total_len > rev_history_limit_in_chars && start < old_revisions.len() {
+                total_len -= old_revisions[start].len() - 1;
+                start += 1;
+            }
+            if total_len <= rev_history_limit_in_chars {
+                old_revisions = old_revisions[start..].to_vec();
+                old_revisions.push(old_revision.unwrap());
+                new_replicaset.metadata.annotations.insert(
+                    REVISION_HISTORY_ANNOTATION.to_owned(),
+                    old_revisions.join(","),
+                );
+            } else {
+                debug!(
+                    rev_history_limit_in_chars,
+                    "Not appending revision due to revision history length limit reached"
+                );
+            }
+        }
+    }
+    // If the new replica set is about to be created, we need to add replica annotations to it.
+    if !exists
+        && set_replicas_annotations(
+            new_replicaset,
+            deployment.spec.replicas,
+            deployment.spec.replicas + max_surge(deployment),
+        )
+    {
+        annotation_changed = true;
+    }
+    annotation_changed
+}
+
+fn copy_deployment_annotations_to_replica_set(
+    deployment: &DeploymentResource,
+    replicaset: &mut ReplicaSetResource,
+) -> bool {
+    let mut annotations_changed = false;
+    for (k, v) in &deployment.metadata.annotations {
+        // newRS revision is updated automatically in getNewReplicaSet, and the deployment's revision number is then updated
+        // by copying its newRS revision number. We should not copy deployment's revision to its newRS, since the update of
+        // deployment revision number may fail (revision becomes stale) and the revision number in newRS is more reliable.
+        if skip_copy_annotation(&k)
+            || replicaset
+                .metadata
+                .annotations
+                .get(k)
+                .map_or(false, |av| av == v)
+        {
+            continue;
+        }
+        replicaset.metadata.annotations.insert(k.clone(), v.clone());
+        annotations_changed = true;
+    }
+    annotations_changed
+}
+
+fn skip_copy_annotation(key: &str) -> bool {
+    [
+        LAST_APPLIED_CONFIG_ANNOTATION,
+        REVISION_ANNOTATION,
+        REVISION_HISTORY_ANNOTATION,
+        DESIRED_REPLICAS_ANNOTATION,
+        MAX_REPLICAS_ANNOTATION,
+        DEPRECATED_ROLLBACK_TO,
+    ]
+    .contains(&key)
+}
+
+fn has_progress_deadline(deployment: &DeploymentResource) -> bool {
+    deployment.spec.progress_deadline_seconds != Some(u32::MAX)
 }

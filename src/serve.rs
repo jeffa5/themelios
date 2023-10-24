@@ -38,9 +38,9 @@ struct DeploymentRequest {
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 #[serde(tag = "action", rename_all = "camelCase")]
 enum DeploymentResponse {
-    UpdateDeployment{deployment: DeploymentResource },
-    UpdateDeploymentStatus{deployment: DeploymentResource },
-    UpdateReplicaSet{ replicaset:ReplicaSetResource },
+    UpdateDeployment { deployment: DeploymentResource },
+    UpdateDeploymentStatus { deployment: DeploymentResource },
+    UpdateReplicaSet { replicaset: ReplicaSetResource },
 }
 
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
@@ -68,11 +68,16 @@ impl std::fmt::Display for ErrorResponse {
 
 impl IntoResponse for ErrorResponse {
     fn into_response(self) -> axum::response::Response {
-        let status = StatusCode::BAD_REQUEST;
-        let body = Json(json!({
-            "error": self.to_string(),
-        }));
-        (status, body).into_response()
+        match &self {
+            Self::InvalidOperationReturned(op) => {
+                let status = StatusCode::BAD_REQUEST;
+                let body = Json(json!({
+                    "error": self.to_string(),
+                }));
+                (status, body).into_response()
+            }
+            Self::NoOperation => (StatusCode::NO_CONTENT).into_response(),
+        }
     }
 }
 
@@ -101,14 +106,17 @@ async fn deployment(
     Json(payload): Json<DeploymentRequest>,
 ) -> Result<Json<DeploymentResponse>, ErrorResponse> {
     let s = Deployment;
-    let dp = payload.deployment;
-    let rss = payload.replicasets;
-    debug!(?dp, ?rss, "Got deployment controller request");
+    debug!("Got deployment controller request");
+    println!("{}", serde_yaml::to_string(&payload).unwrap());
     let controller_id = 0;
     let state_view = StateView {
         revision: Revision::default(),
-        deployments: btreemap!(dp.metadata.name.clone() => dp),
-        replica_sets:rss.into_iter().map(|rs| (rs.metadata.name.clone(), rs)).collect(),
+        deployments: btreemap!(payload.deployment.metadata.name.clone() => payload.deployment),
+        replica_sets: payload
+            .replicasets
+            .into_iter()
+            .map(|rs| (rs.metadata.name.clone(), rs))
+            .collect(),
         controllers: btreeset![controller_id],
         ..Default::default()
     };
@@ -116,9 +124,17 @@ async fn deployment(
     let operation = s.step(controller_id, &state_view, &mut local_state);
     debug!(?operation, "Got operation");
     match operation {
-        Some(Operation::UpdateDeployment(dep)) => Ok(Json(DeploymentResponse::UpdateDeployment{ deployment:dep })),
-        Some(Operation::UpdateDeploymentStatus(dep)) => Ok(Json(DeploymentResponse::UpdateDeploymentStatus{ deployment:dep })),
-        Some(Operation::UpdateReplicaSet(rs)) => Ok(Json(DeploymentResponse::UpdateReplicaSet{ replicaset:rs })),
+        Some(Operation::UpdateDeployment(dep)) => Ok(Json(DeploymentResponse::UpdateDeployment {
+            deployment: dep,
+        })),
+        Some(Operation::UpdateDeploymentStatus(dep)) => {
+            Ok(Json(DeploymentResponse::UpdateDeploymentStatus {
+                deployment: dep,
+            }))
+        }
+        Some(Operation::UpdateReplicaSet(rs)) => Ok(Json(DeploymentResponse::UpdateReplicaSet {
+            replicaset: rs,
+        })),
         Some(op) => Err(ErrorResponse::InvalidOperationReturned(op)),
         None => Err(ErrorResponse::NoOperation),
     }
