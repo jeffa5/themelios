@@ -39,6 +39,7 @@ struct DeploymentRequest {
 #[serde(tag = "action", rename_all = "camelCase")]
 enum DeploymentResponse {
     UpdateDeployment{deployment: DeploymentResource },
+    UpdateDeploymentStatus{deployment: DeploymentResource },
     UpdateReplicaSet{ replicaset:ReplicaSetResource },
 }
 
@@ -116,6 +117,7 @@ async fn deployment(
     debug!(?operation, "Got operation");
     match operation {
         Some(Operation::UpdateDeployment(dep)) => Ok(Json(DeploymentResponse::UpdateDeployment{ deployment:dep })),
+        Some(Operation::UpdateDeploymentStatus(dep)) => Ok(Json(DeploymentResponse::UpdateDeploymentStatus{ deployment:dep })),
         Some(Operation::UpdateReplicaSet(rs)) => Ok(Json(DeploymentResponse::UpdateReplicaSet{ replicaset:rs })),
         Some(op) => Err(ErrorResponse::InvalidOperationReturned(op)),
         None => Err(ErrorResponse::NoOperation),

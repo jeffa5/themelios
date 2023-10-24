@@ -35,6 +35,8 @@ pub enum Operation {
     SchedulePod(String, String),
     RunPod(String, usize),
     UpdateDeployment(DeploymentResource),
+    // Update just the status part of the resource, not triggering more reconciliations (I think)
+    UpdateDeploymentStatus(DeploymentResource),
     UpdateReplicaSet(ReplicaSetResource),
     DeleteReplicaSet(ReplicaSetResource),
     NodeCrash(usize),

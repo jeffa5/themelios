@@ -1,22 +1,45 @@
+use diff::Diff;
 use crate::{
     abstract_model::Operation,
-    resources::{DeploymentResource, DeploymentStatus, ReplicaSetResource},
+    resources::{
+        DeploymentCondition, DeploymentResource, DeploymentStatus, DeploymentStrategyType,
+        ReplicaSetResource, PodTemplateSpec
+    },
     state::StateView,
+    utils::now,
 };
 use tracing::debug;
 
 use super::Controller;
 
+// DefaultDeploymentUniqueLabelKey is the default key of the selector that is added
+// to existing ReplicaSets (and label key that is added to its pods) to prevent the existing ReplicaSets
+// to select new pods (and old pods being select by new ReplicaSet).
+const DEFAULT_DEPLOYMENT_UNIQUE_LABEL_KEY: &str = "pod-template-hash";
+
+// Available means the deployment is available, ie. at least the minimum available
+// replicas required are up and running for at least minReadySeconds.
+const DEPLOYMENT_AVAILABLE: &str = "Available";
+
 // RevisionAnnotation is the revision annotation of a deployment's replica sets which records its rollout sequence
 const REVISION_ANNOTATION: &str = "deployment.kubernetes.io/revision";
+
 // DesiredReplicasAnnotation is the desired replicas for a deployment recorded as an annotation
 // in its replica sets. Helps in separating scaling events from the rollout process and for
 // determining if the new replica set for a deployment is really saturated.
 const DESIRED_REPLICAS_ANNOTATION: &str = "deployment.kubernetes.io/desired-replicas";
+
 // MaxReplicasAnnotation is the maximum replicas a deployment can have at a given point, which
 // is deployment.spec.replicas + maxSurge. Used by the underlying replica sets to estimate their
 // proportions in case the deployment has surge replicas.
 const MAX_REPLICAS_ANNOTATION: &str = "deployment.kubernetes.io/max-replicas";
+
+// MinimumReplicasAvailable is added in a deployment when it has its minimum replicas required available.
+const MINIMUM_REPLICAS_AVAILABLE: &str = "MinimumReplicasAvailable";
+
+// MinimumReplicasUnavailable is added in a deployment when it doesn't have the minimum required replicas
+// available.
+const MINIMUM_REPLICAS_UNAVAILABLE: &str = "MinimumReplicasUnavailable";
 
 enum ResourceOrOp<R> {
     Resource(R),
@@ -82,6 +105,7 @@ fn sync(
     if deployment.spec.paused
     // && get_rollback_to(deployment).is_none()
     {
+        debug!("Found paused deployment");
         if let Some(op) = cleanup_deployment(&old_replicasets, deployment) {
             return Some(op);
         }
@@ -158,7 +182,7 @@ fn find_new_replicaset(
     replicasets.sort_by_key(|r| r.metadata.creation_timestamp);
 
     for rs in replicasets {
-        if rs.spec.template == deployment.spec.template {
+        if equal_ignore_hash(&rs.spec.template, &deployment.spec.template) {
             debug!("found new replicaset");
             return Some(rs.clone());
         }
@@ -240,9 +264,13 @@ fn sync_deployment_status(
 ) -> Option<Operation> {
     let new_status = calculate_status(all_replicasets, new_replicaset, deployment);
     if deployment.status != new_status {
+        debug!(
+            status_diff = ?deployment.status.diff(&new_status),
+            "Setting new status"
+        );
         let mut new_deployment = deployment.clone();
         new_deployment.status = new_status;
-        Some(Operation::UpdateDeployment(new_deployment))
+        Some(Operation::UpdateDeploymentStatus(new_deployment))
     } else {
         None
     }
@@ -254,8 +282,52 @@ fn calculate_status(
     new_replicaset: &Option<ReplicaSetResource>,
     deployment: &DeploymentResource,
 ) -> DeploymentStatus {
-    // TODO
-    deployment.status.clone()
+    let available_replicas = get_available_replica_count_for_replicasets(all_replicasets);
+    let total_replicas = get_replica_count_for_replicasets(all_replicasets);
+    // If unavailableReplicas would be negative, then that means the Deployment has more available replicas running than
+    // desired, e.g. whenever it scales down. In such a case we should simply default unavailableReplicas to zero.
+    let unavailable_replicas = total_replicas.saturating_sub(available_replicas);
+
+    let mut status = DeploymentStatus {
+        observed_generation: deployment.metadata.generation,
+        replicas: get_actual_replica_count_for_replicasets(all_replicasets),
+        updated_replicas: get_actual_replica_count_for_replicasets(
+            &new_replicaset.iter().collect::<Vec<_>>(),
+        ),
+        ready_replicas: get_ready_replica_count_for_replicasets(all_replicasets),
+        available_replicas,
+        unavailable_replicas,
+        collision_count: deployment.status.collision_count,
+        conditions: deployment.status.conditions.clone(),
+    };
+
+    let max_unavailable = max_unavailable(deployment);
+    if available_replicas >= deployment.spec.replicas - max_unavailable {
+        debug!(
+            available_replicas,
+            deployment.spec.replicas, max_unavailable, "minimum replicas available"
+        );
+        let min_availability = new_deployment_condition(
+            DEPLOYMENT_AVAILABLE.to_owned(),
+            "True".to_owned(),
+            MINIMUM_REPLICAS_AVAILABLE.to_owned(),
+            "Deployment has minimum availability.".to_owned(),
+        );
+        set_deployment_condition(&mut status, min_availability);
+    } else {
+        debug!(
+            available_replicas,
+            deployment.spec.replicas, max_unavailable, "minimum replicas not available"
+        );
+        let no_min_availability = new_deployment_condition(
+            DEPLOYMENT_AVAILABLE.to_owned(),
+            "False".to_owned(),
+            MINIMUM_REPLICAS_UNAVAILABLE.to_owned(),
+            "Deployment does not have minimum availability.".to_owned(),
+        );
+        set_deployment_condition(&mut status, no_min_availability);
+    }
+    status
 }
 
 // scale scales proportionally in order to mitigate risk. Otherwise, scaling up can increase the size
@@ -276,7 +348,6 @@ fn scale(
     if let Some(active_or_latest) = active_or_latest {
         if active_or_latest.spec.replicas == Some(deployment.spec.replicas) {
             debug!("already fully scaled");
-            // already fully scaled
             return None;
         }
         return scale_replicaset_and_record_event(
@@ -490,7 +561,11 @@ fn max_surge(deployment: &DeploymentResource) -> u32 {
 }
 
 fn is_rolling_update(deployment: &DeploymentResource) -> bool {
-    false
+    deployment
+        .spec
+        .strategy
+        .as_ref()
+        .map_or(true, |s| s.r#type == DeploymentStrategyType::RollingUpdate)
 }
 
 fn set_deployment_revision(deployment: &mut DeploymentResource, revision: String) -> bool {
@@ -518,6 +593,7 @@ fn cleanup_deployment(
     old_replicasets: &[&ReplicaSetResource],
     deployment: &DeploymentResource,
 ) -> Option<Operation> {
+    debug!("Cleaning up deployment");
     if has_revision_history_limit(deployment) {
         return None;
     }
@@ -562,4 +638,124 @@ fn cleanup_deployment(
 // the Deployment will keep all revisions.
 fn has_revision_history_limit(deployment: &DeploymentResource) -> bool {
     deployment.spec.revision_history_limit != u32::MAX
+}
+
+fn get_available_replica_count_for_replicasets(replicasets: &[&ReplicaSetResource]) -> u32 {
+    replicasets
+        .iter()
+        .map(|rs| rs.status.available_replicas)
+        .sum()
+}
+
+fn get_replica_count_for_replicasets(replicasets: &[&ReplicaSetResource]) -> u32 {
+    replicasets.iter().filter_map(|rs| rs.spec.replicas).sum()
+}
+
+// ResolveFenceposts resolves both maxSurge and maxUnavailable. This needs to happen in one
+// step. For example:
+//
+// 2 desired, max unavailable 1%, surge 0% - should scale old(-1), then new(+1), then old(-1), then new(+1)
+// 1 desired, max unavailable 1%, surge 0% - should scale old(-1), then new(+1)
+// 2 desired, max unavailable 25%, surge 1% - should scale new(+1), then old(-1), then new(+1), then old(-1)
+// 1 desired, max unavailable 25%, surge 1% - should scale new(+1), then old(-1)
+// 2 desired, max unavailable 0%, surge 1% - should scale new(+1), then old(-1), then new(+1), then old(-1)
+// 1 desired, max unavailable 0%, surge 1% - should scale new(+1), then old(-1)
+fn max_unavailable(deployment: &DeploymentResource) -> u32 {
+    if is_rolling_update(deployment) || deployment.spec.replicas == 0 {
+        return 0;
+    }
+
+    let max_unavailable = deployment
+        .spec
+        .strategy
+        .as_ref()
+        .and_then(|s| {
+            s.rolling_update.as_ref().map(|r| {
+                r.max_unavailable
+                    .scaled_value(deployment.spec.replicas, true)
+            })
+        })
+        .unwrap_or(0);
+    if max_unavailable > deployment.spec.replicas {
+        deployment.spec.replicas
+    } else {
+        max_unavailable
+    }
+}
+
+fn new_deployment_condition(
+    cond_type: String,
+    status: String,
+    reason: String,
+    message: String,
+) -> DeploymentCondition {
+    DeploymentCondition {
+        r#type: cond_type,
+        status,
+        last_update_time: Some(now()),
+        last_transition_time: Some(now()),
+        reason: Some(reason),
+        message: Some(message),
+    }
+}
+
+// SetDeploymentCondition updates the deployment to include the provided condition. If the condition that
+// we are about to add already exists and has the same status and reason then we are not going to update.
+fn set_deployment_condition(status: &mut DeploymentStatus, mut condition: DeploymentCondition) {
+    let current_condition = get_deployment_condition(status, &condition.r#type);
+    if let Some(cc) = current_condition {
+        if cc.status == condition.status && cc.reason == condition.reason {
+            return;
+        }
+
+        // Do not update lastTransitionTime if the status of the condition doesn't change.
+        if cc.status == condition.status {
+            condition.last_transition_time = cc.last_transition_time;
+        }
+
+        debug!(current_condition=?cc, new_condition=?condition, "Setting deployment condition");
+
+        let mut new_conditions = filter_out_condition(&status.conditions, &condition.r#type);
+        new_conditions.push(&condition);
+        status.conditions = new_conditions.into_iter().cloned().collect();
+    }
+}
+
+fn get_actual_replica_count_for_replicasets(replicasets: &[&ReplicaSetResource]) -> u32 {
+    replicasets.iter().map(|rs| rs.status.replicas).sum()
+}
+
+fn get_ready_replica_count_for_replicasets(replicasets: &[&ReplicaSetResource]) -> u32 {
+    replicasets.iter().map(|rs| rs.status.ready_replicas).sum()
+}
+
+// GetDeploymentCondition returns the condition with the provided type.
+fn get_deployment_condition<'a>(
+    status: &'a DeploymentStatus,
+    cond_type: &str,
+) -> Option<&'a DeploymentCondition> {
+    status.conditions.iter().find(|c| c.r#type == cond_type)
+}
+
+// filterOutCondition returns a new slice of deployment conditions without conditions with the provided type.
+fn filter_out_condition<'a>(
+    conditions: &'a [DeploymentCondition],
+    cond_type: &str,
+) -> Vec<&'a DeploymentCondition> {
+    conditions
+        .iter()
+        .filter(|c| c.r#type != cond_type)
+        .collect()
+}
+
+fn equal_ignore_hash(t1: &PodTemplateSpec, t2: &PodTemplateSpec) -> bool {
+    let mut t1 = t1.clone();
+    let mut t2 = t2.clone();
+    t1.metadata
+        .labels
+        .remove(DEFAULT_DEPLOYMENT_UNIQUE_LABEL_KEY);
+    t2.metadata
+        .labels
+        .remove(DEFAULT_DEPLOYMENT_UNIQUE_LABEL_KEY);
+    t1 == t2
 }

@@ -676,7 +676,8 @@ impl StateView {
                         status: ReplicaSetStatus {
                             replicas: 0,
                             available_replicas: 0,
-                            observed_generation:0,
+                            observed_generation: 0,
+                            ready_replicas: 0,
                         },
                     },
                 );
@@ -705,13 +706,18 @@ impl StateView {
                 self.deployments
                     .insert(dep.metadata.name.clone(), dep.clone());
             }
+            Operation::UpdateDeploymentStatus(dep) => {
+                if let Some(mut dp) = self.deployments.remove(&dep.metadata.name) {
+                    dp.status = dep.status.clone();
+                    self.deployments.insert(dp.metadata.name.clone(), dp);
+                }
+            }
             Operation::UpdateReplicaSet(rs) => {
                 self.replica_sets
                     .insert(rs.metadata.name.clone(), rs.clone());
             }
             Operation::DeleteReplicaSet(rs) => {
-                self.replica_sets
-                    .remove(&rs.metadata.name);
+                self.replica_sets.remove(&rs.metadata.name);
             }
         }
         self.revision = new_revision;

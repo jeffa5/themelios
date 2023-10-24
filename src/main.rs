@@ -82,11 +82,7 @@ fn main() {
                     match_labels: Default::default(),
                 },
             },
-            status: ReplicaSetStatus {
-                replicas: 0,
-                available_replicas: 0,
-                observed_generation: 0,
-            },
+            status: ReplicaSetStatus::default(),
         }))
         .with_deployments((1..=opts.deployments).map(|i| DeploymentResource {
             metadata: utils::metadata(format!("dep-{i}")),
@@ -105,10 +101,11 @@ fn main() {
                 selector: LabelSelector {
                     match_labels: BTreeMap::default(),
                 },
-                paused:false,
+                paused: false,
                 revision_history_limit: 0,
+                strategy: None,
             },
-            status: DeploymentStatus {},
+            status: DeploymentStatus::default(),
         }))
         .with_statefulsets((1..=opts.statefulsets).map(|i| StatefulSetResource {
             metadata: utils::metadata(format!("sts-{i}")),

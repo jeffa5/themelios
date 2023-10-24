@@ -1,12 +1,15 @@
+use diff::Diff;
 use serde::{Deserialize, Serialize};
 use std::{
     collections::BTreeMap,
     ops::{Sub, SubAssign},
 };
-use time::OffsetDateTime;
 
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff)]
+#[diff(attr(
+    #[derive(Debug, PartialEq)]
+))]
 #[serde(rename_all = "camelCase")]
 pub struct Metadata {
     // Name must be unique within a namespace. Is required when creating resources, although some
@@ -24,12 +27,11 @@ pub struct Metadata {
     // CreationTimestamp is a timestamp representing the server time when this object was created.
     // It is not guaranteed to be set in happens-before order across separate operations. Clients
     // may not set this value. It is represented in RFC3339 form and is in UTC.
-    #[serde(with = "time::serde::rfc3339::option")]
-    pub creation_timestamp: Option<OffsetDateTime>,
+    pub creation_timestamp: Option<Time>,
     // DeletionTimestamp is RFC 3339 date and time at which this resource will be deleted. This field is set by the server when a graceful deletion is requested by the user, and is not directly settable by a client. The resource is expected to be deleted (no longer visible from resource lists, and not reachable by name) after the time in this field, once the finalizers list is empty. As long as the finalizers list contains items, deletion is blocked. Once the deletionTimestamp is set, this value may not be unset or be set further into the future, although it may be shortened or the resource may be deleted prior to this time. For example, a user may request that a pod is deleted in 30 seconds. The Kubelet will react by sending a graceful termination signal to the containers in the pod. After that 30 seconds, the Kubelet will send a hard termination signal (SIGKILL) to the container and after cleanup, remove the pod from the API. In the presence of network partitions, this object may still exist after this timestamp, until an administrator or automated process can determine the resource is fully terminated. If not set, graceful deletion of the object has not been requested.
 
 // Populated by the system when a graceful deletion is requested. Read-only. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
-    pub deletion_timestamp: Option<OffsetDateTime>,
+    pub deletion_timestamp: Option<Time>,
 
     // Map of string keys and values that can be used to organize and categorize (scope and select) objects. May match selectors of replication controllers and services. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels
     #[serde(default)]
@@ -50,14 +52,20 @@ pub struct Metadata {
     pub generation: u64,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff)]
+#[diff(attr(
+    #[derive(Debug, PartialEq)]
+))]
 pub struct PodResource {
     pub metadata: Metadata,
     pub spec: PodSpec,
     pub status: PodStatus,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff)]
+#[diff(attr(
+    #[derive(Debug, PartialEq)]
+))]
 #[serde(rename_all = "camelCase")]
 pub struct PodSpec {
     pub node_name: Option<String>,
@@ -70,17 +78,26 @@ pub struct PodSpec {
     pub containers: Vec<Container>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff)]
+#[diff(attr(
+    #[derive(Debug, PartialEq)]
+))]
 pub struct Container {
     pub name: String,
     pub image: String,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff)]
+#[diff(attr(
+    #[derive(Debug, PartialEq)]
+))]
 #[serde(rename_all = "camelCase")]
 pub struct PodStatus {}
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff)]
+#[diff(attr(
+    #[derive(Debug, PartialEq)]
+))]
 pub struct ResourceRequirements {
     /// What a pod/container is guaranteed to have (minimums).
     pub requests: Option<ResourceQuantities>,
@@ -88,7 +105,10 @@ pub struct ResourceRequirements {
     pub limits: Option<ResourceQuantities>,
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff)]
+#[diff(attr(
+    #[derive(Debug, PartialEq)]
+))]
 pub struct ResourceQuantities {
     /// Number of cpu cores.
     pub cpu_cores: Option<Quantity>,
@@ -134,7 +154,10 @@ impl SubAssign for ResourceQuantities {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff)]
+#[diff(attr(
+    #[derive(Debug, PartialEq)]
+))]
 pub struct ReplicaSetResource {
     pub metadata: Metadata,
     pub spec: ReplicaSetSpec,
@@ -149,7 +172,10 @@ impl ReplicaSetResource {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff)]
+#[diff(attr(
+    #[derive(Debug, PartialEq)]
+))]
 #[serde(rename_all = "camelCase")]
 pub struct ReplicaSetSpec {
     pub replicas: Option<u32>,
@@ -161,13 +187,19 @@ pub struct ReplicaSetSpec {
     pub min_ready_seconds: u32,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff)]
+#[diff(attr(
+    #[derive(Debug, PartialEq)]
+))]
 pub struct PodTemplateSpec {
     pub metadata: Metadata,
     pub spec: PodSpec,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Clone, Default, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff)]
+#[diff(attr(
+    #[derive(Debug, PartialEq)]
+))]
 #[serde(rename_all = "camelCase")]
 pub struct ReplicaSetStatus {
     pub replicas: u32,
@@ -176,9 +208,15 @@ pub struct ReplicaSetStatus {
     // ObservedGeneration reflects the generation of the most recently observed ReplicaSet.
     #[serde(default)]
     pub observed_generation: u64,
+    // readyReplicas is the number of pods targeted by this ReplicaSet with a Ready Condition.
+    #[serde(default)]
+    pub ready_replicas: u32,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff)]
+#[diff(attr(
+    #[derive(Debug, PartialEq)]
+))]
 pub struct DeploymentResource {
     pub metadata: Metadata,
     pub spec: DeploymentSpec,
@@ -191,7 +229,10 @@ impl DeploymentResource {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff)]
+#[diff(attr(
+    #[derive(Debug, PartialEq)]
+))]
 #[serde(rename_all = "camelCase")]
 pub struct DeploymentSpec {
     pub replicas: u32,
@@ -208,19 +249,109 @@ pub struct DeploymentSpec {
 
     #[serde(default)]
     pub paused: bool,
+
+    // The deployment strategy to use to replace existing pods with new ones.
+    pub strategy:Option<DeploymentStrategy>,
+
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
-pub struct DeploymentStatus {}
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff)]
+#[diff(attr(
+    #[derive(Debug, PartialEq)]
+))]
+#[serde(rename_all = "camelCase")]
+pub struct DeploymentStrategy{
+    pub r#type: DeploymentStrategyType,
+    pub rolling_update : Option<RollingUpdate>,
+}
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff)]
+#[diff(attr(
+    #[derive(Debug, PartialEq)]
+))]
+#[serde(rename_all = "camelCase")]
+pub struct RollingUpdate {
+        // The maximum number of pods that can be scheduled above the desired number of pods. Value can be an absolute number (ex: 5) or a percentage of desired pods (ex: 10%). This can not be 0 if MaxUnavailable is 0. Absolute number is calculated from percentage by rounding up. Defaults to 25%. Example: when this is set to 30%, the new ReplicaSet can be scaled up immediately when the rolling update starts, such that the total number of old and new pods do not exceed 130% of desired pods. Once old pods have been killed, new ReplicaSet can be scaled up further, ensuring that total number of pods running at any time during the update is at most 130% of desired pods.
+        pub max_surge: IntOrString,
+        // The maximum number of pods that can be unavailable during the update. Value can be an absolute number (ex: 5) or a percentage of desired pods (ex: 10%). Absolute number is calculated from percentage by rounding down. This can not be 0 if MaxSurge is 0. Defaults to 25%. Example: when this is set to 30%, the old ReplicaSet can be scaled down to 70% of desired pods immediately when the rolling update starts. Once new pods are ready, old ReplicaSet can be scaled down further, followed by scaling up the new ReplicaSet, ensuring that the total number of pods available at all times during the update is at least 70% of desired pods.
+        pub max_unavailable: IntOrString,
+    }
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff)]
+#[diff(attr(
+    #[derive(Debug, PartialEq)]
+))]
+pub enum DeploymentStrategyType{
+    RollingUpdate,
+    Recreate
+}
+
+#[derive(Clone, Default, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff)]
+#[diff(attr(
+    #[derive(Debug, PartialEq)]
+))]
+#[serde(rename_all = "camelCase")]
+pub struct DeploymentStatus {
+    // Total number of non-terminated pods targeted by this deployment (their labels match the selector).
+    #[serde(default)]
+    pub replicas: u32,
+    // Total number of available pods (ready for at least minReadySeconds) targeted by this deployment.
+    #[serde(default)]
+    pub updated_replicas: u32,
+    // readyReplicas is the number of pods targeted by this Deployment with a Ready Condition.
+    #[serde(default)]
+    pub ready_replicas: u32,
+    // Total number of unavailable pods targeted by this deployment. This is the total number of pods that are still required for the deployment to have 100% available capacity. They may either be pods that are running but not yet available or pods that still have not been created.
+    #[serde(default)]
+    pub unavailable_replicas: u32,
+    // Total number of available pods (ready for at least minReadySeconds) targeted by this deployment.
+    #[serde(default)]
+    pub available_replicas: u32,
+    // Count of hash collisions for the Deployment. The Deployment controller uses this field as a collision avoidance mechanism when it needs to create the name for the newest ReplicaSet.
+    #[serde(default)]
+    pub collision_count: u32,
+    // Represents the latest available observations of a deployment's current state.
+    #[serde(default)]
+    pub conditions: Vec<DeploymentCondition>,
+    // The generation observed by the deployment controller.
+    #[serde(default)]
+    pub observed_generation: u64,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff)]
+#[diff(attr(
+    #[derive(Debug, PartialEq)]
+))]
+#[serde(rename_all = "camelCase")]
+pub struct DeploymentCondition{
+    // Status of the condition, one of True, False, Unknown.
+    pub status: String,
+    // Type of deployment condition.
+    pub r#type: String,
+    // Last time the condition transitioned from one status to another.
+    pub last_transition_time: Option<Time>,
+    // The last time this condition was updated.
+    pub last_update_time: Option<Time>,
+    // A human readable message indicating details about the transition.
+    pub message:Option<String>,
+    // The reason for the condition's last transition.
+    pub reason:Option<String>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff)]
+#[diff(attr(
+    #[derive(Debug, PartialEq)]
+))]
 #[serde(rename_all = "camelCase")]
 pub struct LabelSelector{
     // matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels map is equivalent to an element of matchExpressions, whose key field is "key", the operator is "In", and the values array contains only "value". The requirements are ANDed.
     pub match_labels:BTreeMap<String,String>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Diff)]
+#[diff(attr(
+    #[derive(Debug, PartialEq)]
+))]
 pub struct StatefulSetResource {
     pub metadata: Metadata,
     pub replicas: u32,
@@ -234,17 +365,26 @@ impl StatefulSetResource {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff)]
+#[diff(attr(
+    #[derive(Debug, PartialEq)]
+))]
 pub struct NodeResource {
     pub metadata: Metadata,
     pub spec: NodeSpec,
     pub status: NodeStatus,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff)]
+#[diff(attr(
+    #[derive(Debug, PartialEq)]
+))]
 pub struct NodeSpec {}
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff)]
+#[diff(attr(
+    #[derive(Debug, PartialEq)]
+))]
 pub struct NodeStatus {
     /// The total resources of the node.
     #[serde(default)]
@@ -255,7 +395,10 @@ pub struct NodeStatus {
     pub allocatable: ResourceQuantities,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff)]
+#[diff(attr(
+    #[derive(Debug, PartialEq)]
+))]
 #[serde(untagged)]
 pub enum Quantity {
     Str(String),
@@ -287,5 +430,72 @@ impl Quantity {
 impl From<u32> for Quantity {
     fn from(value: u32) -> Self {
         Quantity::Int(value)
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff)]
+#[diff(attr(
+    #[derive(Debug, PartialEq)]
+))]
+#[serde(untagged)]
+pub enum IntOrString {
+    Int(u32),
+    Str(String)
+}
+
+impl IntOrString {
+    pub fn scaled_value(&self, total:u32, round_up: bool) -> u32{
+        match self {
+            IntOrString::Int(i) => *i,
+            IntOrString::Str(s) => {
+                if let Some(s) = s.strip_suffix("%") {
+                let v =    s.parse::<u32>().unwrap();
+                if round_up {
+                    (v as f64 * total as f64 / 100.).ceil() as u32
+                }else {
+
+                    (v as f64 * total as f64 / 100.).floor() as u32
+                }
+                }else {
+                    panic!("not a percentage")
+                }
+            }
+        }
+    }
+}
+
+impl From<u32> for IntOrString{
+    fn from(value: u32) -> Self {
+        IntOrString::Int(value)
+    }
+}
+impl From<String> for IntOrString{
+    fn from(value: String) -> Self {
+        IntOrString::Str(value)
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct Time(
+    #[serde(with = "time::serde::rfc3339")]
+    pub time::OffsetDateTime);
+
+
+impl Diff for Time {
+    type Repr = Option<time::OffsetDateTime>;
+    fn diff(&self, other: &Self) -> Self::Repr{
+        if self != other {
+            Some(other.0)
+        }else {None}
+    }
+    fn apply(&mut self, diff : &Self::Repr) {
+        if let Some(diff) =  diff{
+        *self = Time(diff.clone())
+
+        }
+    }
+    fn identity() -> Self {
+        Time(time::OffsetDateTime::UNIX_EPOCH)
     }
 }
