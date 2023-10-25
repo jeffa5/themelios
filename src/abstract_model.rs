@@ -38,6 +38,9 @@ pub enum Operation {
     // Update just the status part of the resource, not triggering more reconciliations (I think)
     UpdateDeploymentStatus(DeploymentResource),
     UpdateReplicaSet(ReplicaSetResource),
+    // a batch update of multiple replicasets that should cause a new reconciliation if it fails to
+    // have this
+    UpdateReplicaSets(Vec<ReplicaSetResource>),
     DeleteReplicaSet(ReplicaSetResource),
     NodeCrash(usize),
 }

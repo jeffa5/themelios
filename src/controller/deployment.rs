@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 use crate::{
     abstract_model::Operation,
     resources::{
@@ -122,10 +124,7 @@ fn sync(
         return Some(op);
     }
 
-    // TODO: Clean up the deployment when it's paused and no rollback is in flight.
-    if deployment.spec.paused
-    // && get_rollback_to(deployment).is_none()
-    {
+    if deployment.spec.paused && get_rollback_to(deployment).is_none() {
         debug!("Found paused deployment");
         if let Some(op) = cleanup_deployment(&old_replicasets, deployment) {
             return Some(op);
@@ -293,6 +292,7 @@ fn sync_deployment_status(
     new_replicaset: &Option<ReplicaSetResource>,
     deployment: &DeploymentResource,
 ) -> Option<Operation> {
+    debug!("Syncing deployment status");
     let new_status = calculate_status(all_replicasets, new_replicaset, deployment);
     if deployment.status != new_status {
         debug!(
@@ -398,11 +398,111 @@ fn scale(
         }
     }
 
-    None
-    // TODO
     // There are old replica sets with pods and the new replica set is not saturated.
     // We need to proportionally scale all replica sets (new and old) in case of a
     // rolling deployment.
+    if is_rolling_update(deployment) {
+        let mut all_replicasets = old_replicasets.to_vec();
+        if let Some(rs) = new_replicaset {
+            all_replicasets.push(rs);
+        }
+        let mut all_replicasets = filter_active_replicasets(&all_replicasets);
+        let all_replicasets_replicas = get_replica_count_for_replicasets(&all_replicasets);
+
+        let mut allowed_size = 0;
+        if deployment.spec.replicas > 0 {
+            allowed_size = deployment.spec.replicas + max_surge(deployment);
+        }
+
+        // Number of additional replicas that can be either added or removed from the total
+        // replicas count. These replicas should be distributed proportionally to the active
+        // replica sets.
+        let deployment_replicas_to_add = allowed_size as i32 - all_replicasets_replicas as i32;
+
+        // The additional replicas should be distributed proportionally amongst the active
+        // replica sets from the larger to the smaller in size replica set. Scaling direction
+        // drives what happens in case we are trying to scale replica sets of the same size.
+        // In such a case when scaling up, we should scale up newer replica sets first, and
+        // when scaling down, we should scale down older replica sets first.
+        if deployment_replicas_to_add > 0 {
+            // sort replicasets by size newer
+            all_replicasets.sort_by(|l, r| {
+                if l.spec.replicas == r.spec.replicas {
+                    l.metadata
+                        .creation_timestamp
+                        .cmp(&r.metadata.creation_timestamp)
+                        .reverse()
+                } else {
+                    l.spec.replicas.cmp(&r.spec.replicas).reverse()
+                }
+            });
+        } else if deployment_replicas_to_add < 0 {
+            // sort replicasets by size older
+            all_replicasets.sort_by(|l, r| {
+                if l.spec.replicas == r.spec.replicas {
+                    l.metadata
+                        .creation_timestamp
+                        .cmp(&r.metadata.creation_timestamp)
+                } else {
+                    l.spec.replicas.cmp(&r.spec.replicas).reverse()
+                }
+            });
+        }
+
+        // Iterate over all active replica sets and estimate proportions for each of them.
+        // The absolute value of deploymentReplicasAdded should never exceed the absolute
+        // value of deploymentReplicasToAdd.
+        let mut deployment_replicas_added = 0;
+        let mut name_to_size = BTreeMap::new();
+        for rs in &all_replicasets {
+            // Estimate proportions if we have replicas to add, otherwise simply populate
+            // nameToSize with the current sizes for each replica set.
+            if deployment_replicas_to_add != 0 {
+                let proportion = get_proportion(
+                    rs,
+                    deployment,
+                    deployment_replicas_to_add,
+                    deployment_replicas_added,
+                );
+                let new_size = if proportion < 0 {
+                    rs.spec.replicas.unwrap().saturating_sub(proportion as u32)
+                } else {
+                    rs.spec.replicas.unwrap() + proportion as u32
+                };
+                name_to_size.insert(&rs.metadata.name, new_size);
+                deployment_replicas_added += proportion;
+            } else {
+                name_to_size.insert(&rs.metadata.name, rs.spec.replicas.unwrap());
+            }
+        }
+
+        let mut updated_rss = Vec::new();
+        // Update all replicasets
+        for (i, rs) in all_replicasets.iter().enumerate() {
+            // Add/remove any leftovers to the largest replica set.
+            if i == 0 && deployment_replicas_to_add != 0 {
+                let leftover = deployment_replicas_to_add - deployment_replicas_added;
+                if leftover < 0 {
+                    *name_to_size.get_mut(&rs.metadata.name).unwrap() -= leftover as u32;
+                } else {
+                    *name_to_size.get_mut(&rs.metadata.name).unwrap() += leftover as u32;
+                }
+            }
+
+            // TODO: Use transactions when we have them.
+            if let Some(Operation::UpdateReplicaSet(rs)) = scale_replicaset(
+                rs,
+                name_to_size.get(&rs.metadata.name).copied().unwrap_or(0),
+                deployment,
+            ) {
+                updated_rss.push(rs);
+            }
+        }
+        if !updated_rss.is_empty() {
+            return Some(Operation::UpdateReplicaSets(updated_rss));
+        }
+    }
+    None
 }
 
 fn max_revision(all_replicasets: &[&ReplicaSetResource]) -> u64 {
@@ -435,8 +535,8 @@ fn find_active_or_latest(
     old_replicasets.reverse();
 
     let mut all_replicasets = old_replicasets.clone();
-    if let Some(binding) = new_replicaset {
-        all_replicasets.push(&binding);
+    if let Some(new_rs) = new_replicaset {
+        all_replicasets.push(&new_rs);
     }
     let active_replicasets = filter_active_replicasets(&all_replicasets);
 
@@ -519,14 +619,12 @@ fn scale_replicaset(
         deployment.spec.replicas,
         deployment.spec.replicas + max_surge(deployment),
     );
-    let mut scaled = false;
     if size_needs_update || annotations_need_update {
         debug!(
             from = replicaset.spec.replicas,
             to = new_scale,
             "Scaling replicaset"
         );
-        let oldscale = replicaset.spec.replicas;
         let mut new_rs = replicaset.clone();
         new_rs.spec.replicas = Some(new_scale);
         set_replicas_annotations(
@@ -600,7 +698,6 @@ fn is_rolling_update(deployment: &DeploymentResource) -> bool {
 }
 
 fn set_deployment_revision(deployment: &mut DeploymentResource, revision: String) -> bool {
-    let mut updated = false;
     if deployment
         .metadata
         .annotations
@@ -928,4 +1025,88 @@ fn skip_copy_annotation(key: &str) -> bool {
 
 fn has_progress_deadline(deployment: &DeploymentResource) -> bool {
     deployment.spec.progress_deadline_seconds != Some(u32::MAX)
+}
+
+fn get_rollback_to(deployment: &DeploymentResource) -> Option<RollbackConfig> {
+    // Extract the annotation used for round-tripping the deprecated RollbackTo field.
+    let revision = deployment.metadata.annotations.get(DEPRECATED_ROLLBACK_TO);
+    if let Some(revision) = revision {
+        if revision == "" {
+            return None;
+        }
+        let Ok(revision64) = revision.parse::<u64>() else {return None};
+        Some(RollbackConfig {
+            revision: revision64,
+        })
+    } else {
+        None
+    }
+}
+
+pub struct RollbackConfig {
+    revision: u64,
+}
+
+// GetProportion will estimate the proportion for the provided replica set using 1. the current size
+// of the parent deployment, 2. the replica count that needs be added on the replica sets of the
+// deployment, and 3. the total replicas added in the replica sets of the deployment so far.
+fn get_proportion(
+    replicaset: &ReplicaSetResource,
+    deployment: &DeploymentResource,
+    deployment_replicas_to_add: i32,
+    deployment_replicas_added: i32,
+) -> i32 {
+    if replicaset.spec.replicas.map_or(true, |r| r == 0)
+        || deployment_replicas_to_add == 0
+        || deployment_replicas_to_add == deployment_replicas_added
+    {
+        return 0;
+    }
+
+    let rs_fraction = get_replicaset_fraction(replicaset, deployment);
+    let allowed = deployment_replicas_to_add - deployment_replicas_added;
+
+    if deployment_replicas_to_add > 0 {
+        // Use the minimum between the replica set fraction and the maximum allowed replicas
+        // when scaling up. This way we ensure we will not scale up more than the allowed
+        // replicas we can add.
+        return rs_fraction.min(allowed);
+    }
+
+    // Use the maximum between the replica set fraction and the maximum allowed replicas
+    // when scaling down. This way we ensure we will not scale down more than the allowed
+    // replicas we can remove.
+    rs_fraction.max(allowed)
+}
+
+fn get_replicaset_fraction(
+    replicaset: &ReplicaSetResource,
+    deployment: &DeploymentResource,
+) -> i32 {
+    // If we are scaling down to zero then the fraction of this replica set is its whole size (negative)
+    if deployment.spec.replicas == 0 {
+        return -(replicaset.spec.replicas.unwrap() as i32);
+    }
+
+    let deployment_replicas = deployment.spec.replicas + max_surge(deployment);
+    // If we cannot find the annotation then fallback to the current deployment size. Note that this
+    // will not be an accurate proportion estimation in case other replica sets have different values
+    // which means that the deployment was scaled at some point but we at least will stay in limits
+    // due to the min-max comparisons in getProportion.
+    let annotated_replicas =
+        get_max_replicas_annotation(replicaset).unwrap_or(deployment.status.replicas);
+
+    // We should never proportionally scale up from zero which means rs.spec.replicas and annotatedReplicas
+    // will never be zero here.
+    let new_replicaset_size = (replicaset.spec.replicas.unwrap() * deployment_replicas) as f64
+        / annotated_replicas as f64;
+    new_replicaset_size.round() as i32 - replicaset.spec.replicas.unwrap() as i32
+}
+
+fn get_max_replicas_annotation(replicaset: &ReplicaSetResource) -> Option<u32> {
+    replicaset
+        .metadata
+        .annotations
+        .get(MAX_REPLICAS_ANNOTATION)
+        .and_then(|r| r.parse().ok())
 }

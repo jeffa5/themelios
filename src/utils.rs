@@ -14,6 +14,7 @@ pub fn now() -> Time {
 pub fn metadata(name: String) -> Metadata {
     Metadata {
         name,
+        generate_name: String::new(),
         namespace: "default".to_owned(),
         creation_timestamp: None,
         deletion_timestamp: None,
@@ -21,5 +22,10 @@ pub fn metadata(name: String) -> Metadata {
         uid: new_uid(),
         labels: Default::default(),
         annotations: Default::default(),
+        deletion_grace_period_seconds: None,
+        managed_fields: Vec::new(),
+        owner_references: Vec::new(),
+        resource_version: String::new(),
+        finalizers: Vec::new(),
     }
 }

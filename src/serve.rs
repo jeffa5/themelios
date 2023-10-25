@@ -41,6 +41,7 @@ enum DeploymentResponse {
     UpdateDeployment { deployment: DeploymentResource },
     UpdateDeploymentStatus { deployment: DeploymentResource },
     UpdateReplicaSet { replicaset: ReplicaSetResource },
+    UpdateReplicaSets { replicasets: Vec<ReplicaSetResource> },
 }
 
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
@@ -134,6 +135,9 @@ async fn deployment(
         }
         Some(Operation::UpdateReplicaSet(rs)) => Ok(Json(DeploymentResponse::UpdateReplicaSet {
             replicaset: rs,
+        })),
+        Some(Operation::UpdateReplicaSets(rss)) => Ok(Json(DeploymentResponse::UpdateReplicaSets {
+            replicasets: rss,
         })),
         Some(op) => Err(ErrorResponse::InvalidOperationReturned(op)),
         None => Err(ErrorResponse::NoOperation),
