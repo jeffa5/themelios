@@ -39,7 +39,9 @@ struct DeploymentRequest {
 #[serde(tag = "action", rename_all = "camelCase")]
 enum DeploymentResponse {
     UpdateDeployment { deployment: DeploymentResource },
+    RequeueDeployment { deployment: DeploymentResource },
     UpdateDeploymentStatus { deployment: DeploymentResource },
+    CreateReplicaSet { replicaset: ReplicaSetResource },
     UpdateReplicaSet { replicaset: ReplicaSetResource },
     UpdateReplicaSets { replicasets: Vec<ReplicaSetResource> },
 }
@@ -128,11 +130,17 @@ async fn deployment(
         Some(Operation::UpdateDeployment(dep)) => Ok(Json(DeploymentResponse::UpdateDeployment {
             deployment: dep,
         })),
+        Some(Operation::RequeueDeployment(dep)) => Ok(Json(DeploymentResponse::RequeueDeployment {
+            deployment: dep,
+        })),
         Some(Operation::UpdateDeploymentStatus(dep)) => {
             Ok(Json(DeploymentResponse::UpdateDeploymentStatus {
                 deployment: dep,
             }))
         }
+        Some(Operation::CreateReplicaSet(rs)) => Ok(Json(DeploymentResponse::CreateReplicaSet {
+            replicaset: rs,
+        })),
         Some(Operation::UpdateReplicaSet(rs)) => Ok(Json(DeploymentResponse::UpdateReplicaSet {
             replicaset: rs,
         })),

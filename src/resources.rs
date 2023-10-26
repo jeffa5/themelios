@@ -2,10 +2,13 @@ use diff::Diff;
 use serde::{Deserialize, Serialize};
 use std::{
     collections::BTreeMap,
+    fmt::Display,
     ops::{Sub, SubAssign},
 };
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff)]
+#[derive(
+    Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff,
+)]
 #[diff(attr(
     #[derive(Debug, PartialEq)]
 ))]
@@ -141,7 +144,9 @@ pub struct PodResource {
     pub status: PodStatus,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff)]
+#[derive(
+    Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff,
+)]
 #[diff(attr(
     #[derive(Debug, PartialEq)]
 ))]
@@ -172,12 +177,38 @@ pub struct Container {
     pub image: String,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff)]
+#[derive(
+    Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff,
+)]
 #[diff(attr(
     #[derive(Debug, PartialEq)]
 ))]
 #[serde(rename_all = "camelCase")]
-pub struct PodStatus {}
+pub struct PodStatus {
+    // The phase of a Pod is a simple, high-level summary of where the Pod is in its lifecycle. The conditions array, the reason and message fields, and the individual container status arrays contain more detail about the pod's status. There are five possible phase values.
+    #[serde(default)]
+    pub phase: PodPhase,
+}
+
+#[derive(
+    Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff,
+)]
+#[diff(attr(
+    #[derive(Debug, PartialEq)]
+))]
+pub enum PodPhase {
+    // Pending: The pod has been accepted by the Kubernetes system, but one or more of the container images has not been created. This includes time before being scheduled as well as time spent downloading images over the network, which could take a while.
+    Pending,
+    // Running: The pod has been bound to a node, and all of the containers have been created. At least one container is still running, or is in the process of starting or restarting.
+    Running,
+    // Succeeded: All containers in the pod have terminated in success, and will not be restarted.
+    Succeeded,
+    // Failed: All containers in the pod have terminated, and at least one container has terminated in failure. The container either exited with non-zero status or was terminated by the system.
+    Failed,
+    // Unknown: For some reason the state of the pod could not be obtained, typically due to an error in communicating with the host of the pod.
+    #[default]
+    Unknown,
+}
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff)]
 #[diff(attr(
@@ -259,7 +290,9 @@ impl ReplicaSetResource {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff)]
+#[derive(
+    Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff,
+)]
 #[diff(attr(
     #[derive(Debug, PartialEq)]
 ))]
@@ -274,7 +307,9 @@ pub struct ReplicaSetSpec {
     pub min_ready_seconds: u32,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff)]
+#[derive(
+    Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff,
+)]
 #[diff(attr(
     #[derive(Debug, PartialEq)]
 ))]
@@ -401,11 +436,14 @@ pub struct RollingUpdate {
     pub max_unavailable: IntOrString,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff)]
+#[derive(
+    Clone, Copy, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff,
+)]
 #[diff(attr(
     #[derive(Debug, PartialEq)]
 ))]
 pub enum DeploymentStrategyType {
+    #[default]
     RollingUpdate,
     Recreate,
 }
@@ -464,7 +502,9 @@ pub struct DeploymentCondition {
     pub reason: Option<String>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff)]
+#[derive(
+    Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff,
+)]
 #[diff(attr(
     #[derive(Debug, PartialEq)]
 ))]
@@ -472,6 +512,14 @@ pub struct DeploymentCondition {
 pub struct LabelSelector {
     // matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels map is equivalent to an element of matchExpressions, whose key field is "key", the operator is "In", and the values array contains only "value". The requirements are ANDed.
     pub match_labels: BTreeMap<String, String>,
+}
+
+impl LabelSelector {
+    pub fn matches(&self, labels: &BTreeMap<String, String>) -> bool {
+        self.match_labels
+            .iter()
+            .all(|(k, v)| labels.get(k).map_or(false, |lv| v == lv))
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Diff)]
@@ -620,5 +668,41 @@ impl Diff for Time {
     }
     fn identity() -> Self {
         Time(time::OffsetDateTime::UNIX_EPOCH)
+    }
+}
+
+pub struct GroupVersionKind {
+    pub group: &'static str,
+    pub version: &'static str,
+    pub kind: &'static str,
+}
+
+impl GroupVersionKind {
+    pub fn group_version(&self) -> GroupVersion {
+        GroupVersion {
+            group: self.group,
+            version: self.version,
+        }
+    }
+}
+
+impl Display for GroupVersionKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}/{}, Kind={}", self.group, self.version, self.kind)
+    }
+}
+
+pub struct GroupVersion {
+    pub group: &'static str,
+    pub version: &'static str,
+}
+
+impl Display for GroupVersion {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if self.group.is_empty() {
+            write!(f, "{}", self.version)
+        } else {
+            write!(f, "{}/{}", self.group, self.version)
+        }
     }
 }

@@ -1,10 +1,12 @@
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, hash::Hash};
 
 use crate::{
     abstract_model::Operation,
+    hasher::FnvHasher,
     resources::{
         DeploymentCondition, DeploymentResource, DeploymentStatus, DeploymentStrategyType,
-        PodTemplateSpec, ReplicaSetResource,
+        GroupVersionKind, LabelSelector, Metadata, OwnerReference, PodResource, PodTemplateSpec,
+        ReplicaSetCondition, ReplicaSetResource,
     },
     state::StateView,
     utils::now,
@@ -14,11 +16,48 @@ use tracing::debug;
 
 use super::Controller;
 
+const CONTROLLER_KIND: GroupVersionKind = GroupVersionKind {
+    group: "apps",
+    version: "v1",
+    kind: "Deployment",
+};
+
+const CONDITION_UNKNOWN: &str = "Unknown";
+
+// PausedDeployReason is added in a deployment when it is paused. Lack of progress shouldn't be
+// estimated once a deployment is paused.
+const PAUSED_DEPLOY_REASON: &str = "DeploymentPaused";
+
+// ResumedDeployReason is added in a deployment when it is resumed. Useful for not failing accidentally
+// deployments that paused amidst a rollout and are bounded by a deadline.
+const RESUMED_DEPLOY_REASON: &str = "DeploymentResumed";
+
+// ReplicaSetReplicaFailure is added in a replica set when one of its pods fails to be created
+// due to insufficient quota, limit ranges, pod security policy, node selectors, etc. or deleted
+// due to kubelet being down or finalizers are failing.
+const REPLICA_SET_REPLICA_FAILURE: &str = "ReplicaFailure";
+
+// ReplicaSetUpdatedReason is added in a deployment when one of its replica sets is updated as part
+// of the rollout process.
+const REPLICA_SET_UPDATED_REASON: &str = "ReplicaSetUpdated";
+
+// NewRSAvailableReason is added in a deployment when its newest replica set is made available
+// ie. the number of new pods that have passed readiness checks and run for at least minReadySeconds
+// is at least the minimum available pods that need to run for the deployment.
+const NEW_RSAVAILABLE_REASON: &str = "NewReplicaSetAvailable";
+// TimedOutReason is added in a deployment when its newest replica set fails to show any progress
+// within the given deadline (progressDeadlineSeconds).
+const TIMED_OUT_REASON: &str = "ProgressDeadlineExceeded";
+
 // Progressing means the deployment is progressing. Progress for a deployment is
 // considered when a new replica set is created or adopted, and when new pods scale
 // up or old pods scale down. Progress is not estimated for paused deployments or
 // when progressDeadlineSeconds is not specified.
 const DEPLOYMENT_PROGRESSING: &str = "Progressing";
+
+// ReplicaFailure is added in a deployment when one of its pods fails to be created
+// or deleted.
+const DEPLOYMENT_REPLICA_FAILURE: &str = "ReplicaFailure";
 
 // FoundNewRSReason is added in a deployment when it adopts an existing replica set.
 const FOUND_NEW_RSREASON: &str = "FoundNewReplicaSet";
@@ -88,9 +127,11 @@ impl Controller for Deployment {
         } else {
             for deployment in global_state.deployments.values() {
                 let replicasets = global_state.replica_sets.values().collect::<Vec<_>>();
-                if let Some(op) = sync(&mut deployment.clone(), &replicasets) {
+                let pod_map = BTreeMap::new();
+                if let Some(op) = reconcile(&deployment, &replicasets, &pod_map) {
                     return Some(op);
                 }
+
                 // for replicaset in deployment.replicasets() {
                 //     if !global_state.replica_sets.contains_key(&replicaset) {
                 //         return Some(Operation::NewReplicaset(replicaset));
@@ -106,14 +147,202 @@ impl Controller for Deployment {
     }
 }
 
+fn reconcile(
+    deployment: &DeploymentResource,
+    all_replicasets: &[&ReplicaSetResource],
+    pod_map: &BTreeMap<String, Vec<PodResource>>,
+) -> Option<Operation> {
+    let everything = LabelSelector::default();
+    if deployment.spec.selector == everything {
+        debug!("Found selector matching everything");
+        if deployment.status.observed_generation < deployment.metadata.generation {
+            let mut deployment = deployment.clone();
+            deployment.status.observed_generation = deployment.metadata.generation;
+            return Some(Operation::UpdateDeploymentStatus(deployment));
+        }
+        return None;
+    }
+
+    // TODO: handle podmap thing
+
+    // trim down replicasets to those for this deployment
+    let (replicaset_matches, not_our_replicasets): (Vec<_>, Vec<_>) = all_replicasets
+        .into_iter()
+        .copied()
+        .partition(|rs| deployment.spec.selector.matches(&rs.metadata.labels));
+
+    for rs in not_our_replicasets {
+        // try and disown things that aren't ours
+        // TODO: should we check that this is a deployment kind?
+        if rs
+            .metadata
+            .owner_references
+            .iter()
+            .any(|or| or.name == deployment.metadata.name)
+        {
+            debug!("Updating replicaset to remove ourselves as an owner");
+            let mut rs = rs.clone();
+            rs.metadata
+                .owner_references
+                .retain(|or| or.uid != deployment.metadata.uid);
+            return Some(Operation::UpdateReplicaSet(rs));
+        }
+    }
+
+    let mut replicasets = Vec::new();
+    for rs in &replicaset_matches {
+        // claim any that don't have the owner reference set with controller
+        // TODO: should we check that this is a deployment kind?
+        let owned = rs.metadata.owner_references.iter().any(|or| or.controller);
+        if !owned {
+            // our ref isn't there, set it
+            debug!("Claiming replicaset");
+            let mut rs = (*rs).clone();
+            if let Some(us) = rs
+                .metadata
+                .owner_references
+                .iter_mut()
+                .find(|or| or.uid == deployment.metadata.uid)
+            {
+                us.block_owner_deletion = true;
+                us.controller = true;
+            } else {
+                rs.metadata
+                    .owner_references
+                    .push(new_controller_ref(&deployment.metadata, &CONTROLLER_KIND));
+            }
+            return Some(Operation::UpdateReplicaSet(rs));
+        }
+
+        // collect the ones that we actually own
+        let ours = rs
+            .metadata
+            .owner_references
+            .iter()
+            .find(|or| or.uid == deployment.metadata.uid);
+        if ours.is_some() {
+            replicasets.push(*rs)
+        }
+    }
+
+    if deployment.metadata.deletion_timestamp.is_some() {
+        return sync_status_only(&mut deployment.clone(), &replicasets, all_replicasets);
+    }
+
+    // Update deployment conditions with an Unknown condition when pausing/resuming
+    // a deployment. In this way, we can be sure that we won't timeout when a user
+    // resumes a Deployment with a set progressDeadlineSeconds.
+    if let Some(op) = check_paused_conditions(&mut deployment.clone()) {
+        return Some(op);
+    }
+
+    if deployment.spec.paused {
+        return sync(&mut deployment.clone(), &replicasets, all_replicasets);
+    }
+
+    // rollback is not re-entrant in case the underlying replica sets are updated with a new
+    // revision so we should ensure that we won't proceed to update replica sets until we
+    // make sure that the deployment has cleaned up its rollback spec in subsequent enqueues.
+    if get_rollback_to(deployment).is_some() {
+        return rollback(&mut deployment.clone(), &replicasets, all_replicasets);
+    }
+
+    let scaling_event = is_scaling_event(&mut deployment.clone(), &replicasets, all_replicasets);
+    let scaling_event = match scaling_event {
+        ResourceOrOp::Resource(r) => r,
+        ResourceOrOp::Op(op) => return Some(op),
+    };
+    if scaling_event {
+        return sync(&mut deployment.clone(), &replicasets, all_replicasets);
+    }
+
+    match deployment
+        .spec
+        .strategy
+        .as_ref()
+        .map(|s| s.r#type.clone())
+        .unwrap_or_default()
+    {
+        DeploymentStrategyType::Recreate => rollout_recreate(
+            &mut deployment.clone(),
+            &replicasets,
+            all_replicasets,
+            pod_map,
+        ),
+        DeploymentStrategyType::RollingUpdate => {
+            rollout_rolling(&mut deployment.clone(), &replicasets, all_replicasets)
+        }
+    }
+}
+
+fn sync_status_only(
+    deployment: &mut DeploymentResource,
+    replicasets: &[&ReplicaSetResource],
+    replicasets_in_ns: &[&ReplicaSetResource],
+) -> Option<Operation> {
+    let (new_replicaset, old_replicasets) =
+        get_all_replicasets_and_sync_revision(deployment, replicasets, replicasets_in_ns, false);
+    let new_replicaset = match new_replicaset {
+        Some(ResourceOrOp::Resource(r)) => Some(r),
+        Some(ResourceOrOp::Op(op)) => return Some(op),
+        None => None,
+    };
+    let mut all_rss = old_replicasets.clone();
+    if let Some(new_replicaset) = &new_replicaset {
+        all_rss.push(new_replicaset);
+    }
+    sync_deployment_status(&all_rss, &new_replicaset, deployment)
+}
+
+// checkPausedConditions checks if the given deployment is paused or not and adds an appropriate condition.
+// These conditions are needed so that we won't accidentally report lack of progress for resumed deployments
+// that were paused for longer than progressDeadlineSeconds.
+fn check_paused_conditions(deployment: &mut DeploymentResource) -> Option<Operation> {
+    debug!("Checking paused conditions");
+    if has_progress_deadline(deployment) {
+        return None;
+    }
+    let cond = get_deployment_condition(&deployment.status, DEPLOYMENT_PROGRESSING);
+    if cond.map_or(false, |c| c.reason.as_ref().unwrap() == TIMED_OUT_REASON) {
+        // If we have reported lack of progress, do not overwrite it with a paused condition.
+        return None;
+    }
+
+    let paused_cond_exists = cond.map_or(false, |c| {
+        c.reason.as_ref().unwrap() == PAUSED_DEPLOY_REASON
+    });
+    if deployment.spec.paused && !paused_cond_exists {
+        let cond = new_deployment_condition(
+            DEPLOYMENT_PROGRESSING.to_owned(),
+            CONDITION_UNKNOWN.to_owned(),
+            PAUSED_DEPLOY_REASON.to_owned(),
+            "Deployment is paused".to_owned(),
+        );
+        set_deployment_condition(&mut deployment.status, cond);
+        Some(Operation::UpdateDeploymentStatus(deployment.clone()))
+    } else if !deployment.spec.paused && paused_cond_exists {
+        let cond = new_deployment_condition(
+            DEPLOYMENT_PROGRESSING.to_owned(),
+            CONDITION_UNKNOWN.to_owned(),
+            RESUMED_DEPLOY_REASON.to_owned(),
+            "Deployment is resumed".to_owned(),
+        );
+        set_deployment_condition(&mut deployment.status, cond);
+        Some(Operation::UpdateDeploymentStatus(deployment.clone()))
+    } else {
+        None
+    }
+}
+
 #[tracing::instrument(skip_all)]
 fn sync(
     deployment: &mut DeploymentResource,
     replicasets: &[&ReplicaSetResource],
+    replicasets_in_ns: &[&ReplicaSetResource],
 ) -> Option<Operation> {
     debug!("Syncing deployment");
     let (new_replicaset, old_replicasets) =
-        get_all_replicasets_and_sync_revision(deployment, replicasets);
+        get_all_replicasets_and_sync_revision(deployment, replicasets, replicasets_in_ns, false);
     let new_replicaset = match new_replicaset {
         Some(ResourceOrOp::Resource(r)) => Some(r),
         Some(ResourceOrOp::Op(op)) => return Some(op),
@@ -155,6 +384,8 @@ fn sync(
 fn get_all_replicasets_and_sync_revision<'a>(
     deployment: &mut DeploymentResource,
     replicasets: &[&'a ReplicaSetResource],
+    replicasets_in_ns: &[&ReplicaSetResource],
+    create_if_not_existed: bool,
 ) -> (
     Option<ResourceOrOp<ReplicaSetResource>>,
     Vec<&'a ReplicaSetResource>,
@@ -162,7 +393,13 @@ fn get_all_replicasets_and_sync_revision<'a>(
     debug!("getting all replicasets and sync revision");
     let (_, all_old_replicasets) = find_old_replicasets(deployment, replicasets);
 
-    let new_replicaset = get_new_replicaset(deployment, replicasets, &all_old_replicasets);
+    let new_replicaset = get_new_replicaset(
+        deployment,
+        replicasets,
+        &all_old_replicasets,
+        replicasets_in_ns,
+        create_if_not_existed,
+    );
 
     (new_replicaset, all_old_replicasets)
 }
@@ -220,6 +457,8 @@ fn get_new_replicaset(
     deployment: &mut DeploymentResource,
     replicasets: &[&ReplicaSetResource],
     old_replicasets: &[&ReplicaSetResource],
+    replicasets_in_ns: &[&ReplicaSetResource],
+    create_if_not_existed: bool,
 ) -> Option<ResourceOrOp<ReplicaSetResource>> {
     let existing_new_rs = find_new_replicaset(deployment, replicasets);
 
@@ -276,14 +515,94 @@ fn get_new_replicaset(
         }
 
         if needs_update {
+            debug!("Existing replicaset needs update");
             return Some(ResourceOrOp::Op(Operation::UpdateDeploymentStatus(
                 deployment.clone(),
             )));
         }
         return Some(ResourceOrOp::Resource(rs_copy));
     }
+
+    if !create_if_not_existed {
+        return None;
+    }
+
     debug!("no existing replicaset match, not creating a new one");
-    None
+
+    // new ReplicaSet does not exist, create one.
+    let mut new_rs_template = deployment.spec.template.clone();
+    let pod_template_spec_hash = compute_hash(&new_rs_template, deployment.status.collision_count);
+    new_rs_template.metadata.labels = deployment.spec.template.metadata.labels.clone();
+    new_rs_template.metadata.labels.insert(
+        DEFAULT_DEPLOYMENT_UNIQUE_LABEL_KEY.to_owned(),
+        pod_template_spec_hash.clone(),
+    );
+
+    // Add podTemplateHash label to selector
+    let mut new_rs_selector = deployment.spec.selector.clone();
+    new_rs_selector.match_labels.insert(
+        DEFAULT_DEPLOYMENT_UNIQUE_LABEL_KEY.to_owned(),
+        pod_template_spec_hash.clone(),
+    );
+
+    // Create new ReplicaSet
+    let mut new_rs = ReplicaSetResource {
+        metadata: crate::resources::Metadata {
+            // Make the name deterministic, to ensure idempotence
+            name: format!("{}-{}", deployment.metadata.name, pod_template_spec_hash),
+            namespace: deployment.metadata.namespace.clone(),
+            owner_references: vec![new_controller_ref(&deployment.metadata, &CONTROLLER_KIND)],
+            labels: new_rs_template.metadata.labels.clone(),
+            ..Default::default()
+        },
+        spec: crate::resources::ReplicaSetSpec {
+            min_ready_seconds: deployment.spec.min_ready_seconds,
+            selector: new_rs_selector,
+            template: new_rs_template.clone(),
+            ..Default::default()
+        },
+        status: crate::resources::ReplicaSetStatus::default(),
+    };
+    let mut all_rss = old_replicasets.to_vec();
+    all_rss.push(&new_rs);
+
+    let new_replicas_count = new_rs_new_replicas(deployment, &all_rss, &new_rs);
+
+    new_rs.spec.replicas = Some(new_replicas_count);
+    // Set new replica set's annotation
+    set_new_replicaset_annotations(
+        deployment,
+        &mut new_rs,
+        new_revision.to_string(),
+        false,
+        MAX_REV_HISTORY_LENGTH_IN_CHARS,
+    );
+    // Create the new ReplicaSet. If it already exists, then we need to check for possible
+    // hash collisions. If there is any other error, we need to report it in the status of
+    // the Deployment.
+
+    // DIFFERENT from kubernetes as we can't get error codes back
+    // check hash collision
+    let has_hash_collision = replicasets_in_ns
+        .iter()
+        .any(|rs| rs.metadata.name == new_rs.metadata.name);
+    if has_hash_collision {
+        // found a hash collision, update our status and then we'll try again next time
+        deployment.status.collision_count += 1;
+        debug!(
+            deployment.status.collision_count,
+            "Found hash collision with new replicaset, bumping collision count"
+        );
+        Some(ResourceOrOp::Op(Operation::UpdateDeploymentStatus(
+            deployment.clone(),
+        )))
+    } else {
+        Some(ResourceOrOp::Op(Operation::CreateReplicaSet(new_rs)))
+    }
+
+    // TODO: work out handling errors of creating the replicaset here.
+    // TODO: do we need to update the deployment status here? or does it get handled in another
+    // loop?
 }
 
 // syncDeploymentStatus checks if the status is up-to-date and sync it if necessary
@@ -482,10 +801,11 @@ fn scale(
             // Add/remove any leftovers to the largest replica set.
             if i == 0 && deployment_replicas_to_add != 0 {
                 let leftover = deployment_replicas_to_add - deployment_replicas_added;
+                let val = name_to_size.get_mut(&rs.metadata.name).unwrap();
                 if leftover < 0 {
-                    *name_to_size.get_mut(&rs.metadata.name).unwrap() -= leftover as u32;
+                    *val = val.saturating_sub(leftover as u32);
                 } else {
-                    *name_to_size.get_mut(&rs.metadata.name).unwrap() += leftover as u32;
+                    *val += leftover as u32;
                 }
             }
 
@@ -697,17 +1017,19 @@ fn is_rolling_update(deployment: &DeploymentResource) -> bool {
         .map_or(true, |s| s.r#type == DeploymentStrategyType::RollingUpdate)
 }
 
-fn set_deployment_revision(deployment: &mut DeploymentResource, revision: String) -> bool {
-    if deployment
+fn set_deployment_revision(deployment: &mut DeploymentResource, new_revision: String) -> bool {
+    let old_revision = deployment
         .metadata
         .annotations
         .get(REVISION_ANNOTATION)
-        .map_or(true, |r| r != &revision)
-    {
+        .cloned()
+        .unwrap_or_default();
+    if old_revision != new_revision {
+        debug!(old_revision, new_revision, "Updating deployment revision");
         deployment
             .metadata
             .annotations
-            .insert(REVISION_ANNOTATION.to_owned(), revision);
+            .insert(REVISION_ANNOTATION.to_owned(), new_revision);
         true
     } else {
         false
@@ -838,15 +1160,16 @@ fn set_deployment_condition(status: &mut DeploymentStatus, mut condition: Deploy
 
         // Do not update lastTransitionTime if the status of the condition doesn't change.
         if cc.status == condition.status {
+            debug!("Updating last_transition_time as status changed");
             condition.last_transition_time = cc.last_transition_time;
         }
-
-        debug!(current_condition=?cc, new_condition=?condition, "Setting deployment condition");
-
-        let mut new_conditions = filter_out_condition(&status.conditions, &condition.r#type);
-        new_conditions.push(&condition);
-        status.conditions = new_conditions.into_iter().cloned().collect();
     }
+
+    debug!(new_condition=?condition, "Setting deployment condition");
+
+    let mut new_conditions = filter_out_condition(&status.conditions, &condition.r#type);
+    new_conditions.push(&condition);
+    status.conditions = new_conditions.into_iter().cloned().collect();
 }
 
 fn get_actual_replica_count_for_replicasets(replicasets: &[&ReplicaSetResource]) -> u32 {
@@ -862,7 +1185,12 @@ fn get_deployment_condition<'a>(
     status: &'a DeploymentStatus,
     cond_type: &str,
 ) -> Option<&'a DeploymentCondition> {
+    debug!(?cond_type, ?status.conditions, "Finding condition");
     status.conditions.iter().find(|c| c.r#type == cond_type)
+}
+
+fn remove_deployment_condition(status: &mut DeploymentStatus, cond_type: &str) {
+    status.conditions.retain(|c| c.r#type != cond_type)
 }
 
 // filterOutCondition returns a new slice of deployment conditions without conditions with the provided type.
@@ -872,7 +1200,14 @@ fn filter_out_condition<'a>(
 ) -> Vec<&'a DeploymentCondition> {
     conditions
         .iter()
-        .filter(|c| c.r#type != cond_type)
+        .filter(|c| {
+            if c.r#type == cond_type {
+                debug!(condition=?c, "Filtering out condition");
+                false
+            } else {
+                true
+            }
+        })
         .collect()
 }
 
@@ -1109,4 +1444,881 @@ fn get_max_replicas_annotation(replicaset: &ReplicaSetResource) -> Option<u32> {
         .annotations
         .get(MAX_REPLICAS_ANNOTATION)
         .and_then(|r| r.parse().ok())
+}
+
+fn rollback(
+    deployment: &mut DeploymentResource,
+    replicasets: &[&ReplicaSetResource],
+    replicasets_in_ns: &[&ReplicaSetResource],
+) -> Option<Operation> {
+    let (new_rs, all_old_rss) =
+        get_all_replicasets_and_sync_revision(deployment, replicasets, replicasets_in_ns, true);
+
+    let new_rs = match new_rs {
+        Some(ResourceOrOp::Resource(r)) => Some(r),
+        Some(ResourceOrOp::Op(op)) => return Some(op),
+        None => None,
+    };
+
+    let mut all_rss = all_old_rss.to_vec();
+    if let Some(new_rs) = &new_rs {
+        all_rss.push(new_rs);
+    }
+
+    let mut rollback_to = get_rollback_to(deployment).unwrap();
+
+    // If rollback revision is 0, rollback to the last revision
+    if rollback_to.revision == 0 {
+        rollback_to.revision = last_revision(&all_rss);
+        if rollback_to.revision == 0 {
+            // If we still can't find the last revision, gives up rollback
+            // Gives up rollback
+            return Some(update_deployment_and_clear_rollback_to(deployment));
+        }
+    }
+
+    for rs in all_rss {
+        let v = rs
+            .metadata
+            .annotations
+            .get(REVISION_ANNOTATION)
+            .and_then(|v| v.parse::<u64>().ok())
+            .unwrap_or_default();
+        if v == rollback_to.revision {
+            // rollback by copying podTemplate.Spec from the replica set
+            // revision number will be incremented during the next getAllReplicaSetsAndSyncRevision call
+            // no-op if the spec matches current deployment's podTemplate.Spec
+            let (performed_rollback, op) = rollback_to_template(deployment, rs);
+            return Some(op);
+        }
+    }
+    // gives up rollback
+    Some(update_deployment_and_clear_rollback_to(deployment))
+}
+
+// NewRSNewReplicas calculates the number of replicas a deployment's new RS should have.
+// When one of the followings is true, we're rolling out the deployment; otherwise, we're scaling it.
+// 1) The new RS is saturated: newRS's replicas == deployment's replicas
+// 2) Max number of pods allowed is reached: deployment's replicas + maxSurge == all RSs' replicas
+#[tracing::instrument(skip_all)]
+fn new_rs_new_replicas(
+    deployment: &DeploymentResource,
+    all_replicasets: &[&ReplicaSetResource],
+    new_replicaset: &ReplicaSetResource,
+) -> u32 {
+    match deployment
+        .spec
+        .strategy
+        .as_ref()
+        .map(|s| s.r#type.clone())
+        .unwrap_or_default()
+    {
+        DeploymentStrategyType::RollingUpdate => {
+            // Check if we can scale up.
+            let max_surge = deployment
+                .spec
+                .strategy
+                .as_ref()
+                .unwrap()
+                .rolling_update
+                .as_ref()
+                .unwrap()
+                .max_surge
+                .scaled_value(deployment.spec.replicas, true);
+            // Find the total number of pods
+            let current_pod_count = get_replica_count_for_replicasets(all_replicasets);
+            let max_total_pods = deployment.spec.replicas + max_surge;
+            if current_pod_count >= max_total_pods {
+                // cannot scale up
+                debug!("Cannot scale replicaset up");
+                return new_replicaset.spec.replicas.unwrap_or_default();
+            }
+            // scale up
+            let scale_up_count = max_total_pods - current_pod_count;
+            // do not exceed the number of desired replicas
+            let scale_up_count = scale_up_count
+                .min(deployment.spec.replicas - new_replicaset.spec.replicas.unwrap_or_default());
+            let to = new_replicaset.spec.replicas.unwrap_or_default() + scale_up_count;
+            debug!(by = scale_up_count, to, "Can scale replicaset up");
+            to
+        }
+        DeploymentStrategyType::Recreate => deployment.spec.replicas,
+    }
+}
+
+// LastRevision finds the second max revision number in all replica sets (the last revision)
+fn last_revision(all_rss: &[&ReplicaSetResource]) -> u64 {
+    let mut max = 0;
+    let mut sec_max = 0;
+    for v in all_rss.iter().filter_map(|rs| {
+        rs.metadata
+            .annotations
+            .get(REVISION_ANNOTATION)
+            .and_then(|v| v.parse().ok())
+    }) {
+        if v >= max {
+            sec_max = max;
+            max = v;
+        } else if v > sec_max {
+            sec_max = v;
+        }
+    }
+    sec_max
+}
+
+// isScalingEvent checks whether the provided deployment has been updated with a scaling event
+// by looking at the desired-replicas annotation in the active replica sets of the deployment.
+//
+// rsList should come from getReplicaSetsForDeployment(d).
+fn is_scaling_event(
+    deployment: &mut DeploymentResource,
+    replicasets: &[&ReplicaSetResource],
+    replicasets_in_ns: &[&ReplicaSetResource],
+) -> ResourceOrOp<bool> {
+    let (new_rs, old_rss) =
+        get_all_replicasets_and_sync_revision(deployment, replicasets, replicasets_in_ns, false);
+    let new_rs = match new_rs {
+        Some(ResourceOrOp::Resource(r)) => Some(r),
+        Some(ResourceOrOp::Op(op)) => return ResourceOrOp::Op(op),
+        None => None,
+    };
+    let mut all_rss = old_rss.to_vec();
+    if let Some(new_rs) = &new_rs {
+        all_rss.push(new_rs);
+    }
+
+    for rs in filter_active_replicasets(&all_rss) {
+        let desired = rs
+            .metadata
+            .annotations
+            .get(DESIRED_REPLICAS_ANNOTATION)
+            .and_then(|v| v.parse::<u32>().ok());
+        if let Some(desired) = desired {
+            if desired != deployment.spec.replicas {
+                return ResourceOrOp::Resource(true);
+            }
+        }
+    }
+    ResourceOrOp::Resource(false)
+}
+
+// updateDeploymentAndClearRollbackTo sets .spec.rollbackTo to nil and update the input deployment
+// It is assumed that the caller will have updated the deployment template appropriately (in case
+// we want to rollback).
+fn update_deployment_and_clear_rollback_to(deployment: &DeploymentResource) -> Operation {
+    let mut d = deployment.clone();
+    set_rollback_to(&mut d, None);
+    Operation::UpdateDeployment(d)
+}
+
+fn set_rollback_to(deployment: &mut DeploymentResource, rollback_to: Option<RollbackConfig>) {
+    if let Some(rb) = rollback_to {
+        deployment
+            .metadata
+            .annotations
+            .insert(DEPRECATED_ROLLBACK_TO.to_owned(), rb.revision.to_string());
+    } else {
+        deployment
+            .metadata
+            .annotations
+            .remove(DEPRECATED_ROLLBACK_TO);
+    }
+}
+
+// rollbackToTemplate compares the templates of the provided deployment and replica set and
+// updates the deployment with the replica set template in case they are different. It also
+// cleans up the rollback spec so subsequent requeues of the deployment won't end up in here.
+fn rollback_to_template(
+    deployment: &mut DeploymentResource,
+    replicaset: &ReplicaSetResource,
+) -> (bool, Operation) {
+    let mut performed_rollback = false;
+
+    if equal_ignore_hash(&deployment.spec.template, &replicaset.spec.template) {
+        set_from_replicaset_template(deployment, &replicaset.spec.template);
+        // set RS (the old RS we'll rolling back to) annotations back to the deployment;
+        // otherwise, the deployment's current annotations (should be the same as current new RS) will be copied to the RS after the rollback.
+        //
+        // For example,
+        // A Deployment has old RS1 with annotation {change-cause:create}, and new RS2 {change-cause:edit}.
+        // Note that both annotations are copied from Deployment, and the Deployment should be annotated {change-cause:edit} as well.
+        // Now, rollback Deployment to RS1, we should update Deployment's pod-template and also copy annotation from RS1.
+        // Deployment is now annotated {change-cause:create}, and we have new RS1 {change-cause:create}, old RS2 {change-cause:edit}.
+        //
+        // If we don't copy the annotations back from RS to deployment on rollback, the Deployment will stay as {change-cause:edit},
+        // and new RS1 becomes {change-cause:edit} (copied from deployment after rollback), old RS2 {change-cause:edit}, which is not correct.
+        set_deployment_annotations_to(deployment, replicaset);
+        performed_rollback = true;
+    } else {
+        // same template, skip
+    }
+    (
+        performed_rollback,
+        update_deployment_and_clear_rollback_to(deployment),
+    )
+}
+
+fn set_deployment_annotations_to(
+    deployment: &mut DeploymentResource,
+    replicaset: &ReplicaSetResource,
+) {
+    deployment.metadata.annotations = get_skipped_annotations(&deployment.metadata.annotations);
+    for (k, v) in &replicaset.metadata.annotations {
+        if !skip_copy_annotation(k) {
+            deployment.metadata.annotations.insert(k.clone(), v.clone());
+        }
+    }
+}
+
+fn get_skipped_annotations(annotations: &BTreeMap<String, String>) -> BTreeMap<String, String> {
+    annotations
+        .iter()
+        .filter(|(k, v)| skip_copy_annotation(k))
+        .map(|(k, v)| (k.clone(), v.clone()))
+        .collect()
+}
+
+fn set_from_replicaset_template(deployment: &mut DeploymentResource, template: &PodTemplateSpec) {
+    deployment.spec.template.metadata = template.metadata.clone();
+    deployment.spec.template.spec = template.spec.clone();
+    deployment
+        .spec
+        .template
+        .metadata
+        .labels
+        .remove(DEFAULT_DEPLOYMENT_UNIQUE_LABEL_KEY);
+}
+
+fn new_controller_ref(owner: &Metadata, gvk: &GroupVersionKind) -> OwnerReference {
+    OwnerReference {
+        api_version: gvk.group_version().to_string(),
+        kind: gvk.kind.to_owned(),
+        name: owner.name.clone(),
+        uid: owner.uid.clone(),
+        block_owner_deletion: true,
+        controller: true,
+    }
+}
+
+// ComputeHash returns a hash value calculated from pod template and
+// a collisionCount to avoid hash collision. The hash will be safe encoded to
+// avoid bad words.
+fn compute_hash(template: &PodTemplateSpec, collision_count: u32) -> String {
+    let mut hasher = FnvHasher::new_32a();
+    template.hash(&mut hasher);
+
+    // Add collisionCount in the hash
+    let bytes = collision_count.to_le_bytes();
+    hasher.write(&bytes);
+
+    safe_encode_string(&hasher.finish_32().to_string())
+}
+
+fn safe_encode_string(s: &str) -> String {
+    const ALPHA_NUMS: &[char] = &[
+        'b', 'c', 'd', 'f', 'g', 'h', 'j', 'k', 'l', 'm', 'n', 'p', 'q', 'r', 's', 't', 'v', 'w',
+        'x', 'z', '2', '4', '5', '6', '7', '8', '9',
+    ];
+    s.chars()
+        .map(|c| ALPHA_NUMS[c as usize % ALPHA_NUMS.len()])
+        .collect()
+}
+
+// rolloutRolling implements the logic for rolling a new replica set.
+fn rollout_rolling(
+    deployment: &mut DeploymentResource,
+    replicasets: &[&ReplicaSetResource],
+    replicasets_in_ns: &[&ReplicaSetResource],
+) -> Option<Operation> {
+    let (new_replicaset, old_replicasets) =
+        get_all_replicasets_and_sync_revision(deployment, replicasets, replicasets_in_ns, true);
+    let new_replicaset = match new_replicaset {
+        Some(ResourceOrOp::Resource(r)) => r,
+        Some(ResourceOrOp::Op(op)) => return Some(op),
+        None => unreachable!(),
+    };
+    let mut all_rss = old_replicasets.clone();
+    all_rss.push(&new_replicaset);
+
+    // Scale up, if we can.
+    if let Some(scaled_up_op) = reconcile_new_replicaset(&all_rss, &new_replicaset, deployment) {
+        return Some(scaled_up_op);
+        // update deploymentstatus
+        // TODO: handle this as it should be done but might be done on reconciliation anyway?
+        // return sync_rollout_status(all_rss, new_replicaset, deployment);
+    }
+
+    // scale down, if we can
+    let scaled_down = reconcile_old_replicasets(
+        &all_rss,
+        &filter_active_replicasets(&old_replicasets),
+        &new_replicaset,
+        deployment,
+    );
+    if let Some(op) = scaled_down {
+        return Some(op);
+        // TODO: work out where to handle this
+        // return sync_rollout_status(all_rss, new_replicaset, deployment);
+    }
+
+    if deployment_complete(deployment, &deployment.status) {
+        if let Some(op) = cleanup_deployment(&old_replicasets, deployment) {
+            return Some(op);
+        }
+    }
+
+    sync_rollout_status(&all_rss, &Some(new_replicaset.clone()), deployment)
+}
+
+// syncRolloutStatus updates the status of a deployment during a rollout. There are
+// cases this helper will run that cannot be prevented from the scaling detection,
+// for example a resync of the deployment after it was scaled up. In those cases,
+// we shouldn't try to estimate any progress.
+#[tracing::instrument(skip_all)]
+fn sync_rollout_status(
+    all_rss: &[&ReplicaSetResource],
+    new_rs: &Option<ReplicaSetResource>,
+    deployment: &DeploymentResource,
+) -> Option<Operation> {
+    let mut new_status = calculate_status(all_rss, new_rs, deployment);
+    debug!(status_diff = ?deployment.status.diff(&new_status), "Checking new status");
+
+    if !has_progress_deadline(deployment) {
+        remove_deployment_condition(&mut new_status, DEPLOYMENT_PROGRESSING);
+    }
+
+    let current_cond = get_deployment_condition(&deployment.status, DEPLOYMENT_PROGRESSING);
+    let is_complete_deployment = new_status.replicas == new_status.updated_replicas
+        && current_cond.is_some()
+        && current_cond.unwrap().reason.as_ref().unwrap() == NEW_RSAVAILABLE_REASON;
+
+    if has_progress_deadline(deployment) && !is_complete_deployment {
+        if deployment_complete(deployment, &new_status) {
+            let msg = format!(
+                "Deployment {} has successfully progressed.",
+                deployment.metadata.name
+            );
+            let condition = new_deployment_condition(
+                DEPLOYMENT_PROGRESSING.to_owned(),
+                "True".to_owned(),
+                NEW_RSAVAILABLE_REASON.to_owned(),
+                msg,
+            );
+            set_deployment_condition(&mut new_status, condition);
+        } else if deployment_progressing(deployment, &new_status) {
+            let msg = format!("Deployment {} is progressing.", deployment.metadata.name);
+            let mut condition = new_deployment_condition(
+                DEPLOYMENT_PROGRESSING.to_owned(),
+                "True".to_owned(),
+                REPLICA_SET_UPDATED_REASON.to_owned(),
+                msg,
+            );
+            if let Some(current_cond) = current_cond {
+                if current_cond.status == "True" {
+                    condition.last_transition_time = current_cond.last_transition_time;
+                }
+                remove_deployment_condition(&mut new_status, DEPLOYMENT_PROGRESSING);
+            }
+            set_deployment_condition(&mut new_status, condition);
+        } else if deployment_timed_out(deployment, &new_status) {
+            let msg = format!(
+                "Deployment {} has timed out progressing.",
+                deployment.metadata.name
+            );
+            let condition = new_deployment_condition(
+                DEPLOYMENT_PROGRESSING.to_owned(),
+                "False".to_owned(),
+                TIMED_OUT_REASON.to_owned(),
+                msg,
+            );
+            set_deployment_condition(&mut new_status, condition);
+        }
+    }
+
+    let replica_failure_cond = get_replica_failures(all_rss, new_rs);
+    if !replica_failure_cond.is_empty() {
+        set_deployment_condition(&mut new_status, replica_failure_cond[0].clone())
+    } else {
+        remove_deployment_condition(&mut new_status, DEPLOYMENT_REPLICA_FAILURE)
+    }
+
+    if deployment.status == new_status {
+        return requeue_stuck_deployment(deployment, new_status);
+    }
+
+    debug!("Deployment status was different at the end, updating");
+    let mut new_deployment = deployment.clone();
+    new_deployment.status = new_status;
+    Some(Operation::UpdateDeploymentStatus(new_deployment))
+}
+
+#[tracing::instrument(skip_all)]
+fn reconcile_new_replicaset(
+    all_replicasets: &[&ReplicaSetResource],
+    new_rs: &ReplicaSetResource,
+    deployment: &DeploymentResource,
+) -> Option<Operation> {
+    if new_rs.spec.replicas == Some(deployment.spec.replicas) {
+        debug!("New replicaset already at correct size");
+        // scaling not required
+        return None;
+    }
+    if new_rs.spec.replicas > Some(deployment.spec.replicas) {
+        // scale down
+        if let Some(op) =
+            scale_replicaset_and_record_event(new_rs, deployment.spec.replicas, deployment)
+        {
+            debug!("scaling down new replicaset");
+            return Some(op);
+        }
+    }
+    let new_replicas_count = new_rs_new_replicas(deployment, all_replicasets, new_rs);
+    scale_replicaset_and_record_event(new_rs, new_replicas_count, deployment)
+}
+
+#[tracing::instrument(skip_all)]
+fn reconcile_old_replicasets(
+    all_replicasets: &[&ReplicaSetResource],
+    old_replicasets: &[&ReplicaSetResource],
+    new_rs: &ReplicaSetResource,
+    deployment: &DeploymentResource,
+) -> Option<Operation> {
+    let old_pods_count = get_replica_count_for_replicasets(old_replicasets);
+    if old_pods_count == 0 {
+        return None;
+    }
+
+    let all_pods_count = get_replica_count_for_replicasets(all_replicasets);
+    let max_unavailable = max_unavailable(deployment);
+
+    let min_avilable = deployment.spec.replicas - max_unavailable;
+    let new_rs_unavailable_pod_count =
+        new_rs.spec.replicas.unwrap() - new_rs.status.available_replicas;
+    let max_scaled_down = all_pods_count - min_avilable - new_rs_unavailable_pod_count;
+    if max_scaled_down <= 0 {
+        debug!("can't scale below zero");
+        return None;
+    }
+
+    // Clean up unhealthy replicas first, otherwise unhealthy replicas will block deployment
+    // and cause timeout. See https://github.com/kubernetes/kubernetes/issues/16737
+    let res = cleanup_unhealthy_replicas(old_replicasets, deployment, max_scaled_down);
+    let (old_replicasets, cleanup_count) = match res {
+        Some(res_or_op) => match res_or_op {
+            ResourceOrOp::Resource(res) => res,
+            ResourceOrOp::Op(op) => return Some(op),
+        },
+        None => return None,
+    };
+
+    // Scale down old replica sets, need check maxUnavailable to ensure we can scale down
+    let mut all_rss = old_replicasets.to_vec();
+    all_rss.push(new_rs);
+
+    if let Some(scaled_down_op) =
+        scale_down_old_replicasets_for_rolling_update(&all_rss, &old_replicasets, deployment)
+    {
+        debug!("Scaling down old replicasets");
+        return Some(scaled_down_op);
+    }
+    None
+
+    // let total_scaled_down = cleanup_count + scaled_down_count;
+    // total_scaled_down > 0
+}
+
+// cleanupUnhealthyReplicas will scale down old replica sets with unhealthy replicas, so that all unhealthy replicas will be deleted.
+fn cleanup_unhealthy_replicas<'a>(
+    old_replicasets: &'a [&ReplicaSetResource],
+    deployment: &DeploymentResource,
+    max_cleanup_count: u32,
+) -> Option<ResourceOrOp<(Vec<&'a ReplicaSetResource>, u32)>> {
+    let mut old_replicasets = old_replicasets.to_vec();
+    old_replicasets.sort_by_key(|rs| rs.metadata.creation_timestamp);
+
+    // Safely scale down all old replica sets with unhealthy replicas. Replica set will sort the pods in the order
+    // such that not-ready < ready, unscheduled < scheduled, and pending < running. This ensures that unhealthy replicas will
+    // been deleted first and won't increase unavailability.
+    let mut total_scaled_down = 0;
+    let mut updated_rss = Vec::new();
+    for (i, target_rs) in old_replicasets.iter().enumerate() {
+        if total_scaled_down >= max_cleanup_count {
+            break;
+        }
+        if target_rs.spec.replicas.unwrap() == 0 {
+            // cannot scale down this replica set
+            continue;
+        }
+        if target_rs.spec.replicas.unwrap() == target_rs.status.available_replicas {
+            // no unhealthy replicas found, no scaling required
+            continue;
+        }
+
+        let scaled_down_count = (max_cleanup_count - total_scaled_down)
+            .min(target_rs.spec.replicas.unwrap() - target_rs.status.available_replicas);
+        let new_replicas_count = target_rs.spec.replicas.unwrap() - scaled_down_count;
+        if new_replicas_count > target_rs.spec.replicas.unwrap() {
+            return None;
+        }
+        match scale_replicaset_and_record_event(target_rs, new_replicas_count, deployment) {
+            Some(Operation::UpdateReplicaSet(rs)) => {
+                updated_rss.push(rs);
+            }
+            Some(_) => {
+                unreachable!()
+            }
+            None => {
+                // no changes otherwise we would have had an update op
+            }
+        }
+        total_scaled_down += scaled_down_count;
+    }
+    if !updated_rss.is_empty() {
+        Some(ResourceOrOp::Op(Operation::UpdateReplicaSets(updated_rss)))
+    } else {
+        Some(ResourceOrOp::Resource((old_replicasets, total_scaled_down)))
+    }
+}
+
+#[tracing::instrument(skip_all)]
+fn scale_down_old_replicasets_for_rolling_update(
+    all_replicasets: &[&ReplicaSetResource],
+    old_replicasets: &[&ReplicaSetResource],
+    deployment: &DeploymentResource,
+) -> Option<Operation> {
+    let max_unavailable = max_unavailable(deployment);
+    let min_available = deployment.spec.replicas - max_unavailable;
+    let available_pod_count = get_available_replica_count_for_replicasets(all_replicasets);
+    if available_pod_count <= min_available {
+        debug!(
+            available_pod_count,
+            min_available,
+            ?all_replicasets,
+            "available pod count less or equal than the min available, not scaling down"
+        );
+        // cannot scale down
+        return None;
+    }
+
+    let mut old_replicasets = old_replicasets.to_vec();
+    old_replicasets.sort_by_key(|rs| rs.metadata.creation_timestamp);
+
+    let mut total_scaled_down = 0;
+    let total_scale_down_count = available_pod_count - min_available;
+    let mut updated_rss = Vec::new();
+    for target_rs in old_replicasets {
+        debug!(
+            total_scaled_down,
+            total_scale_down_count, "Scaling down old replicaset"
+        );
+        if total_scaled_down >= total_scale_down_count {
+            // no further scaling required
+            break;
+        }
+        if target_rs.spec.replicas.unwrap() == 0 {
+            // cannot scale down this replicaset
+            continue;
+        }
+
+        // scale down
+        let scaled_down_count = target_rs
+            .spec
+            .replicas
+            .unwrap()
+            .min(total_scale_down_count - total_scaled_down);
+        let new_replicas_count = target_rs.spec.replicas.unwrap() - scaled_down_count;
+        if new_replicas_count > target_rs.spec.replicas.unwrap() {
+            return None;
+        }
+        if let Some(Operation::UpdateReplicaSet(rs)) =
+            scale_replicaset_and_record_event(target_rs, new_replicas_count, deployment)
+        {
+            updated_rss.push(rs);
+        }
+        total_scaled_down += scaled_down_count
+    }
+    if !updated_rss.is_empty() {
+        Some(Operation::UpdateReplicaSets(updated_rss))
+    } else {
+        None
+    }
+}
+
+// rolloutRecreate implements the logic for recreating a replica set.
+fn rollout_recreate(
+    deployment: &mut DeploymentResource,
+    replicasets: &[&ReplicaSetResource],
+    replicasets_in_ns: &[&ReplicaSetResource],
+    pod_map: &BTreeMap<String, Vec<PodResource>>,
+) -> Option<Operation> {
+    // Don't create a new RS if not already existed, so that we avoid scaling up before scaling down.
+    let (new_replicaset, old_replicasets) =
+        get_all_replicasets_and_sync_revision(deployment, replicasets, replicasets_in_ns, false);
+    let new_replicaset = match new_replicaset {
+        Some(ResourceOrOp::Resource(r)) => Some(r),
+        Some(ResourceOrOp::Op(op)) => return Some(op),
+        None => None,
+    };
+    let mut all_rss = old_replicasets
+        .iter()
+        .map(|rs| (*rs).clone())
+        .collect::<Vec<_>>();
+    if let Some(new_replicaset) = &new_replicaset {
+        all_rss.push(new_replicaset.clone())
+    }
+    let active_old_rss = filter_active_replicasets(&old_replicasets);
+
+    // scale down replica sets
+    let scaled_down = scale_down_old_replicasets_for_recreate(&active_old_rss, deployment);
+    if let Some(op) = scaled_down {
+        return Some(op);
+        // TODO: work out how to handle this bit too
+        // return sync_rollout_status(all_rss, new_rs, deployment);
+    }
+
+    if old_pods_running(&new_replicaset, &old_replicasets, pod_map) {
+        let all_rss = all_rss.iter().collect::<Vec<_>>();
+        return sync_rollout_status(&all_rss, &new_replicaset, deployment);
+    }
+
+    // If we need to create a new RS, create it now.
+    let (new_replicaset, old_replicasets) = if new_replicaset.is_none() {
+        let (new_replicaset, old_replicasets) =
+            get_all_replicasets_and_sync_revision(deployment, replicasets, replicasets_in_ns, true);
+        let new_replicaset = match new_replicaset {
+            Some(ResourceOrOp::Resource(r)) => r,
+            Some(ResourceOrOp::Op(op)) => return Some(op),
+            None => unreachable!(),
+        };
+        all_rss.push(new_replicaset.clone());
+        (new_replicaset, old_replicasets)
+    } else {
+        (new_replicaset.unwrap(), old_replicasets)
+    };
+
+    // scale up new replica set
+    if let Some(op) = scale_up_new_replicaset_for_recreate(&new_replicaset, deployment) {
+        return Some(op);
+    }
+
+    if deployment_complete(deployment, &deployment.status) {
+        if let Some(op) = cleanup_deployment(&old_replicasets, deployment) {
+            return Some(op);
+        }
+    }
+
+    let all_rss = all_rss.iter().collect::<Vec<_>>();
+    sync_rollout_status(&all_rss, &Some(new_replicaset), deployment)
+}
+
+fn scale_down_old_replicasets_for_recreate(
+    old_replicasets: &[&ReplicaSetResource],
+    deployment: &DeploymentResource,
+) -> Option<Operation> {
+    let scaled = false;
+    let mut updated_rss = Vec::new();
+    for rs in old_replicasets {
+        if rs.spec.replicas.unwrap() == 0 {
+            continue;
+        }
+
+        if let Some(Operation::UpdateReplicaSet(rs)) =
+            scale_replicaset_and_record_event(rs, 0, deployment)
+        {
+            updated_rss.push(rs);
+        }
+    }
+    if updated_rss.is_empty() {
+        None
+    } else {
+        Some(Operation::UpdateReplicaSets(updated_rss))
+    }
+}
+
+// DeploymentComplete considers a deployment to be complete once all of its desired replicas
+// are updated and available, and no old pods are running.
+fn deployment_complete(deployment: &DeploymentResource, new_status: &DeploymentStatus) -> bool {
+    new_status.updated_replicas == deployment.spec.replicas
+        && new_status.replicas == deployment.spec.replicas
+        && new_status.available_replicas == deployment.spec.replicas
+        && new_status.observed_generation >= deployment.metadata.generation
+}
+
+fn deployment_progressing(deployment: &DeploymentResource, new_status: &DeploymentStatus) -> bool {
+    let old_status = &deployment.status;
+
+    let old_status_old_replicas = old_status.replicas - old_status.updated_replicas;
+    let new_status_old_replicas = new_status.replicas - new_status.updated_replicas;
+
+    new_status.updated_replicas > old_status.updated_replicas
+        || new_status_old_replicas < old_status_old_replicas
+        || new_status.ready_replicas > old_status.ready_replicas
+        || new_status.available_replicas > old_status.available_replicas
+}
+
+fn deployment_timed_out(deployment: &DeploymentResource, new_status: &DeploymentStatus) -> bool {
+    if !has_progress_deadline(deployment) {
+        return false;
+    }
+
+    let Some(cond) = get_deployment_condition(new_status, DEPLOYMENT_PROGRESSING) else{
+        return false
+    };
+
+    if cond.reason.as_ref().unwrap() == NEW_RSAVAILABLE_REASON {
+        return false;
+    }
+    if cond.reason.as_ref().unwrap() == TIMED_OUT_REASON {
+        return true;
+    }
+
+    let from = cond.last_update_time.unwrap();
+    let now = now();
+    let delta = std::time::Duration::from_secs(
+        deployment
+            .spec
+            .progress_deadline_seconds
+            .unwrap_or_default() as u64,
+    );
+    let timed_out = from.0 + delta < now.0;
+    timed_out
+}
+
+fn get_replica_failures(
+    all_replicasets: &[&ReplicaSetResource],
+    new_rs: &Option<ReplicaSetResource>,
+) -> Vec<DeploymentCondition> {
+    let mut conditions = Vec::new();
+
+    if let Some(new_rs) = new_rs {
+        for c in &new_rs.status.conditions {
+            if c.r#type != REPLICA_SET_REPLICA_FAILURE {
+                continue;
+            }
+            conditions.push(replicaset_to_deployment_condition(c.clone()))
+        }
+    }
+
+    // Return failures for the new replica set over failures from old replica sets.
+    if !conditions.is_empty() {
+        return conditions;
+    }
+
+    for rs in all_replicasets {
+        for c in &rs.status.conditions {
+            if c.r#type != REPLICA_SET_REPLICA_FAILURE {
+                continue;
+            }
+            conditions.push(replicaset_to_deployment_condition(c.clone()))
+        }
+    }
+
+    conditions
+}
+
+fn replicaset_to_deployment_condition(cond: ReplicaSetCondition) -> DeploymentCondition {
+    DeploymentCondition {
+        r#type: cond.r#type,
+        status: cond.status,
+        last_transition_time: cond.last_transition_time,
+        last_update_time: cond.last_transition_time,
+        message: cond.message,
+        reason: cond.reason,
+    }
+}
+
+// requeueStuckDeployment checks whether the provided deployment needs to be synced for a progress
+// check. It returns the time after the deployment will be requeued for the progress check, 0 if it
+// will be requeued now, or -1 if it does not need to be requeued.
+fn requeue_stuck_deployment(
+    deployment: &DeploymentResource,
+    new_status: DeploymentStatus,
+) -> Option<Operation> {
+    let current_cond = get_deployment_condition(&deployment.status, DEPLOYMENT_PROGRESSING);
+
+    // Can't estimate progress if there is no deadline in the spec or progressing condition in the current status.
+    if !has_progress_deadline(deployment) || current_cond.is_none() {
+        return None;
+    }
+
+    // No need to estimate progress if the rollout is complete or already timed out.
+    if deployment_complete(deployment, &new_status)
+        || current_cond
+            .as_ref()
+            .unwrap()
+            .reason
+            .clone()
+            .unwrap_or_default()
+            == TIMED_OUT_REASON
+    {
+        return None;
+    }
+
+    debug!("Requeueing stuck deployment");
+
+    // If there is no sign of progress at this point then there is a high chance that the
+    // deployment is stuck. We should resync this deployment at some point in the future[1]
+    // and check whether it has timed out. We definitely need this, otherwise we depend on the
+    // controller resync interval. See https://github.com/kubernetes/kubernetes/issues/34458.
+    //
+    // [1] ProgressingCondition.LastUpdatedTime + progressDeadlineSeconds - time.Now()
+    //
+    // For example, if a Deployment updated its Progressing condition 3 minutes ago and has a
+    // deadline of 10 minutes, it would need to be resynced for a progress check after 7 minutes.
+    //
+    // lastUpdated: 			00:00:00
+    // now: 					00:03:00
+    // progressDeadlineSeconds: 600 (10 minutes)
+    //
+    // lastUpdated + progressDeadlineSeconds - now => 00:00:00 + 00:10:00 - 00:03:00 => 07:00
+    // TODO: could delay requeue but just do it for now, the rate limiting can handle that
+    Some(Operation::RequeueDeployment(deployment.clone()))
+}
+
+fn old_pods_running(
+    new_replicaset: &Option<ReplicaSetResource>,
+    old_replicasets: &[&ReplicaSetResource],
+    pod_map: &BTreeMap<String, Vec<PodResource>>,
+) -> bool {
+    let old_pods = get_actual_replica_count_for_replicasets(old_replicasets);
+    if old_pods > 0 {
+        return true;
+    }
+
+    for (rs_uid, pod_list) in pod_map {
+        // If the pods belong to the new ReplicaSet, ignore.
+        if let Some(new_rs) = new_replicaset {
+            if &new_rs.metadata.uid == rs_uid {
+                continue;
+            }
+        }
+
+        for pod in pod_list {
+            match pod.status.phase {
+                crate::resources::PodPhase::Failed | crate::resources::PodPhase::Succeeded => {
+                    // don't count pods in terminal state
+                    continue;
+                }
+                crate::resources::PodPhase::Unknown => {
+                    // v1.PodUnknown is a deprecated status.
+                    // This logic is kept for backward compatibility.
+                    // This used to happen in situation like when the node is temporarily disconnected from the cluster.
+                    // If we can't be sure that the pod is not running, we have to count it.
+                    return true;
+                }
+                _ => {
+                    // Pod is not in terminal phase.
+                    return true;
+                }
+            }
+        }
+    }
+    false
+}
+
+fn scale_up_new_replicaset_for_recreate(
+    new_replicaset: &ReplicaSetResource,
+    deployment: &DeploymentResource,
+) -> Option<Operation> {
+    scale_replicaset_and_record_event(new_replicaset, deployment.spec.replicas, deployment)
 }

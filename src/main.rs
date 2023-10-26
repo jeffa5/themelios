@@ -65,7 +65,7 @@ fn main() {
                 termination_grace_period_seconds: None,
                 restart_policy: None,
             },
-            status: PodStatus {},
+            status: PodStatus::default(),
         }))
         .with_replicasets((1..=opts.replicasets).map(|i| ReplicaSetResource {
             metadata: utils::metadata(format!("rep-{i}")),

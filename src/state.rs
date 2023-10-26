@@ -1,13 +1,13 @@
 use std::collections::{BTreeMap, BTreeSet};
 
+use crate::utils;
 use crate::{
     abstract_model::{Change, Operation},
     resources::{
         DeploymentResource, NodeResource, PodResource, PodSpec, PodStatus, ReplicaSetResource,
-        ReplicaSetSpec, ReplicaSetStatus, StatefulSetResource,
+        StatefulSetResource,
     },
 };
-use crate::{resources::LabelSelector, resources::PodTemplateSpec, utils};
 
 /// Consistency level for viewing the state with.
 #[derive(Default, Clone, Debug, PartialEq, Eq, Hash)]
@@ -651,35 +651,7 @@ impl StateView {
                             termination_grace_period_seconds: None,
                             restart_policy: None,
                         },
-                        status: PodStatus {},
-                    },
-                );
-            }
-            Operation::NewReplicaset(i) => {
-                self.replica_sets.insert(
-                    i.clone(),
-                    ReplicaSetResource {
-                        metadata: utils::metadata(i.clone()),
-                        spec: ReplicaSetSpec {
-                            replicas: Some(2),
-                            template: PodTemplateSpec {
-                                metadata: utils::metadata(i.clone()),
-                                spec: PodSpec {
-                                    node_name: None,
-                                    scheduler_name: None,
-                                    resources: None,
-                                    containers: Vec::new(),
-                                    active_deadline_seconds: None,
-                                    termination_grace_period_seconds: None,
-                                    restart_policy: None,
-                                },
-                            },
-                            min_ready_seconds: 0,
-                            selector: LabelSelector {
-                                match_labels: Default::default(),
-                            },
-                        },
-                        status: ReplicaSetStatus::default(),
+                        status: PodStatus::default(),
                     },
                 );
             }
@@ -707,11 +679,18 @@ impl StateView {
                 self.deployments
                     .insert(dep.metadata.name.clone(), dep.clone());
             }
+            Operation::RequeueDeployment(dep) => {
+                // skip
+            }
             Operation::UpdateDeploymentStatus(dep) => {
                 if let Some(mut dp) = self.deployments.remove(&dep.metadata.name) {
                     dp.status = dep.status.clone();
                     self.deployments.insert(dp.metadata.name.clone(), dp);
                 }
+            }
+            Operation::CreateReplicaSet(rs) => {
+                self.replica_sets
+                    .insert(rs.metadata.name.clone(), rs.clone());
             }
             Operation::UpdateReplicaSet(rs) => {
                 self.replica_sets
