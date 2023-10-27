@@ -38,12 +38,24 @@ struct DeploymentRequest {
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 #[serde(tag = "action", rename_all = "camelCase")]
 enum DeploymentResponse {
-    UpdateDeployment { deployment: DeploymentResource },
-    RequeueDeployment { deployment: DeploymentResource },
-    UpdateDeploymentStatus { deployment: DeploymentResource },
-    CreateReplicaSet { replicaset: ReplicaSetResource },
-    UpdateReplicaSet { replicaset: ReplicaSetResource },
-    UpdateReplicaSets { replicasets: Vec<ReplicaSetResource> },
+    UpdateDeployment {
+        deployment: DeploymentResource,
+    },
+    RequeueDeployment {
+        deployment: DeploymentResource,
+    },
+    UpdateDeploymentStatus {
+        deployment: DeploymentResource,
+    },
+    CreateReplicaSet {
+        replicaset: ReplicaSetResource,
+    },
+    UpdateReplicaSet {
+        replicaset: ReplicaSetResource,
+    },
+    UpdateReplicaSets {
+        replicasets: Vec<ReplicaSetResource>,
+    },
 }
 
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
@@ -130,9 +142,11 @@ async fn deployment(
         Some(Operation::UpdateDeployment(dep)) => Ok(Json(DeploymentResponse::UpdateDeployment {
             deployment: dep,
         })),
-        Some(Operation::RequeueDeployment(dep)) => Ok(Json(DeploymentResponse::RequeueDeployment {
-            deployment: dep,
-        })),
+        Some(Operation::RequeueDeployment(dep)) => {
+            Ok(Json(DeploymentResponse::RequeueDeployment {
+                deployment: dep,
+            }))
+        }
         Some(Operation::UpdateDeploymentStatus(dep)) => {
             Ok(Json(DeploymentResponse::UpdateDeploymentStatus {
                 deployment: dep,
@@ -144,9 +158,11 @@ async fn deployment(
         Some(Operation::UpdateReplicaSet(rs)) => Ok(Json(DeploymentResponse::UpdateReplicaSet {
             replicaset: rs,
         })),
-        Some(Operation::UpdateReplicaSets(rss)) => Ok(Json(DeploymentResponse::UpdateReplicaSets {
-            replicasets: rss,
-        })),
+        Some(Operation::UpdateReplicaSets(rss)) => {
+            Ok(Json(DeploymentResponse::UpdateReplicaSets {
+                replicasets: rss,
+            }))
+        }
         Some(op) => Err(ErrorResponse::InvalidOperationReturned(op)),
         None => Err(ErrorResponse::NoOperation),
     }

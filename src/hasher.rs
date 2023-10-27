@@ -12,7 +12,7 @@ impl FnvHasher {
         FnvHasher(OFFSET_BASIS_32)
     }
 
-    pub fn finish_32(&self) -> u32{
+    pub fn finish_32(&self) -> u32 {
         self.0
     }
 
@@ -26,7 +26,7 @@ impl FnvHasher {
     }
 }
 
-impl Hasher for FnvHasher{
+impl Hasher for FnvHasher {
     fn finish(&self) -> u64 {
         self.0.into()
     }
