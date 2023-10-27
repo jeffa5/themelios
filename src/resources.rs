@@ -635,7 +635,7 @@ impl Quantity {
         match self {
             Quantity::Str(s) => {
                 let (digit, _unit) = s.split_once(char::is_alphabetic).unwrap();
-                
+
                 // match unit {
                 //     u => panic!("unhandled unit {u}"),
                 // };

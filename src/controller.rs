@@ -105,9 +105,7 @@ impl Controllers {
             Controllers::Scheduler(_) => ControllerStates::Scheduler(SchedulerState),
             Controllers::ReplicaSet(_) => ControllerStates::ReplicaSet(ReplicaSetState),
             Controllers::Deployment(_) => ControllerStates::Deployment(DeploymentState),
-            Controllers::StatefulSet(_) => {
-                ControllerStates::StatefulSet(StatefulSetState)
-            }
+            Controllers::StatefulSet(_) => ControllerStates::StatefulSet(StatefulSetState),
         }
     }
 }

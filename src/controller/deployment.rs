@@ -2059,7 +2059,9 @@ fn rollout_recreate(
     }
 
     // If we need to create a new RS, create it now.
-    let (new_replicaset, old_replicasets) = if new_replicaset.is_none() {
+    let (new_replicaset, old_replicasets) = if let Some(new_replicaset) = new_replicaset {
+        (new_replicaset, old_replicasets)
+    } else {
         let (new_replicaset, old_replicasets) =
             get_all_replicasets_and_sync_revision(deployment, replicasets, replicasets_in_ns, true);
         let new_replicaset = match new_replicaset {
@@ -2069,8 +2071,6 @@ fn rollout_recreate(
         };
         all_rss.push(new_replicaset.clone());
         (new_replicaset, old_replicasets)
-    } else {
-        (new_replicaset.unwrap(), old_replicasets)
     };
 
     // scale up new replica set
@@ -2156,7 +2156,7 @@ fn deployment_timed_out(deployment: &DeploymentResource, new_status: &Deployment
             .progress_deadline_seconds
             .unwrap_or_default() as u64,
     );
-    
+
     from.0 + delta < now.0
 }
 
