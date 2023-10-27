@@ -355,7 +355,7 @@ pub struct ReplicaSetStatus {
 #[serde(rename_all = "camelCase")]
 pub struct ReplicaSetCondition {
     // Status of the condition, one of True, False, Unknown.
-    pub status: String,
+    pub status: ConditionStatus,
     // Type of deployment condition.
     pub r#type: String,
     // Last time the condition transitioned from one status to another.
@@ -364,6 +364,16 @@ pub struct ReplicaSetCondition {
     pub message: Option<String>,
     // The reason for the condition's last transition.
     pub reason: Option<String>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff)]
+#[diff(attr(
+    #[derive(Debug, PartialEq)]
+))]
+pub enum ConditionStatus {
+    True,
+    False,
+    Unknown,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff)]
@@ -489,7 +499,7 @@ pub struct DeploymentStatus {
 #[serde(rename_all = "camelCase")]
 pub struct DeploymentCondition {
     // Status of the condition, one of True, False, Unknown.
-    pub status: String,
+    pub status: ConditionStatus,
     // Type of deployment condition.
     pub r#type: String,
     // Last time the condition transitioned from one status to another.

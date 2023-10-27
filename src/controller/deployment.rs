@@ -4,9 +4,9 @@ use crate::{
     abstract_model::Operation,
     hasher::FnvHasher,
     resources::{
-        DeploymentCondition, DeploymentResource, DeploymentStatus, DeploymentStrategyType,
-        GroupVersionKind, LabelSelector, Metadata, OwnerReference, PodResource, PodTemplateSpec,
-        ReplicaSetCondition, ReplicaSetResource,
+        ConditionStatus, DeploymentCondition, DeploymentResource, DeploymentStatus,
+        DeploymentStrategyType, GroupVersionKind, LabelSelector, Metadata, OwnerReference,
+        PodResource, PodTemplateSpec, ReplicaSetCondition, ReplicaSetResource,
     },
     state::StateView,
     utils::now,
@@ -21,8 +21,6 @@ const CONTROLLER_KIND: GroupVersionKind = GroupVersionKind {
     version: "v1",
     kind: "Deployment",
 };
-
-const CONDITION_UNKNOWN: &str = "Unknown";
 
 // PausedDeployReason is added in a deployment when it is paused. Lack of progress shouldn't be
 // estimated once a deployment is paused.
@@ -314,7 +312,7 @@ fn check_paused_conditions(deployment: &mut DeploymentResource) -> Option<Operat
     if deployment.spec.paused && !paused_cond_exists {
         let cond = new_deployment_condition(
             DEPLOYMENT_PROGRESSING.to_owned(),
-            CONDITION_UNKNOWN.to_owned(),
+            ConditionStatus::Unknown,
             PAUSED_DEPLOY_REASON.to_owned(),
             "Deployment is paused".to_owned(),
         );
@@ -323,7 +321,7 @@ fn check_paused_conditions(deployment: &mut DeploymentResource) -> Option<Operat
     } else if !deployment.spec.paused && paused_cond_exists {
         let cond = new_deployment_condition(
             DEPLOYMENT_PROGRESSING.to_owned(),
-            CONDITION_UNKNOWN.to_owned(),
+            ConditionStatus::Unknown,
             RESUMED_DEPLOY_REASON.to_owned(),
             "Deployment is resumed".to_owned(),
         );
@@ -506,7 +504,7 @@ fn get_new_replicaset(
             let message = format!("Found new replica set {}", rs_copy.metadata.name);
             let condition = new_deployment_condition(
                 DEPLOYMENT_PROGRESSING.to_owned(),
-                "True".to_owned(),
+                ConditionStatus::True,
                 FOUND_NEW_RSREASON.to_owned(),
                 message,
             );
@@ -659,7 +657,7 @@ fn calculate_status(
         );
         let min_availability = new_deployment_condition(
             DEPLOYMENT_AVAILABLE.to_owned(),
-            "True".to_owned(),
+            ConditionStatus::True,
             MINIMUM_REPLICAS_AVAILABLE.to_owned(),
             "Deployment has minimum availability.".to_owned(),
         );
@@ -671,7 +669,7 @@ fn calculate_status(
         );
         let no_min_availability = new_deployment_condition(
             DEPLOYMENT_AVAILABLE.to_owned(),
-            "False".to_owned(),
+            ConditionStatus::False,
             MINIMUM_REPLICAS_UNAVAILABLE.to_owned(),
             "Deployment does not have minimum availability.".to_owned(),
         );
@@ -1135,7 +1133,7 @@ fn max_unavailable(deployment: &DeploymentResource) -> u32 {
 
 fn new_deployment_condition(
     cond_type: String,
-    status: String,
+    status: ConditionStatus,
     reason: String,
     message: String,
 ) -> DeploymentCondition {
@@ -1800,7 +1798,7 @@ fn sync_rollout_status(
             );
             let condition = new_deployment_condition(
                 DEPLOYMENT_PROGRESSING.to_owned(),
-                "True".to_owned(),
+                ConditionStatus::True,
                 NEW_RSAVAILABLE_REASON.to_owned(),
                 msg,
             );
@@ -1809,12 +1807,12 @@ fn sync_rollout_status(
             let msg = format!("Deployment {} is progressing.", deployment.metadata.name);
             let mut condition = new_deployment_condition(
                 DEPLOYMENT_PROGRESSING.to_owned(),
-                "True".to_owned(),
+                ConditionStatus::True,
                 REPLICA_SET_UPDATED_REASON.to_owned(),
                 msg,
             );
             if let Some(current_cond) = current_cond {
-                if current_cond.status == "True" {
+                if current_cond.status == ConditionStatus::True {
                     condition.last_transition_time = current_cond.last_transition_time;
                 }
                 remove_deployment_condition(&mut new_status, DEPLOYMENT_PROGRESSING);
@@ -1827,7 +1825,7 @@ fn sync_rollout_status(
             );
             let condition = new_deployment_condition(
                 DEPLOYMENT_PROGRESSING.to_owned(),
-                "False".to_owned(),
+                ConditionStatus::False,
                 TIMED_OUT_REASON.to_owned(),
                 msg,
             );
