@@ -135,7 +135,7 @@ impl Model for AbstractModelCfg {
                 if !all_unique(state.statefulsets.values().map(|n| &n.metadata.name)) {
                     return false;
                 }
-                return true;
+                true
             }),
             Property::<Self>::eventually("every pod gets scheduled", |_model, state| {
                 let state = state.view_at(state.max_revision());

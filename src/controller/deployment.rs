@@ -109,7 +109,7 @@ impl Controller for Deployment {
             for deployment in global_state.deployments.values() {
                 let replicasets = global_state.replica_sets.values().collect::<Vec<_>>();
                 let pod_map = BTreeMap::new();
-                if let Some(op) = reconcile(&deployment, &replicasets, &pod_map) {
+                if let Some(op) = reconcile(deployment, &replicasets, &pod_map) {
                     return Some(op);
                 }
 
@@ -148,7 +148,7 @@ fn reconcile(
 
     // trim down replicasets to those for this deployment
     let (replicaset_matches, not_our_replicasets): (Vec<_>, Vec<_>) = all_replicasets
-        .into_iter()
+        .iter()
         .copied()
         .partition(|rs| deployment.spec.selector.matches(&rs.metadata.labels));
 
@@ -241,7 +241,7 @@ fn reconcile(
         .spec
         .strategy
         .as_ref()
-        .map(|s| s.r#type.clone())
+        .map(|s| s.r#type)
         .unwrap_or_default()
     {
         DeploymentStrategyType::Recreate => rollout_recreate(
@@ -343,7 +343,7 @@ fn sync(
 
     let mut all_replicasets = old_replicasets;
     if let Some(new_rs) = &new_replicaset {
-        all_replicasets.push(&new_rs);
+        all_replicasets.push(new_rs);
     }
     if let Some(op) = sync_deployment_status(&all_replicasets, &new_replicaset, deployment) {
         return Some(op);
@@ -838,7 +838,7 @@ fn find_active_or_latest(
 
     let mut all_replicasets = old_replicasets.clone();
     if let Some(new_rs) = new_replicaset {
-        all_replicasets.push(&new_rs);
+        all_replicasets.push(new_rs);
     }
     let active_replicasets = filter_active_replicasets(&all_replicasets);
 
@@ -902,7 +902,7 @@ fn scale_replicaset_and_record_event(
 ) -> Option<Operation> {
     if replicaset.spec.replicas == Some(new_scale) {
         debug!("already scaled");
-        return None;
+        None
     } else {
         scale_replicaset(replicaset, new_scale, deployment)
     }
@@ -934,7 +934,7 @@ fn scale_replicaset(
             deployment.spec.replicas,
             deployment.spec.replicas + max_surge(deployment),
         );
-        return Some(Operation::UpdateReplicaSet(new_rs));
+        Some(Operation::UpdateReplicaSet(new_rs))
     } else {
         debug!("Not scaling replicaset");
         None
@@ -1052,7 +1052,7 @@ fn cleanup_deployment(
     for rs in cleanable_replicasets.iter().take(diff) {
         // Avoid delete replica set with non-zero replica counts
         if rs.status.replicas != 0
-            || (!rs.spec.replicas.is_none() && rs.spec.replicas != Some(0))
+            || (rs.spec.replicas.is_some() && rs.spec.replicas != Some(0))
             || rs.metadata.generation > rs.status.observed_generation
             || rs.metadata.deletion_timestamp.is_some()
         {
@@ -1163,10 +1163,10 @@ fn get_ready_replica_count_for_replicasets(replicasets: &[&ReplicaSetResource]) 
 }
 
 // GetDeploymentCondition returns the condition with the provided type.
-fn get_deployment_condition<'a>(
-    status: &'a DeploymentStatus,
+fn get_deployment_condition(
+    status: &DeploymentStatus,
     cond_type: DeploymentConditionType,
-) -> Option<&'a DeploymentCondition> {
+) -> Option<&DeploymentCondition> {
     debug!(?cond_type, ?status.conditions, "Finding condition");
     status.conditions.iter().find(|c| c.r#type == cond_type)
 }
@@ -1176,10 +1176,10 @@ fn remove_deployment_condition(status: &mut DeploymentStatus, cond_type: Deploym
 }
 
 // filterOutCondition returns a new slice of deployment conditions without conditions with the provided type.
-fn filter_out_condition<'a>(
-    conditions: &'a [DeploymentCondition],
+fn filter_out_condition(
+    conditions: &[DeploymentCondition],
     cond_type: DeploymentConditionType,
-) -> Vec<&'a DeploymentCondition> {
+) -> Vec<&DeploymentCondition> {
     conditions
         .iter()
         .filter(|c| {
@@ -1258,7 +1258,7 @@ fn set_new_replicaset_annotations(
         let mut old_revisions = revision_history_annotation
             .cloned()
             .unwrap_or_default()
-            .split(",")
+            .split(',')
             .map(|s| s.to_owned())
             .collect::<Vec<String>>();
         if old_revisions[0].is_empty() {
@@ -1313,7 +1313,7 @@ fn copy_deployment_annotations_to_replica_set(
         // newRS revision is updated automatically in getNewReplicaSet, and the deployment's revision number is then updated
         // by copying its newRS revision number. We should not copy deployment's revision to its newRS, since the update of
         // deployment revision number may fail (revision becomes stale) and the revision number in newRS is more reliable.
-        if skip_copy_annotation(&k)
+        if skip_copy_annotation(k)
             || replicaset
                 .metadata
                 .annotations
@@ -1348,7 +1348,7 @@ fn get_rollback_to(deployment: &DeploymentResource) -> Option<RollbackConfig> {
     // Extract the annotation used for round-tripping the deprecated RollbackTo field.
     let revision = deployment.metadata.annotations.get(DEPRECATED_ROLLBACK_TO);
     if let Some(revision) = revision {
-        if revision == "" {
+        if revision.is_empty() {
             return None;
         }
         let Ok(revision64) = revision.parse::<u64>() else {return None};
@@ -1492,7 +1492,7 @@ fn new_rs_new_replicas(
         .spec
         .strategy
         .as_ref()
-        .map(|s| s.r#type.clone())
+        .map(|s| s.r#type)
         .unwrap_or_default()
     {
         DeploymentStrategyType::RollingUpdate => {
@@ -2156,8 +2156,8 @@ fn deployment_timed_out(deployment: &DeploymentResource, new_status: &Deployment
             .progress_deadline_seconds
             .unwrap_or_default() as u64,
     );
-    let timed_out = from.0 + delta < now.0;
-    timed_out
+    
+    from.0 + delta < now.0
 }
 
 fn get_replica_failures(

@@ -635,11 +635,11 @@ impl Quantity {
         match self {
             Quantity::Str(s) => {
                 let (digit, _unit) = s.split_once(char::is_alphabetic).unwrap();
-                let digit = digit.parse().unwrap();
+                
                 // match unit {
                 //     u => panic!("unhandled unit {u}"),
                 // };
-                digit
+                digit.parse().unwrap()
             }
             Quantity::Int(i) => *i,
         }
@@ -667,7 +667,7 @@ impl IntOrString {
         match self {
             IntOrString::Int(i) => *i,
             IntOrString::Str(s) => {
-                if let Some(s) = s.strip_suffix("%") {
+                if let Some(s) = s.strip_suffix('%') {
                     let v = s.parse::<u32>().unwrap();
                     if round_up {
                         (v as f64 * total as f64 / 100.).ceil() as u32
@@ -708,7 +708,7 @@ impl Diff for Time {
     }
     fn apply(&mut self, diff: &Self::Repr) {
         if let Some(diff) = diff {
-            *self = Time(diff.clone())
+            *self = Time(*diff)
         }
     }
     fn identity() -> Self {

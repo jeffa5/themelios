@@ -102,11 +102,11 @@ impl Controllers {
     pub fn new_state(&self) -> ControllerStates {
         match self {
             Controllers::Node(_) => ControllerStates::Node(NodeState::default()),
-            Controllers::Scheduler(_) => ControllerStates::Scheduler(SchedulerState::default()),
-            Controllers::ReplicaSet(_) => ControllerStates::ReplicaSet(ReplicaSetState::default()),
-            Controllers::Deployment(_) => ControllerStates::Deployment(DeploymentState::default()),
+            Controllers::Scheduler(_) => ControllerStates::Scheduler(SchedulerState),
+            Controllers::ReplicaSet(_) => ControllerStates::ReplicaSet(ReplicaSetState),
+            Controllers::Deployment(_) => ControllerStates::Deployment(DeploymentState),
             Controllers::StatefulSet(_) => {
-                ControllerStates::StatefulSet(StatefulSetState::default())
+                ControllerStates::StatefulSet(StatefulSetState)
             }
         }
     }
