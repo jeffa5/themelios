@@ -84,7 +84,7 @@ impl std::fmt::Display for ErrorResponse {
 impl IntoResponse for ErrorResponse {
     fn into_response(self) -> axum::response::Response {
         match &self {
-            Self::InvalidOperationReturned(op) => {
+            Self::InvalidOperationReturned(_op) => {
                 let status = StatusCode::BAD_REQUEST;
                 let body = Json(json!({
                     "error": self.to_string(),

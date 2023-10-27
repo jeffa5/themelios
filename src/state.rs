@@ -1,5 +1,6 @@
 use std::collections::{BTreeMap, BTreeSet};
 
+use crate::controller::ControllerStates;
 use crate::utils;
 use crate::{
     abstract_model::{Change, Operation},
@@ -495,12 +496,15 @@ impl Revision {
 pub struct State {
     /// The changes that have been made to the state.
     states: StateHistory,
+
+    controller_states: Vec<ControllerStates>,
 }
 
 impl State {
     pub fn new(initial_state: StateView, consistency_level: ConsistencySetup) -> Self {
         Self {
             states: StateHistory::new(consistency_level, initial_state),
+            controller_states: Vec::new(),
         }
     }
 
@@ -530,6 +534,18 @@ impl State {
     /// Get all the possible views under the given consistency level.
     pub fn views(&self, from: usize) -> Vec<StateView> {
         self.states.states_for(from)
+    }
+
+    pub fn add_controller(&mut self, controller_state: ControllerStates) {
+        self.controller_states.push(controller_state)
+    }
+
+    pub fn update_controller(&mut self, controller: usize, controller_state: ControllerStates) {
+        self.controller_states[controller] = controller_state;
+    }
+
+    pub fn get_controller(&self, controller: usize) -> &ControllerStates {
+        &self.controller_states[controller]
     }
 }
 
@@ -660,7 +676,7 @@ impl StateView {
                     pod.spec.node_name = Some(node.clone());
                 }
             }
-            Operation::RunPod(pod, node) => {
+            Operation::RunPod(_pod, _node) => {
                 // self.nodes.get_mut(node).unwrap().pods.push(pod.clone());
                 // TODO: is there anything to do here? should just be on the nodes local state?
             }
@@ -679,7 +695,7 @@ impl StateView {
                 self.deployments
                     .insert(dep.metadata.name.clone(), dep.clone());
             }
-            Operation::RequeueDeployment(dep) => {
+            Operation::RequeueDeployment(_dep) => {
                 // skip
             }
             Operation::UpdateDeploymentStatus(dep) => {

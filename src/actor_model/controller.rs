@@ -22,7 +22,7 @@ where
 
     type Timer = ();
 
-    type State = ();
+    type State = C::State;
 
     fn on_start(
         &self,
@@ -30,7 +30,8 @@ where
         o: &mut stateright::actor::Out<Self>,
     ) -> Self::State {
         let view = StateView::default();
-        let operations = self.controller.step(id.into(), &view, todo!());
+        let mut s = C::State::default();
+        let operations = self.controller.step(id.into(), &view, &mut s);
         let changes = operations
             .into_iter()
             .map(|o| Change {
@@ -39,19 +40,21 @@ where
             })
             .collect();
         o.send(Id::from(0), Message::Changes(changes));
+        s
     }
 
     fn on_msg(
         &self,
         id: stateright::actor::Id,
-        _state: &mut std::borrow::Cow<Self::State>,
+        state: &mut std::borrow::Cow<Self::State>,
         src: stateright::actor::Id,
         msg: Self::Msg,
         o: &mut stateright::actor::Out<Self>,
     ) {
         match msg {
             Message::StateUpdate(s) => {
-                let operations = self.controller.step(id.into(), &s, todo!());
+                // TODO: should we use this to_mut?
+                let operations = self.controller.step(id.into(), &s, state.to_mut());
                 let changes = operations
                     .into_iter()
                     .map(|o| Change {

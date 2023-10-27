@@ -91,6 +91,7 @@ enum ResourceOrOp<R> {
 #[derive(Clone, Debug)]
 pub struct Deployment;
 
+#[derive(Debug, Default, Hash, Clone, PartialEq, Eq)]
 pub struct DeploymentState;
 
 impl Controller for Deployment {
@@ -1469,7 +1470,7 @@ fn rollback(
             // rollback by copying podTemplate.Spec from the replica set
             // revision number will be incremented during the next getAllReplicaSetsAndSyncRevision call
             // no-op if the spec matches current deployment's podTemplate.Spec
-            let (performed_rollback, op) = rollback_to_template(deployment, rs);
+            let op = rollback_to_template(deployment, rs);
             return Some(op);
         }
     }
@@ -1612,9 +1613,7 @@ fn set_rollback_to(deployment: &mut DeploymentResource, rollback_to: Option<Roll
 fn rollback_to_template(
     deployment: &mut DeploymentResource,
     replicaset: &ReplicaSetResource,
-) -> (bool, Operation) {
-    let mut performed_rollback = false;
-
+) -> Operation {
     if equal_ignore_hash(&deployment.spec.template, &replicaset.spec.template) {
         set_from_replicaset_template(deployment, &replicaset.spec.template);
         // set RS (the old RS we'll rolling back to) annotations back to the deployment;
@@ -1629,14 +1628,10 @@ fn rollback_to_template(
         // If we don't copy the annotations back from RS to deployment on rollback, the Deployment will stay as {change-cause:edit},
         // and new RS1 becomes {change-cause:edit} (copied from deployment after rollback), old RS2 {change-cause:edit}, which is not correct.
         set_deployment_annotations_to(deployment, replicaset);
-        performed_rollback = true;
     } else {
         // same template, skip
     }
-    (
-        performed_rollback,
-        update_deployment_and_clear_rollback_to(deployment),
-    )
+    update_deployment_and_clear_rollback_to(deployment)
 }
 
 fn set_deployment_annotations_to(
@@ -1654,7 +1649,7 @@ fn set_deployment_annotations_to(
 fn get_skipped_annotations(annotations: &BTreeMap<String, String>) -> BTreeMap<String, String> {
     annotations
         .iter()
-        .filter(|(k, v)| skip_copy_annotation(k))
+        .filter(|(k, _)| skip_copy_annotation(k))
         .map(|(k, v)| (k.clone(), v.clone()))
         .collect()
 }
@@ -1885,7 +1880,7 @@ fn reconcile_old_replicasets(
     // Clean up unhealthy replicas first, otherwise unhealthy replicas will block deployment
     // and cause timeout. See https://github.com/kubernetes/kubernetes/issues/16737
     let res = cleanup_unhealthy_replicas(old_replicasets, deployment, max_scaled_down);
-    let (old_replicasets, cleanup_count) = match res {
+    let old_replicasets = match res {
         Some(res_or_op) => match res_or_op {
             ResourceOrOp::Resource(res) => res,
             ResourceOrOp::Op(op) => return Some(op),
@@ -1914,7 +1909,7 @@ fn cleanup_unhealthy_replicas<'a>(
     old_replicasets: &'a [&ReplicaSetResource],
     deployment: &DeploymentResource,
     max_cleanup_count: u32,
-) -> Option<ResourceOrOp<(Vec<&'a ReplicaSetResource>, u32)>> {
+) -> Option<ResourceOrOp<Vec<&'a ReplicaSetResource>>> {
     let mut old_replicasets = old_replicasets.to_vec();
     old_replicasets.sort_by_key(|rs| rs.metadata.creation_timestamp);
 
@@ -1923,7 +1918,7 @@ fn cleanup_unhealthy_replicas<'a>(
     // been deleted first and won't increase unavailability.
     let mut total_scaled_down = 0;
     let mut updated_rss = Vec::new();
-    for (i, target_rs) in old_replicasets.iter().enumerate() {
+    for target_rs in old_replicasets.iter() {
         if total_scaled_down >= max_cleanup_count {
             break;
         }
@@ -1958,7 +1953,7 @@ fn cleanup_unhealthy_replicas<'a>(
     if !updated_rss.is_empty() {
         Some(ResourceOrOp::Op(Operation::UpdateReplicaSets(updated_rss)))
     } else {
-        Some(ResourceOrOp::Resource((old_replicasets, total_scaled_down)))
+        Some(ResourceOrOp::Resource(old_replicasets))
     }
 }
 
@@ -2097,7 +2092,6 @@ fn scale_down_old_replicasets_for_recreate(
     old_replicasets: &[&ReplicaSetResource],
     deployment: &DeploymentResource,
 ) -> Option<Operation> {
-    let scaled = false;
     let mut updated_rss = Vec::new();
     for rs in old_replicasets {
         if rs.spec.replicas.unwrap() == 0 {

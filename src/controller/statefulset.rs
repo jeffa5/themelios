@@ -4,6 +4,7 @@ use crate::{abstract_model::Operation, state::StateView};
 #[derive(Clone, Debug)]
 pub struct StatefulSet;
 
+#[derive(Debug, Default, Hash, Clone, PartialEq, Eq)]
 pub struct StatefulSetState;
 
 impl Controller for StatefulSet {
@@ -13,7 +14,7 @@ impl Controller for StatefulSet {
         &self,
         id: usize,
         global_state: &StateView,
-        local_state: &mut Self::State,
+        _local_state: &mut Self::State,
     ) -> Option<Operation> {
         if !global_state.controllers.contains(&id) {
             return Some(Operation::ControllerJoin(id));

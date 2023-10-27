@@ -3,7 +3,7 @@ use std::collections::BTreeSet;
 
 use stateright::{Model, Property};
 
-use crate::controller::{Controller, Controllers};
+use crate::controller::{Controller, ControllerStates, Controllers};
 use crate::resources::{DeploymentResource, ReplicaSetResource, ResourceQuantities};
 use crate::state::{ConsistencySetup, Revision, State, StateView};
 
@@ -48,7 +48,7 @@ pub enum Operation {
 
 #[derive(Debug, PartialEq, Eq, Hash)]
 pub enum Action {
-    ControllerStep(usize, String, Vec<Change>),
+    ControllerStep(usize, String, ControllerStates, Vec<Change>),
     NodeCrash(usize),
 }
 
@@ -58,16 +58,18 @@ impl Model for AbstractModelCfg {
     type Action = Action;
 
     fn init_states(&self) -> Vec<Self::State> {
-        vec![State::new(
-            self.initial_state.clone(),
-            self.consistency_level.clone(),
-        )]
+        let mut state = State::new(self.initial_state.clone(), self.consistency_level.clone());
+        for c in &self.controllers {
+            state.add_controller(c.new_state());
+        }
+        vec![state]
     }
 
     fn actions(&self, state: &Self::State, actions: &mut Vec<Self::Action>) {
         for (i, controller) in self.controllers.iter().enumerate() {
             for view in state.views(i) {
-                let operations = controller.step(i, &view, todo!());
+                let mut cstate = state.get_controller(i).clone();
+                let operations = controller.step(i, &view, &mut cstate);
                 let changes = operations
                     .into_iter()
                     .map(|o| Change {
@@ -75,7 +77,12 @@ impl Model for AbstractModelCfg {
                         operation: o,
                     })
                     .collect();
-                actions.push(Action::ControllerStep(i, controller.name(), changes));
+                actions.push(Action::ControllerStep(
+                    i,
+                    controller.name(),
+                    cstate,
+                    changes,
+                ));
             }
         }
         // at max revision as this isn't a controller event
@@ -89,9 +96,10 @@ impl Model for AbstractModelCfg {
 
     fn next_state(&self, last_state: &Self::State, action: Self::Action) -> Option<Self::State> {
         match action {
-            Action::ControllerStep(from, _, changes) => {
+            Action::ControllerStep(from, _, cstate, changes) => {
                 let mut state = last_state.clone();
                 state.push_changes(changes.into_iter(), from);
+                state.update_controller(from, cstate);
                 Some(state)
             }
             Action::NodeCrash(node) => {

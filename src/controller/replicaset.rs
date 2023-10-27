@@ -5,6 +5,7 @@ use crate::state::StateView;
 #[derive(Clone, Debug)]
 pub struct ReplicaSet;
 
+#[derive(Debug, Default, Hash, Clone, PartialEq, Eq)]
 pub struct ReplicaSetState;
 
 impl Controller for ReplicaSet {
@@ -13,7 +14,7 @@ impl Controller for ReplicaSet {
         &self,
         id: usize,
         global_state: &StateView,
-        local_state: &mut Self::State,
+        _local_state: &mut Self::State,
     ) -> Option<Operation> {
         if !global_state.controllers.contains(&id) {
             return Some(Operation::ControllerJoin(id));

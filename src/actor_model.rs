@@ -2,7 +2,7 @@ use std::borrow::Cow;
 
 use stateright::actor::{Actor, Out};
 
-use crate::controller::{Deployment, StatefulSet};
+use crate::controller::{ControllerStates, Deployment, StatefulSet};
 use crate::state::{State, StateView};
 use crate::{
     abstract_model::Change, controller::Node, controller::ReplicaSet, controller::Scheduler,
@@ -37,7 +37,7 @@ pub enum Actors {
 pub enum ActorState {
     Datastore(State),
     /// Controllers have no state for now, they work purely on the state given to them.
-    Controller,
+    Controller(ControllerStates),
 }
 
 impl Actor for Actors {
@@ -61,33 +61,33 @@ impl Actor for Actors {
             }
             Actors::Node(a) => {
                 let mut client_out = Out::new();
-                a.on_start(id, &mut client_out);
+                let s = a.on_start(id, &mut client_out);
                 o.append(&mut client_out);
-                ActorState::Controller
+                ActorState::Controller(ControllerStates::Node(s))
             }
             Actors::Scheduler(a) => {
                 let mut client_out = Out::new();
-                a.on_start(id, &mut client_out);
+                let s = a.on_start(id, &mut client_out);
                 o.append(&mut client_out);
-                ActorState::Controller
+                ActorState::Controller(ControllerStates::Scheduler(s))
             }
             Actors::ReplicaSet(a) => {
                 let mut client_out = Out::new();
-                a.on_start(id, &mut client_out);
+                let s = a.on_start(id, &mut client_out);
                 o.append(&mut client_out);
-                ActorState::Controller
+                ActorState::Controller(ControllerStates::ReplicaSet(s))
             }
             Actors::Deployment(a) => {
                 let mut client_out = Out::new();
-                a.on_start(id, &mut client_out);
+                let s = a.on_start(id, &mut client_out);
                 o.append(&mut client_out);
-                ActorState::Controller
+                ActorState::Controller(ControllerStates::Deployment(s))
             }
             Actors::StatefulSet(a) => {
                 let mut client_out = Out::new();
-                a.on_start(id, &mut client_out);
+                let s = a.on_start(id, &mut client_out);
                 o.append(&mut client_out);
-                ActorState::Controller
+                ActorState::Controller(ControllerStates::StatefulSet(s))
             }
         }
     }
@@ -110,29 +110,49 @@ impl Actor for Actors {
                 }
                 o.append(&mut client_out);
             }
-            (Actors::Node(a), ActorState::Controller) => {
+            (Actors::Node(a), ActorState::Controller(ControllerStates::Node(s))) => {
                 let mut client_out = Out::new();
-                a.on_msg(id, &mut Cow::Owned(()), src, msg, &mut client_out);
+                let mut s = Cow::Borrowed(s);
+                a.on_msg(id, &mut s, src, msg, &mut client_out);
+                if let Cow::Owned(s) = s {
+                    *state = Cow::Owned(ActorState::Controller(ControllerStates::Node(s)));
+                }
                 o.append(&mut client_out);
             }
-            (Actors::Scheduler(a), ActorState::Controller) => {
+            (Actors::Scheduler(a), ActorState::Controller(ControllerStates::Scheduler(s))) => {
                 let mut client_out = Out::new();
-                a.on_msg(id, &mut Cow::Owned(()), src, msg, &mut client_out);
+                let mut s = Cow::Borrowed(s);
+                a.on_msg(id, &mut s, src, msg, &mut client_out);
+                if let Cow::Owned(s) = s {
+                    *state = Cow::Owned(ActorState::Controller(ControllerStates::Scheduler(s)));
+                }
                 o.append(&mut client_out);
             }
-            (Actors::ReplicaSet(a), ActorState::Controller) => {
+            (Actors::ReplicaSet(a), ActorState::Controller(ControllerStates::ReplicaSet(s))) => {
                 let mut client_out = Out::new();
-                a.on_msg(id, &mut Cow::Owned(()), src, msg, &mut client_out);
+                let mut s = Cow::Borrowed(s);
+                a.on_msg(id, &mut s, src, msg, &mut client_out);
+                if let Cow::Owned(s) = s {
+                    *state = Cow::Owned(ActorState::Controller(ControllerStates::ReplicaSet(s)));
+                }
                 o.append(&mut client_out);
             }
-            (Actors::Deployment(a), ActorState::Controller) => {
+            (Actors::Deployment(a), ActorState::Controller(ControllerStates::Deployment(s))) => {
                 let mut client_out = Out::new();
-                a.on_msg(id, &mut Cow::Owned(()), src, msg, &mut client_out);
+                let mut s = Cow::Borrowed(s);
+                a.on_msg(id, &mut s, src, msg, &mut client_out);
+                if let Cow::Owned(s) = s {
+                    *state = Cow::Owned(ActorState::Controller(ControllerStates::Deployment(s)));
+                }
                 o.append(&mut client_out);
             }
-            (Actors::StatefulSet(a), ActorState::Controller) => {
+            (Actors::StatefulSet(a), ActorState::Controller(ControllerStates::StatefulSet(s))) => {
                 let mut client_out = Out::new();
-                a.on_msg(id, &mut Cow::Owned(()), src, msg, &mut client_out);
+                let mut s = Cow::Borrowed(s);
+                a.on_msg(id, &mut s, src, msg, &mut client_out);
+                if let Cow::Owned(s) = s {
+                    *state = Cow::Owned(ActorState::Controller(ControllerStates::StatefulSet(s)));
+                }
                 o.append(&mut client_out);
             }
             _ => unreachable!(),
@@ -156,29 +176,49 @@ impl Actor for Actors {
                 }
                 o.append(&mut client_out);
             }
-            (Actors::Node(a), ActorState::Controller) => {
+            (Actors::Node(a), ActorState::Controller(ControllerStates::Node(s))) => {
                 let mut client_out = Out::new();
-                a.on_timeout(id, &mut Cow::Owned(()), timer, &mut client_out);
+                let mut s = Cow::Borrowed(s);
+                a.on_timeout(id, &mut s, timer, &mut client_out);
+                if let Cow::Owned(s) = s {
+                    *state = Cow::Owned(ActorState::Controller(ControllerStates::Node(s)));
+                }
                 o.append(&mut client_out);
             }
-            (Actors::Scheduler(a), ActorState::Controller) => {
+            (Actors::Scheduler(a), ActorState::Controller(ControllerStates::Scheduler(s))) => {
                 let mut client_out = Out::new();
-                a.on_timeout(id, &mut Cow::Owned(()), timer, &mut client_out);
+                let mut s = Cow::Borrowed(s);
+                a.on_timeout(id, &mut s, timer, &mut client_out);
+                if let Cow::Owned(s) = s {
+                    *state = Cow::Owned(ActorState::Controller(ControllerStates::Scheduler(s)));
+                }
                 o.append(&mut client_out);
             }
-            (Actors::ReplicaSet(a), ActorState::Controller) => {
+            (Actors::ReplicaSet(a), ActorState::Controller(ControllerStates::ReplicaSet(s))) => {
                 let mut client_out = Out::new();
-                a.on_timeout(id, &mut Cow::Owned(()), timer, &mut client_out);
+                let mut s = Cow::Borrowed(s);
+                a.on_timeout(id, &mut s, timer, &mut client_out);
+                if let Cow::Owned(s) = s {
+                    *state = Cow::Owned(ActorState::Controller(ControllerStates::ReplicaSet(s)));
+                }
                 o.append(&mut client_out);
             }
-            (Actors::Deployment(a), ActorState::Controller) => {
+            (Actors::Deployment(a), ActorState::Controller(ControllerStates::Deployment(s))) => {
                 let mut client_out = Out::new();
-                a.on_timeout(id, &mut Cow::Owned(()), timer, &mut client_out);
+                let mut s = Cow::Borrowed(s);
+                a.on_timeout(id, &mut s, timer, &mut client_out);
+                if let Cow::Owned(s) = s {
+                    *state = Cow::Owned(ActorState::Controller(ControllerStates::Deployment(s)));
+                }
                 o.append(&mut client_out);
             }
-            (Actors::StatefulSet(a), ActorState::Controller) => {
+            (Actors::StatefulSet(a), ActorState::Controller(ControllerStates::StatefulSet(s))) => {
                 let mut client_out = Out::new();
-                a.on_timeout(id, &mut Cow::Owned(()), timer, &mut client_out);
+                let mut s = Cow::Borrowed(s);
+                a.on_timeout(id, &mut s, timer, &mut client_out);
+                if let Cow::Owned(s) = s {
+                    *state = Cow::Owned(ActorState::Controller(ControllerStates::StatefulSet(s)));
+                }
                 o.append(&mut client_out);
             }
             _ => unreachable!(),

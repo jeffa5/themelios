@@ -7,6 +7,7 @@ use crate::state::StateView;
 #[derive(Clone, Debug)]
 pub struct Scheduler;
 
+#[derive(Debug, Default, Hash, Clone, PartialEq, Eq)]
 pub struct SchedulerState;
 
 impl Controller for Scheduler {
@@ -16,7 +17,7 @@ impl Controller for Scheduler {
         &self,
         id: usize,
         global_state: &StateView,
-        local_state: &mut Self::State,
+        _local_state: &mut Self::State,
     ) -> Option<Operation> {
         if !global_state.controllers.contains(&id) {
             return Some(Operation::ControllerJoin(id));

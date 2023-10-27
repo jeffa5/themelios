@@ -634,11 +634,11 @@ impl Quantity {
     pub fn to_int(&self) -> u32 {
         match self {
             Quantity::Str(s) => {
-                let (digit, unit) = s.split_once(char::is_alphabetic).unwrap();
+                let (digit, _unit) = s.split_once(char::is_alphabetic).unwrap();
                 let digit = digit.parse().unwrap();
-                match unit {
-                    u => panic!("unhandled unit {u}"),
-                };
+                // match unit {
+                //     u => panic!("unhandled unit {u}"),
+                // };
                 digit
             }
             Quantity::Int(i) => *i,

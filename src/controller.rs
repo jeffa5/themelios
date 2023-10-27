@@ -1,3 +1,5 @@
+use std::hash::Hash;
+
 use crate::abstract_model::Operation;
 use crate::state::StateView;
 
@@ -20,7 +22,7 @@ mod scheduler;
 mod statefulset;
 
 pub trait Controller {
-    type State;
+    type State: Clone + Hash + PartialEq + std::fmt::Debug + Default;
 
     /// Take a step, generating changes, based on the current view of the state.
     fn step(
@@ -43,12 +45,19 @@ pub enum Controllers {
     StatefulSet(StatefulSet),
 }
 
+#[derive(Debug, Hash, Clone, PartialEq, Eq)]
 pub enum ControllerStates {
     Node(NodeState),
     Scheduler(SchedulerState),
     ReplicaSet(ReplicaSetState),
     Deployment(DeploymentState),
     StatefulSet(StatefulSetState),
+}
+
+impl Default for ControllerStates {
+    fn default() -> Self {
+        Self::Node(NodeState::default())
+    }
 }
 
 impl Controller for Controllers {
@@ -85,6 +94,20 @@ impl Controller for Controllers {
             Controllers::ReplicaSet(c) => c.name(),
             Controllers::Deployment(c) => c.name(),
             Controllers::StatefulSet(c) => c.name(),
+        }
+    }
+}
+
+impl Controllers {
+    pub fn new_state(&self) -> ControllerStates {
+        match self {
+            Controllers::Node(_) => ControllerStates::Node(NodeState::default()),
+            Controllers::Scheduler(_) => ControllerStates::Scheduler(SchedulerState::default()),
+            Controllers::ReplicaSet(_) => ControllerStates::ReplicaSet(ReplicaSetState::default()),
+            Controllers::Deployment(_) => ControllerStates::Deployment(DeploymentState::default()),
+            Controllers::StatefulSet(_) => {
+                ControllerStates::StatefulSet(StatefulSetState::default())
+            }
         }
     }
 }

@@ -8,6 +8,7 @@ pub struct Node {
     pub name: String,
 }
 
+#[derive(Debug, Default, Hash, Clone, PartialEq, Eq)]
 pub struct NodeState {
     pub running: Vec<String>,
 }
@@ -21,7 +22,7 @@ impl Controller for Node {
         global_state: &StateView,
         local_state: &mut Self::State,
     ) -> Option<Operation> {
-        if let Some(node) = global_state.nodes.get(&id) {
+        if let Some(_node) = global_state.nodes.get(&id) {
             for pod in global_state
                 .pods
                 .values()
