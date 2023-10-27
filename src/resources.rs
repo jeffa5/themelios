@@ -357,7 +357,7 @@ pub struct ReplicaSetCondition {
     // Status of the condition, one of True, False, Unknown.
     pub status: ConditionStatus,
     // Type of deployment condition.
-    pub r#type: String,
+    pub r#type: ReplicaSetConditionType,
     // Last time the condition transitioned from one status to another.
     pub last_transition_time: Option<Time>,
     // A human readable message indicating details about the transition.
@@ -366,7 +366,22 @@ pub struct ReplicaSetCondition {
     pub reason: Option<String>,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff)]
+#[derive(
+    Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff,
+)]
+#[diff(attr(
+    #[derive(Debug, PartialEq)]
+))]
+pub enum ReplicaSetConditionType {
+    // ReplicaSetReplicaFailure is added in a replica set when one of its pods fails to be created
+    // due to insufficient quota, limit ranges, pod security policy, node selectors, etc. or deleted
+    // due to kubelet being down or finalizers are failing.
+    ReplicaFailure,
+}
+
+#[derive(
+    Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff,
+)]
 #[diff(attr(
     #[derive(Debug, PartialEq)]
 ))]
@@ -501,7 +516,7 @@ pub struct DeploymentCondition {
     // Status of the condition, one of True, False, Unknown.
     pub status: ConditionStatus,
     // Type of deployment condition.
-    pub r#type: String,
+    pub r#type: DeploymentConditionType,
     // Last time the condition transitioned from one status to another.
     pub last_transition_time: Option<Time>,
     // The last time this condition was updated.
@@ -510,6 +525,26 @@ pub struct DeploymentCondition {
     pub message: Option<String>,
     // The reason for the condition's last transition.
     pub reason: Option<String>,
+}
+
+#[derive(
+    Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff,
+)]
+#[diff(attr(
+    #[derive(Debug, PartialEq)]
+))]
+pub enum DeploymentConditionType {
+    // Progressing means the deployment is progressing. Progress for a deployment is
+    // considered when a new replica set is created or adopted, and when new pods scale
+    // up or old pods scale down. Progress is not estimated for paused deployments or
+    // when progressDeadlineSeconds is not specified.
+    Progressing,
+    // Available means the deployment is available, ie. at least the minimum available
+    // replicas required are up and running for at least minReadySeconds.
+    Available,
+    // ReplicaFailure is added in a deployment when one of its pods fails to be created
+    // or deleted.
+    ReplicaFailure,
 }
 
 #[derive(

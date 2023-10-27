@@ -4,9 +4,10 @@ use crate::{
     abstract_model::Operation,
     hasher::FnvHasher,
     resources::{
-        ConditionStatus, DeploymentCondition, DeploymentResource, DeploymentStatus,
-        DeploymentStrategyType, GroupVersionKind, LabelSelector, Metadata, OwnerReference,
-        PodResource, PodTemplateSpec, ReplicaSetCondition, ReplicaSetResource,
+        ConditionStatus, DeploymentCondition, DeploymentConditionType, DeploymentResource,
+        DeploymentStatus, DeploymentStrategyType, GroupVersionKind, LabelSelector, Metadata,
+        OwnerReference, PodResource, PodTemplateSpec, ReplicaSetCondition, ReplicaSetConditionType,
+        ReplicaSetResource,
     },
     state::StateView,
     utils::now,
@@ -30,11 +31,6 @@ const PAUSED_DEPLOY_REASON: &str = "DeploymentPaused";
 // deployments that paused amidst a rollout and are bounded by a deadline.
 const RESUMED_DEPLOY_REASON: &str = "DeploymentResumed";
 
-// ReplicaSetReplicaFailure is added in a replica set when one of its pods fails to be created
-// due to insufficient quota, limit ranges, pod security policy, node selectors, etc. or deleted
-// due to kubelet being down or finalizers are failing.
-const REPLICA_SET_REPLICA_FAILURE: &str = "ReplicaFailure";
-
 // ReplicaSetUpdatedReason is added in a deployment when one of its replica sets is updated as part
 // of the rollout process.
 const REPLICA_SET_UPDATED_REASON: &str = "ReplicaSetUpdated";
@@ -46,16 +42,6 @@ const NEW_RSAVAILABLE_REASON: &str = "NewReplicaSetAvailable";
 // TimedOutReason is added in a deployment when its newest replica set fails to show any progress
 // within the given deadline (progressDeadlineSeconds).
 const TIMED_OUT_REASON: &str = "ProgressDeadlineExceeded";
-
-// Progressing means the deployment is progressing. Progress for a deployment is
-// considered when a new replica set is created or adopted, and when new pods scale
-// up or old pods scale down. Progress is not estimated for paused deployments or
-// when progressDeadlineSeconds is not specified.
-const DEPLOYMENT_PROGRESSING: &str = "Progressing";
-
-// ReplicaFailure is added in a deployment when one of its pods fails to be created
-// or deleted.
-const DEPLOYMENT_REPLICA_FAILURE: &str = "ReplicaFailure";
 
 // FoundNewRSReason is added in a deployment when it adopts an existing replica set.
 const FOUND_NEW_RSREASON: &str = "FoundNewReplicaSet";
@@ -70,10 +56,6 @@ const LAST_APPLIED_CONFIG_ANNOTATION: &str = "kubectl.kubernetes.io/last-applied
 // to existing ReplicaSets (and label key that is added to its pods) to prevent the existing ReplicaSets
 // to select new pods (and old pods being select by new ReplicaSet).
 const DEFAULT_DEPLOYMENT_UNIQUE_LABEL_KEY: &str = "pod-template-hash";
-
-// Available means the deployment is available, ie. at least the minimum available
-// replicas required are up and running for at least minReadySeconds.
-const DEPLOYMENT_AVAILABLE: &str = "Available";
 
 // RevisionAnnotation is the revision annotation of a deployment's replica sets which records its rollout sequence
 const REVISION_ANNOTATION: &str = "deployment.kubernetes.io/revision";
@@ -300,7 +282,7 @@ fn check_paused_conditions(deployment: &mut DeploymentResource) -> Option<Operat
     if has_progress_deadline(deployment) {
         return None;
     }
-    let cond = get_deployment_condition(&deployment.status, DEPLOYMENT_PROGRESSING);
+    let cond = get_deployment_condition(&deployment.status, DeploymentConditionType::Progressing);
     if cond.map_or(false, |c| c.reason.as_ref().unwrap() == TIMED_OUT_REASON) {
         // If we have reported lack of progress, do not overwrite it with a paused condition.
         return None;
@@ -311,7 +293,7 @@ fn check_paused_conditions(deployment: &mut DeploymentResource) -> Option<Operat
     });
     if deployment.spec.paused && !paused_cond_exists {
         let cond = new_deployment_condition(
-            DEPLOYMENT_PROGRESSING.to_owned(),
+            DeploymentConditionType::Progressing,
             ConditionStatus::Unknown,
             PAUSED_DEPLOY_REASON.to_owned(),
             "Deployment is paused".to_owned(),
@@ -320,7 +302,7 @@ fn check_paused_conditions(deployment: &mut DeploymentResource) -> Option<Operat
         Some(Operation::UpdateDeploymentStatus(deployment.clone()))
     } else if !deployment.spec.paused && paused_cond_exists {
         let cond = new_deployment_condition(
-            DEPLOYMENT_PROGRESSING.to_owned(),
+            DeploymentConditionType::Progressing,
             ConditionStatus::Unknown,
             RESUMED_DEPLOY_REASON.to_owned(),
             "Deployment is resumed".to_owned(),
@@ -499,11 +481,12 @@ fn get_new_replicaset(
                 .unwrap_or_default(),
         );
 
-        let cond = get_deployment_condition(&deployment.status, DEPLOYMENT_PROGRESSING);
+        let cond =
+            get_deployment_condition(&deployment.status, DeploymentConditionType::Progressing);
         if has_progress_deadline(deployment) && cond.is_none() {
             let message = format!("Found new replica set {}", rs_copy.metadata.name);
             let condition = new_deployment_condition(
-                DEPLOYMENT_PROGRESSING.to_owned(),
+                DeploymentConditionType::Progressing,
                 ConditionStatus::True,
                 FOUND_NEW_RSREASON.to_owned(),
                 message,
@@ -656,7 +639,7 @@ fn calculate_status(
             deployment.spec.replicas, max_unavailable, "minimum replicas available"
         );
         let min_availability = new_deployment_condition(
-            DEPLOYMENT_AVAILABLE.to_owned(),
+            DeploymentConditionType::Available,
             ConditionStatus::True,
             MINIMUM_REPLICAS_AVAILABLE.to_owned(),
             "Deployment has minimum availability.".to_owned(),
@@ -668,7 +651,7 @@ fn calculate_status(
             deployment.spec.replicas, max_unavailable, "minimum replicas not available"
         );
         let no_min_availability = new_deployment_condition(
-            DEPLOYMENT_AVAILABLE.to_owned(),
+            DeploymentConditionType::Available,
             ConditionStatus::False,
             MINIMUM_REPLICAS_UNAVAILABLE.to_owned(),
             "Deployment does not have minimum availability.".to_owned(),
@@ -1132,7 +1115,7 @@ fn max_unavailable(deployment: &DeploymentResource) -> u32 {
 }
 
 fn new_deployment_condition(
-    cond_type: String,
+    cond_type: DeploymentConditionType,
     status: ConditionStatus,
     reason: String,
     message: String,
@@ -1150,7 +1133,7 @@ fn new_deployment_condition(
 // SetDeploymentCondition updates the deployment to include the provided condition. If the condition that
 // we are about to add already exists and has the same status and reason then we are not going to update.
 fn set_deployment_condition(status: &mut DeploymentStatus, mut condition: DeploymentCondition) {
-    let current_condition = get_deployment_condition(status, &condition.r#type);
+    let current_condition = get_deployment_condition(status, condition.r#type);
     if let Some(cc) = current_condition {
         if cc.status == condition.status && cc.reason == condition.reason {
             return;
@@ -1165,7 +1148,7 @@ fn set_deployment_condition(status: &mut DeploymentStatus, mut condition: Deploy
 
     debug!(new_condition=?condition, "Setting deployment condition");
 
-    let mut new_conditions = filter_out_condition(&status.conditions, &condition.r#type);
+    let mut new_conditions = filter_out_condition(&status.conditions, condition.r#type);
     new_conditions.push(&condition);
     status.conditions = new_conditions.into_iter().cloned().collect();
 }
@@ -1181,20 +1164,20 @@ fn get_ready_replica_count_for_replicasets(replicasets: &[&ReplicaSetResource]) 
 // GetDeploymentCondition returns the condition with the provided type.
 fn get_deployment_condition<'a>(
     status: &'a DeploymentStatus,
-    cond_type: &str,
+    cond_type: DeploymentConditionType,
 ) -> Option<&'a DeploymentCondition> {
     debug!(?cond_type, ?status.conditions, "Finding condition");
     status.conditions.iter().find(|c| c.r#type == cond_type)
 }
 
-fn remove_deployment_condition(status: &mut DeploymentStatus, cond_type: &str) {
+fn remove_deployment_condition(status: &mut DeploymentStatus, cond_type: DeploymentConditionType) {
     status.conditions.retain(|c| c.r#type != cond_type)
 }
 
 // filterOutCondition returns a new slice of deployment conditions without conditions with the provided type.
 fn filter_out_condition<'a>(
     conditions: &'a [DeploymentCondition],
-    cond_type: &str,
+    cond_type: DeploymentConditionType,
 ) -> Vec<&'a DeploymentCondition> {
     conditions
         .iter()
@@ -1782,10 +1765,11 @@ fn sync_rollout_status(
     debug!(status_diff = ?deployment.status.diff(&new_status), "Checking new status");
 
     if !has_progress_deadline(deployment) {
-        remove_deployment_condition(&mut new_status, DEPLOYMENT_PROGRESSING);
+        remove_deployment_condition(&mut new_status, DeploymentConditionType::Progressing);
     }
 
-    let current_cond = get_deployment_condition(&deployment.status, DEPLOYMENT_PROGRESSING);
+    let current_cond =
+        get_deployment_condition(&deployment.status, DeploymentConditionType::Progressing);
     let is_complete_deployment = new_status.replicas == new_status.updated_replicas
         && current_cond.is_some()
         && current_cond.unwrap().reason.as_ref().unwrap() == NEW_RSAVAILABLE_REASON;
@@ -1797,7 +1781,7 @@ fn sync_rollout_status(
                 deployment.metadata.name
             );
             let condition = new_deployment_condition(
-                DEPLOYMENT_PROGRESSING.to_owned(),
+                DeploymentConditionType::Progressing,
                 ConditionStatus::True,
                 NEW_RSAVAILABLE_REASON.to_owned(),
                 msg,
@@ -1806,7 +1790,7 @@ fn sync_rollout_status(
         } else if deployment_progressing(deployment, &new_status) {
             let msg = format!("Deployment {} is progressing.", deployment.metadata.name);
             let mut condition = new_deployment_condition(
-                DEPLOYMENT_PROGRESSING.to_owned(),
+                DeploymentConditionType::Progressing,
                 ConditionStatus::True,
                 REPLICA_SET_UPDATED_REASON.to_owned(),
                 msg,
@@ -1815,7 +1799,7 @@ fn sync_rollout_status(
                 if current_cond.status == ConditionStatus::True {
                     condition.last_transition_time = current_cond.last_transition_time;
                 }
-                remove_deployment_condition(&mut new_status, DEPLOYMENT_PROGRESSING);
+                remove_deployment_condition(&mut new_status, DeploymentConditionType::Progressing);
             }
             set_deployment_condition(&mut new_status, condition);
         } else if deployment_timed_out(deployment, &new_status) {
@@ -1824,7 +1808,7 @@ fn sync_rollout_status(
                 deployment.metadata.name
             );
             let condition = new_deployment_condition(
-                DEPLOYMENT_PROGRESSING.to_owned(),
+                DeploymentConditionType::Progressing,
                 ConditionStatus::False,
                 TIMED_OUT_REASON.to_owned(),
                 msg,
@@ -1837,7 +1821,7 @@ fn sync_rollout_status(
     if !replica_failure_cond.is_empty() {
         set_deployment_condition(&mut new_status, replica_failure_cond[0].clone())
     } else {
-        remove_deployment_condition(&mut new_status, DEPLOYMENT_REPLICA_FAILURE)
+        remove_deployment_condition(&mut new_status, DeploymentConditionType::ReplicaFailure)
     }
 
     if deployment.status == new_status {
@@ -2159,7 +2143,7 @@ fn deployment_timed_out(deployment: &DeploymentResource, new_status: &Deployment
         return false;
     }
 
-    let Some(cond) = get_deployment_condition(new_status, DEPLOYMENT_PROGRESSING) else{
+    let Some(cond) = get_deployment_condition(new_status, DeploymentConditionType::Progressing) else{
         return false
     };
 
@@ -2190,7 +2174,7 @@ fn get_replica_failures(
 
     if let Some(new_rs) = new_rs {
         for c in &new_rs.status.conditions {
-            if c.r#type != REPLICA_SET_REPLICA_FAILURE {
+            if c.r#type != ReplicaSetConditionType::ReplicaFailure {
                 continue;
             }
             conditions.push(replicaset_to_deployment_condition(c.clone()))
@@ -2204,7 +2188,7 @@ fn get_replica_failures(
 
     for rs in all_replicasets {
         for c in &rs.status.conditions {
-            if c.r#type != REPLICA_SET_REPLICA_FAILURE {
+            if c.r#type != ReplicaSetConditionType::ReplicaFailure {
                 continue;
             }
             conditions.push(replicaset_to_deployment_condition(c.clone()))
@@ -2215,8 +2199,11 @@ fn get_replica_failures(
 }
 
 fn replicaset_to_deployment_condition(cond: ReplicaSetCondition) -> DeploymentCondition {
+    let ty = match cond.r#type {
+        ReplicaSetConditionType::ReplicaFailure => DeploymentConditionType::ReplicaFailure,
+    };
     DeploymentCondition {
-        r#type: cond.r#type,
+        r#type: ty,
         status: cond.status,
         last_transition_time: cond.last_transition_time,
         last_update_time: cond.last_transition_time,
@@ -2232,7 +2219,8 @@ fn requeue_stuck_deployment(
     deployment: &DeploymentResource,
     new_status: DeploymentStatus,
 ) -> Option<Operation> {
-    let current_cond = get_deployment_condition(&deployment.status, DEPLOYMENT_PROGRESSING);
+    let current_cond =
+        get_deployment_condition(&deployment.status, DeploymentConditionType::Progressing);
 
     // Can't estimate progress if there is no deadline in the spec or progressing condition in the current status.
     if !has_progress_deadline(deployment) || current_cond.is_none() {
