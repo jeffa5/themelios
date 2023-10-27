@@ -16,6 +16,7 @@ pub use self::scheduler::SchedulerState;
 pub use self::statefulset::StatefulSetState;
 
 mod deployment;
+mod util;
 mod node;
 mod replicaset;
 mod scheduler;

@@ -4,7 +4,7 @@ use std::collections::BTreeSet;
 use stateright::{Model, Property};
 
 use crate::controller::{Controller, ControllerStates, Controllers};
-use crate::resources::{DeploymentResource, ReplicaSetResource, ResourceQuantities};
+use crate::resources::{DeploymentResource, ReplicaSetResource, ResourceQuantities, PodResource};
 use crate::state::{ConsistencySetup, Revision, State, StateView};
 
 #[derive(Debug)]
@@ -33,12 +33,14 @@ pub enum Operation {
     NewPod(String),
     SchedulePod(String, String),
     RunPod(String, usize),
+    UpdatePod(PodResource),
     UpdateDeployment(DeploymentResource),
     RequeueDeployment(DeploymentResource),
     // Update just the status part of the resource, not triggering more reconciliations (I think)
     UpdateDeploymentStatus(DeploymentResource),
     CreateReplicaSet(ReplicaSetResource),
     UpdateReplicaSet(ReplicaSetResource),
+    UpdateReplicaSetStatus(ReplicaSetResource),
     // a batch update of multiple replicasets that should cause a new reconciliation if it fails to
     // have this
     UpdateReplicaSets(Vec<ReplicaSetResource>),

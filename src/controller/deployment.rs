@@ -1,16 +1,17 @@
 use std::{collections::BTreeMap, hash::Hash};
+use super::util::ResourceOrOp;
 
 use crate::{
     abstract_model::Operation,
     hasher::FnvHasher,
     resources::{
         ConditionStatus, DeploymentCondition, DeploymentConditionType, DeploymentResource,
-        DeploymentStatus, DeploymentStrategyType, GroupVersionKind, LabelSelector, Metadata,
-        OwnerReference, PodResource, PodTemplateSpec, ReplicaSetCondition, ReplicaSetConditionType,
+        DeploymentStatus, DeploymentStrategyType, GroupVersionKind, LabelSelector,
+        PodResource, PodTemplateSpec, ReplicaSetCondition, ReplicaSetConditionType,
         ReplicaSetResource,
     },
     state::StateView,
-    utils::now,
+    utils::now, controller::util::new_controller_ref,
 };
 use diff::Diff;
 use tracing::debug;
@@ -83,10 +84,6 @@ const MINIMUM_REPLICAS_UNAVAILABLE: &str = "MinimumReplicasUnavailable";
 // limit revision history length to 100 element (~2000 chars)
 const MAX_REV_HISTORY_LENGTH_IN_CHARS: usize = 2000;
 
-enum ResourceOrOp<R> {
-    Resource(R),
-    Op(Operation),
-}
 
 #[derive(Clone, Debug)]
 pub struct Deployment;
@@ -1663,17 +1660,6 @@ fn set_from_replicaset_template(deployment: &mut DeploymentResource, template: &
         .metadata
         .labels
         .remove(DEFAULT_DEPLOYMENT_UNIQUE_LABEL_KEY);
-}
-
-fn new_controller_ref(owner: &Metadata, gvk: &GroupVersionKind) -> OwnerReference {
-    OwnerReference {
-        api_version: gvk.group_version().to_string(),
-        kind: gvk.kind.to_owned(),
-        name: owner.name.clone(),
-        uid: owner.uid.clone(),
-        block_owner_deletion: true,
-        controller: true,
-    }
 }
 
 // ComputeHash returns a hash value calculated from pod template and

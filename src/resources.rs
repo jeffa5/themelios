@@ -188,6 +188,43 @@ pub struct PodStatus {
     // The phase of a Pod is a simple, high-level summary of where the Pod is in its lifecycle. The conditions array, the reason and message fields, and the individual container status arrays contain more detail about the pod's status. There are five possible phase values.
     #[serde(default)]
     pub phase: PodPhase,
+    pub conditions: Vec<PodCondition>,
+}
+
+#[derive(
+    Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff,
+)]
+#[diff(attr(
+    #[derive(Debug, PartialEq)]
+))]
+#[serde(rename_all = "camelCase")]
+pub struct PodCondition {
+    // Status of the condition, one of True, False, Unknown.
+    pub status: ConditionStatus,
+    // Type of deployment condition.
+    pub r#type: PodConditionType,
+    // Last time we probed the condition.
+    pub last_probe_time: Option<Time>,
+    // Last time the condition transitioned from one status to another.
+    pub last_transition_time: Option<Time>,
+    // A human readable message indicating details about the transition.
+    pub message: Option<String>,
+    // The reason for the condition's last transition.
+    pub reason: Option<String>,
+}
+
+#[derive(
+    Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff,
+)]
+#[diff(attr(
+    #[derive(Debug, PartialEq)]
+))]
+pub enum PodConditionType {
+    PodScheduled,
+    PodReadyToStartContainers,
+    ContainersReady,
+    Initialized,
+    Ready,
 }
 
 #[derive(
