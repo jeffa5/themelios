@@ -329,17 +329,13 @@ fn manage_replicas(
             //     diff = burst_replicas;
             // }
 
-            let related_pods = get_indirectly_related_pods(&replicaset, filtered_pods);
+            let related_pods = get_indirectly_related_pods(replicaset, filtered_pods);
 
             let diff = filtered_pods.len() as u32 - replicaset.spec.replicas.unwrap_or_default();
             // Choose which Pods to delete, preferring those in earlier phases of startup.
             let pods_to_delete = get_pods_to_delete(filtered_pods, &related_pods, diff);
 
-            if let Some(pod) = pods_to_delete.first() {
-                Some(Operation::DeletePod((*pod).clone()))
-            } else {
-                None
-            }
+            pods_to_delete.first().map(|pod| Operation::DeletePod((*pod).clone()))
         }
         Ordering::Equal => None,
     }
@@ -423,7 +419,7 @@ fn get_pods_to_delete<'a>(
         });
 
         pods_with_ranks[..diff as usize]
-            .into_iter()
+            .iter()
             .map(|(_, p)| *p)
             .collect()
     } else {
