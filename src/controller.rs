@@ -16,11 +16,11 @@ pub use self::scheduler::SchedulerState;
 pub use self::statefulset::StatefulSetState;
 
 mod deployment;
-mod util;
 mod node;
 mod replicaset;
 mod scheduler;
 mod statefulset;
+mod util;
 
 pub trait Controller {
     type State: Clone + Hash + PartialEq + std::fmt::Debug + Default;

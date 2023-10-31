@@ -1,17 +1,17 @@
-use std::{collections::BTreeMap, hash::Hash};
 use super::util::ResourceOrOp;
+use std::{collections::BTreeMap, hash::Hash};
 
 use crate::{
     abstract_model::Operation,
+    controller::util::new_controller_ref,
     hasher::FnvHasher,
     resources::{
         ConditionStatus, DeploymentCondition, DeploymentConditionType, DeploymentResource,
-        DeploymentStatus, DeploymentStrategyType, GroupVersionKind, LabelSelector,
-        PodResource, PodTemplateSpec, ReplicaSetCondition, ReplicaSetConditionType,
-        ReplicaSetResource,
+        DeploymentStatus, DeploymentStrategyType, GroupVersionKind, LabelSelector, PodResource,
+        PodTemplateSpec, ReplicaSetCondition, ReplicaSetConditionType, ReplicaSetResource,
     },
     state::StateView,
-    utils::now, controller::util::new_controller_ref,
+    utils::now,
 };
 use diff::Diff;
 use tracing::debug;
@@ -83,7 +83,6 @@ const MINIMUM_REPLICAS_UNAVAILABLE: &str = "MinimumReplicasUnavailable";
 
 // limit revision history length to 100 element (~2000 chars)
 const MAX_REV_HISTORY_LENGTH_IN_CHARS: usize = 2000;
-
 
 #[derive(Clone, Debug)]
 pub struct Deployment;

@@ -6,9 +6,12 @@ use maplit::btreemap;
 use maplit::btreeset;
 use serde_json::json;
 use tracing::debug;
+use tracing::warn;
 
 use crate::abstract_model::Operation;
-use crate::controller::{Controller, Deployment, DeploymentState, Scheduler, SchedulerState};
+use crate::controller::{
+    Controller, Deployment, DeploymentState, ReplicaSet, ReplicaSetState, Scheduler, SchedulerState,
+};
 use crate::resources::{DeploymentResource, NodeResource, PodResource, ReplicaSetResource};
 use crate::state::{Revision, StateView};
 
@@ -16,6 +19,7 @@ pub fn app() -> Router {
     Router::new()
         .route("/scheduler", post(scheduler))
         .route("/deployment", post(deployment))
+        .route("/replicaset", post(replicaset))
 }
 
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
@@ -56,6 +60,22 @@ enum DeploymentResponse {
     UpdateReplicaSets {
         replicasets: Vec<ReplicaSetResource>,
     },
+}
+
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+struct ReplicasetRequest {
+    replicaset: ReplicaSetResource,
+    replicasets: Vec<ReplicaSetResource>,
+    pods: Vec<PodResource>,
+}
+
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+#[serde(tag = "action", rename_all = "camelCase")]
+enum ReplicasetResponse {
+    UpdatePod { pod: PodResource },
+    CreatePod { pod: PodResource },
+    DeletePod { pod: PodResource },
+    UpdateReplicaSetStatus { replicaset: ReplicaSetResource },
 }
 
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
@@ -164,6 +184,54 @@ async fn deployment(
             }))
         }
         Some(op) => Err(ErrorResponse::InvalidOperationReturned(op)),
+        None => Err(ErrorResponse::NoOperation),
+    }
+}
+
+async fn replicaset(
+    Json(payload): Json<ReplicasetRequest>,
+) -> Result<Json<ReplicasetResponse>, ErrorResponse> {
+    let s = ReplicaSet;
+    debug!("Got replicaset controller request");
+    println!("{}", serde_yaml::to_string(&payload).unwrap());
+    let controller_id = 0;
+    let mut replicasets = payload.replicasets;
+    if !replicasets
+        .iter()
+        .any(|rs| rs.metadata.uid == payload.replicaset.metadata.uid)
+    {
+        replicasets.push(payload.replicaset);
+    }
+    let state_view = StateView {
+        revision: Revision::default(),
+        replica_sets: replicasets
+            .into_iter()
+            .map(|rs| (rs.metadata.name.clone(), rs))
+            .collect(),
+        pods: payload
+            .pods
+            .into_iter()
+            .map(|p| (p.metadata.name.clone(), p))
+            .collect(),
+        controllers: btreeset![controller_id],
+        ..Default::default()
+    };
+    let mut local_state = ReplicaSetState;
+    let operation = s.step(controller_id, &state_view, &mut local_state);
+    debug!(?operation, "Got operation");
+    match operation {
+        Some(Operation::UpdatePod(pod)) => Ok(Json(ReplicasetResponse::UpdatePod { pod })),
+        Some(Operation::UpdateReplicaSetStatus(rs)) => {
+            Ok(Json(ReplicasetResponse::UpdateReplicaSetStatus {
+                replicaset: rs,
+            }))
+        }
+        Some(Operation::CreatePod(pod)) => Ok(Json(ReplicasetResponse::CreatePod { pod })),
+        Some(Operation::DeletePod(pod)) => Ok(Json(ReplicasetResponse::DeletePod { pod })),
+        Some(op) => {
+            warn!(?op, "Got invalid operation");
+            Err(ErrorResponse::InvalidOperationReturned(op))
+        }
         None => Err(ErrorResponse::NoOperation),
     }
 }

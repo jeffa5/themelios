@@ -671,6 +671,15 @@ impl StateView {
                     },
                 );
             }
+            Operation::CreatePod(pod) => {
+                self.pods.insert(pod.metadata.name.clone(), pod.clone());
+            }
+            Operation::UpdatePod(pod) => {
+                self.pods.insert(pod.metadata.name.clone(), pod.clone());
+            }
+            Operation::DeletePod(pod) => {
+                self.pods.remove(&pod.metadata.name);
+            }
             Operation::SchedulePod(pod, node) => {
                 if let Some(pod) = self.pods.get_mut(pod) {
                     pod.spec.node_name = Some(node.clone());
@@ -711,6 +720,12 @@ impl StateView {
             Operation::UpdateReplicaSet(rs) => {
                 self.replica_sets
                     .insert(rs.metadata.name.clone(), rs.clone());
+            }
+            Operation::UpdateReplicaSetStatus(rs) => {
+                if let Some(mut r) = self.replica_sets.remove(&rs.metadata.name) {
+                    r.status = rs.status.clone();
+                    self.replica_sets.insert(r.metadata.name.clone(), r);
+                }
             }
             Operation::UpdateReplicaSets(rss) => {
                 for rs in rss {

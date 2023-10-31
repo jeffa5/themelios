@@ -188,12 +188,16 @@ pub struct PodStatus {
     // The phase of a Pod is a simple, high-level summary of where the Pod is in its lifecycle. The conditions array, the reason and message fields, and the individual container status arrays contain more detail about the pod's status. There are five possible phase values.
     #[serde(default)]
     pub phase: PodPhase,
+
+    #[serde(default)]
     pub conditions: Vec<PodCondition>,
+
+    // Status for any ephemeral containers that have run in this pod.
+    #[serde(default)]
+    pub container_statuses: Vec<ContainerStatus>,
 }
 
-#[derive(
-    Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff,
-)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff)]
 #[diff(attr(
     #[derive(Debug, PartialEq)]
 ))]
@@ -228,7 +232,7 @@ pub enum PodConditionType {
 }
 
 #[derive(
-    Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff,
+    Clone, Copy, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff,
 )]
 #[diff(attr(
     #[derive(Debug, PartialEq)]
@@ -248,6 +252,87 @@ pub enum PodPhase {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff)]
+#[diff(attr(
+    #[derive(Debug, PartialEq)]
+))]
+#[serde(rename_all = "camelCase")]
+pub struct ContainerStatus {
+    pub name: String,
+    #[serde(default)]
+    pub state: ContainerState,
+    #[serde(default)]
+    pub last_termination_state: ContainerState,
+    pub ready: bool,
+    pub restart_count: u32,
+    pub image: String,
+    #[serde(rename = "imageID")]
+    pub image_id: String,
+    #[serde(default)]
+    pub container_id: String,
+    #[serde(default)]
+    pub started: bool,
+    #[serde(default)]
+    pub allocated_resources: BTreeMap<String, Quantity>,
+    #[serde(default)]
+    pub resources: ResourceRequirements,
+}
+
+#[derive(
+    Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff,
+)]
+#[diff(attr(
+    #[derive(Debug, PartialEq)]
+))]
+#[serde(rename_all = "camelCase")]
+pub struct ContainerState {
+    waiting: Option<ContainerStateWaiting>,
+    running: Option<ContainerStateRunning>,
+    terminated: Option<ContainerStateTerminated>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff)]
+#[diff(attr(
+    #[derive(Debug, PartialEq)]
+))]
+#[serde(rename_all = "camelCase")]
+pub struct ContainerStateWaiting {
+    #[serde(default)]
+    reason: String,
+    #[serde(default)]
+    message: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff)]
+#[diff(attr(
+    #[derive(Debug, PartialEq)]
+))]
+#[serde(rename_all = "camelCase")]
+pub struct ContainerStateRunning {
+    started_at: Option<Time>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff)]
+#[diff(attr(
+    #[derive(Debug, PartialEq)]
+))]
+#[serde(rename_all = "camelCase")]
+pub struct ContainerStateTerminated {
+    exit_code: u32,
+    #[serde(default)]
+    signal: u32,
+    #[serde(default)]
+    reason: String,
+    #[serde(default)]
+    message: String,
+    started_at: Option<Time>,
+    finished_at: Option<Time>,
+    #[serde(default)]
+    container_id: String,
+}
+
+#[derive(
+    Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff,
+)]
 #[diff(attr(
     #[derive(Debug, PartialEq)]
 ))]

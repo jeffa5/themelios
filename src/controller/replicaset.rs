@@ -1,3 +1,6 @@
+use std::cmp::Ordering;
+use std::collections::BTreeMap;
+use std::collections::BTreeSet;
 use std::time::Duration;
 
 use tracing::debug;
@@ -6,8 +9,9 @@ use crate::abstract_model::Operation;
 use crate::controller::util::new_controller_ref;
 use crate::controller::Controller;
 use crate::resources::{
-    ConditionStatus, GroupVersionKind, LabelSelector, PodConditionType, PodPhase, PodResource,
-    ReplicaSetCondition, ReplicaSetConditionType, ReplicaSetResource, ReplicaSetStatus, Time,
+    ConditionStatus, GroupVersionKind, LabelSelector, Metadata, PodConditionType, PodPhase,
+    PodResource, PodStatus, ReplicaSetCondition, ReplicaSetConditionType, ReplicaSetResource,
+    ReplicaSetStatus, Time,
 };
 use crate::state::StateView;
 use crate::utils::now;
@@ -19,6 +23,8 @@ const CONTROLLER_KIND: GroupVersionKind = GroupVersionKind {
     version: "v1",
     kind: "ReplicaSet",
 };
+
+const POD_DELETION_COST: &str = "controller.kubernetes.io/pod-deletion-cost";
 
 #[derive(Clone, Debug)]
 pub struct ReplicaSet;
@@ -62,7 +68,7 @@ fn reconcile(replicaset: &ReplicaSetResource, all_pods: &[&PodResource]) -> Opti
     };
 
     if replicaset.metadata.deletion_timestamp.is_none() {
-        if let Some(op) = manage_replicas(filtered_pods, replicaset) {
+        if let Some(op) = manage_replicas(&filtered_pods, replicaset) {
             return Some(op);
         }
     }
@@ -80,6 +86,9 @@ fn claim_pods<'a>(
     filtered_pods: &[&'a PodResource],
 ) -> ResourceOrOp<Vec<&'a PodResource>> {
     for pod in filtered_pods {
+        if replicaset.spec.selector.matches(&pod.metadata.labels) {
+            continue;
+        }
         // try and disown things that aren't ours
         // TODO: should we check that this is a replicaset kind?
         if pod
@@ -89,23 +98,26 @@ fn claim_pods<'a>(
             .any(|or| or.name == replicaset.metadata.name)
         {
             debug!("Updating pod to remove ourselves as an owner");
-            let mut pod = pod.clone();
+            let mut pod = (*pod).clone();
             pod.metadata
                 .owner_references
                 .retain(|or| or.uid != replicaset.metadata.uid);
-            return ResourceOrOp::Op(Operation::UpdatePod(pod.clone()));
+            return ResourceOrOp::Op(Operation::UpdatePod(pod));
         }
     }
 
     let mut pods = Vec::new();
     for pod in filtered_pods {
+        if !replicaset.spec.selector.matches(&pod.metadata.labels) {
+            continue;
+        }
         // claim any that don't have the owner reference set with controller
         // TODO: should we check that this is a replicaset kind?
         let owned = pod.metadata.owner_references.iter().any(|or| or.controller);
         if !owned {
             // our ref isn't there, set it
             debug!("Claiming pod");
-            let mut rs = (*pod).clone();
+            let mut pod = (*pod).clone();
             if let Some(us) = pod
                 .metadata
                 .owner_references
@@ -119,7 +131,7 @@ fn claim_pods<'a>(
                     .owner_references
                     .push(new_controller_ref(&replicaset.metadata, &CONTROLLER_KIND));
             }
-            return ResourceOrOp::Op(Operation::UpdatePod((*pod).clone()));
+            return ResourceOrOp::Op(Operation::UpdatePod(pod));
         }
 
         // collect the ones that we actually own
@@ -153,7 +165,7 @@ fn calculate_status(replicaset: &ReplicaSetResource, pods: &[&PodResource]) -> R
     let mut ready_replicas_count = 0;
     let mut available_replicas_count = 0;
     let template_label_selector = LabelSelector {
-        match_labels: replicaset.spec.template.metadata.labels,
+        match_labels: replicaset.spec.template.metadata.labels.clone(),
     };
     for pod in pods {
         if template_label_selector.matches(&pod.metadata.labels) {
@@ -167,7 +179,7 @@ fn calculate_status(replicaset: &ReplicaSetResource, pods: &[&PodResource]) -> R
         }
     }
 
-    if let Some(failure_condition) =
+    if let Some(_failure_condition) =
         get_condition(&replicaset.status, ReplicaSetConditionType::ReplicaFailure)
     {
         remove_condition(&mut new_status, ReplicaSetConditionType::ReplicaFailure)
@@ -282,4 +294,252 @@ fn update_replicaset_status(
     let mut rs = rs.clone();
     rs.status = new_status;
     Some(Operation::UpdateReplicaSetStatus(rs))
+}
+
+// manageReplicas checks and updates replicas for the given ReplicaSet.
+// Does NOT modify <filteredPods>.
+// It will requeue the replica set in case of an error while creating/deleting pods.
+fn manage_replicas(
+    filtered_pods: &[&PodResource],
+    replicaset: &ReplicaSetResource,
+) -> Option<Operation> {
+    match filtered_pods
+        .len()
+        .cmp(&(replicaset.spec.replicas.unwrap_or_default() as usize))
+    {
+        Ordering::Less => {
+            // if diff > burst_replicas {
+            //     diff = burst_replicas;
+            // }
+
+            // Batch the pod creates. Batch sizes start at SlowStartInitialBatchSize
+            // and double with each successful iteration in a kind of "slow start".
+            // This handles attempts to start large numbers of pods that would
+            // likely all fail with the same error. For example a project with a
+            // low quota that attempts to create a large number of pods will be
+            // prevented from spamming the API service with the pod create requests
+            // after one of its pods fails.  Conveniently, this also prevents the
+            // event spam that those failures would generate.
+            // TODO: batch size??
+            let pod = make_pod_for(replicaset);
+            Some(Operation::CreatePod(pod))
+        }
+        Ordering::Greater => {
+            // if diff > burst_replicas {
+            //     diff = burst_replicas;
+            // }
+
+            let related_pods = get_indirectly_related_pods(&replicaset, filtered_pods);
+
+            let diff = filtered_pods.len() as u32 - replicaset.spec.replicas.unwrap_or_default();
+            // Choose which Pods to delete, preferring those in earlier phases of startup.
+            let pods_to_delete = get_pods_to_delete(filtered_pods, &related_pods, diff);
+
+            if let Some(pod) = pods_to_delete.first() {
+                Some(Operation::DeletePod((*pod).clone()))
+            } else {
+                None
+            }
+        }
+        Ordering::Equal => None,
+    }
+}
+
+fn get_pods_to_delete<'a>(
+    filtered_pods: &[&'a PodResource],
+    related_pods: &[&PodResource],
+    diff: u32,
+) -> Vec<&'a PodResource> {
+    if diff < filtered_pods.len() as u32 {
+        let mut pods_with_ranks =
+            get_pods_ranked_by_related_pods_on_same_node(filtered_pods, related_pods);
+        pods_with_ranks.sort_by(|(r1, p1), (r2, p2)| {
+            // Corresponds to ActivePodsWithRanks
+
+            // 1. Unassigned < assigned
+            // If only one of the pods is unassigned, the unassigned one is smaller
+            if p1.spec.node_name != p2.spec.node_name
+                && (p1.spec.node_name.as_ref().map_or(true, |n| n.is_empty())
+                    || p2.spec.node_name.as_ref().map_or(true, |n| n.is_empty()))
+            {
+                if p1.spec.node_name.as_ref().map_or(true, |n| n.is_empty()) {
+                    return Ordering::Less;
+                } else {
+                    return Ordering::Greater;
+                }
+            }
+
+            // 2. PodPending < PodUnknown < PodRunning
+            if p1.status.phase as u8 != p2.status.phase as u8 {
+                return (p1.status.phase as u8).cmp(&(p2.status.phase as u8));
+            }
+
+            // 3. Not ready < ready
+            // If only one of the pods is not ready, the not ready one is smaller
+            if is_pod_ready(p1) != is_pod_ready(p2) {
+                if !is_pod_ready(p1) {
+                    return Ordering::Less;
+                } else {
+                    return Ordering::Greater;
+                }
+            }
+
+            // 4. lower pod-deletion-cost < higher pod-deletion cost
+            let d1 = get_deletion_cost_from_pod_annotations(&p1.metadata.annotations);
+            let d2 = get_deletion_cost_from_pod_annotations(&p2.metadata.annotations);
+            if d1 != d2 {
+                return d1.cmp(&d2);
+            }
+
+            // 5. Doubled up < not doubled up
+            // If one of the two pods is on the same node as one or more additional
+            // ready pods that belong to the same replicaset, whichever pod has more
+            // colocated ready pods is less
+            if r1 != r2 {
+                return r1.cmp(r2).reverse();
+            }
+
+            // TODO: take availability into account when we push minReadySeconds information from deployment into pods,
+            //       see https://github.com/kubernetes/kubernetes/issues/22065
+            // 6. Been ready for empty time < less time < more time
+            // If both pods are ready, the latest ready one is smaller
+            if is_pod_ready(p1) && is_pod_ready(p2) {
+                // TODO
+            }
+
+            // 7. Pods with containers with higher restart counts < lower restart counts
+            if max_container_restarts(p1) != max_container_restarts(p2) {
+                return max_container_restarts(p1)
+                    .cmp(&max_container_restarts(p2))
+                    .reverse();
+            }
+
+            // 8. Empty creation time pods < newer pods < older pods
+            if p1.metadata.creation_timestamp != p2.metadata.creation_timestamp {
+                // TODO
+            }
+
+            Ordering::Equal
+        });
+
+        pods_with_ranks[..diff as usize]
+            .into_iter()
+            .map(|(_, p)| *p)
+            .collect()
+    } else {
+        filtered_pods[..diff as usize].to_vec()
+    }
+}
+
+fn get_pods_ranked_by_related_pods_on_same_node<'a>(
+    filtered_pods: &[&'a PodResource],
+    related_pods: &[&PodResource],
+) -> Vec<(usize, &'a PodResource)> {
+    let mut pods_on_node = BTreeMap::new();
+    for pod in related_pods {
+        if is_pod_active(pod) {
+            *pods_on_node.entry(pod.spec.node_name.clone()).or_default() += 1;
+        }
+    }
+
+    let mut ranks = Vec::new();
+    for pod in filtered_pods.iter() {
+        if let Some(n) = pods_on_node.get(&pod.spec.node_name) {
+            ranks.push((*n, *pod));
+        } else {
+            ranks.push((0, *pod));
+        }
+    }
+
+    ranks
+}
+
+// getIndirectlyRelatedPods returns all pods that are owned by any ReplicaSet
+// that is owned by the given ReplicaSet's owner.
+fn get_indirectly_related_pods<'a>(
+    replicaset: &ReplicaSetResource,
+    pods: &[&'a PodResource],
+) -> Vec<&'a PodResource> {
+    let mut seen = BTreeSet::new();
+    let mut related_pods = Vec::new();
+    for rs in get_replicasets_with_same_controller(replicaset, &[]) {
+        for pod in pods
+            .iter()
+            .filter(|p| rs.spec.selector.matches(&p.metadata.labels))
+        {
+            if seen.contains(&pod.metadata.uid) {
+                continue;
+            }
+
+            seen.insert(&pod.metadata.uid);
+            related_pods.push(*pod);
+        }
+    }
+    related_pods
+}
+
+// getReplicaSetsWithSameController returns a list of ReplicaSets with the same
+// owner as the given ReplicaSet.
+fn get_replicasets_with_same_controller<'a>(
+    replicaset: &ReplicaSetResource,
+    replicasets: &[&'a ReplicaSetResource],
+) -> Vec<&'a ReplicaSetResource> {
+    let mut matched = Vec::new();
+    for rs in replicasets {
+        if replicaset.metadata.owner_references.iter().any(|or| {
+            rs.metadata
+                .owner_references
+                .iter()
+                .any(|or2| or.uid == or2.uid)
+        }) {
+            matched.push(*rs);
+        }
+    }
+    matched
+}
+
+fn make_pod_for(parent: &ReplicaSetResource) -> PodResource {
+    let desired_labels = parent.spec.template.metadata.labels.clone();
+    let desired_finalizers = parent.spec.template.metadata.finalizers.clone();
+    let desired_annotations = parent.spec.template.metadata.annotations.clone();
+    let prefix = get_pods_prefix(&parent.metadata.name);
+    let mut pod = PodResource {
+        metadata: Metadata {
+            generate_name: prefix,
+            namespace: parent.metadata.namespace.clone(),
+            labels: desired_labels,
+            annotations: desired_annotations,
+            finalizers: desired_finalizers,
+            ..Default::default()
+        },
+        spec: parent.spec.template.spec.clone(),
+        status: PodStatus::default(),
+    };
+    pod.metadata
+        .owner_references
+        .push(new_controller_ref(&parent.metadata, &CONTROLLER_KIND));
+    pod
+}
+
+fn get_pods_prefix(controller_name: &str) -> String {
+    // use the dash (if the name isn't too long) to make the pod name a bit prettier
+    let prefix = format!("{}-", controller_name);
+    // TODO: validate pod name and maybe remove dash
+    prefix
+}
+
+fn get_deletion_cost_from_pod_annotations(annotations: &BTreeMap<String, String>) -> i32 {
+    annotations
+        .get(POD_DELETION_COST)
+        .and_then(|s| s.parse().ok())
+        .unwrap_or_default()
+}
+
+fn max_container_restarts(pod: &PodResource) -> u32 {
+    pod.status
+        .container_statuses
+        .iter()
+        .map(|c| c.restart_count)
+        .max()
+        .unwrap_or_default()
 }

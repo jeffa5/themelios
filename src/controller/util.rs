@@ -1,4 +1,7 @@
-use crate::{resources::{Metadata, GroupVersionKind, OwnerReference}, abstract_model::Operation};
+use crate::{
+    abstract_model::Operation,
+    resources::{GroupVersionKind, Metadata, OwnerReference},
+};
 
 pub enum ResourceOrOp<R> {
     Resource(R),
@@ -15,4 +18,3 @@ pub fn new_controller_ref(owner: &Metadata, gvk: &GroupVersionKind) -> OwnerRefe
         controller: true,
     }
 }
-
