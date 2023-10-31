@@ -335,7 +335,9 @@ fn manage_replicas(
             // Choose which Pods to delete, preferring those in earlier phases of startup.
             let pods_to_delete = get_pods_to_delete(filtered_pods, &related_pods, diff);
 
-            pods_to_delete.first().map(|pod| Operation::DeletePod((*pod).clone()))
+            pods_to_delete
+                .first()
+                .map(|pod| Operation::DeletePod((*pod).clone()))
         }
         Ordering::Equal => None,
     }
