@@ -10,9 +10,13 @@ use tracing::warn;
 
 use crate::abstract_model::Operation;
 use crate::controller::{
-    Controller, Deployment, DeploymentState, ReplicaSet, ReplicaSetState, Scheduler, SchedulerState,
+    Controller, Deployment, DeploymentState, ReplicaSet, ReplicaSetState, Scheduler,
+    SchedulerState, StatefulSet, StatefulSetState,
 };
-use crate::resources::{DeploymentResource, NodeResource, PodResource, ReplicaSetResource};
+use crate::resources::{
+    ControllerRevision, DeploymentResource, NodeResource, PersistentVolumeClaim, PodResource,
+    ReplicaSetResource, StatefulSetResource,
+};
 use crate::state::{Revision, StateView};
 
 pub fn app() -> Router {
@@ -20,6 +24,7 @@ pub fn app() -> Router {
         .route("/scheduler", post(scheduler))
         .route("/deployment", post(deployment))
         .route("/replicaset", post(replicaset))
+        .route("/statefulset", post(statefulset))
 }
 
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
@@ -76,6 +81,44 @@ enum ReplicasetResponse {
     CreatePod { pod: PodResource },
     DeletePod { pod: PodResource },
     UpdateReplicaSetStatus { replicaset: ReplicaSetResource },
+}
+
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct StatefulSetRequest {
+    statefulset: StatefulSetResource,
+    pods: Vec<PodResource>,
+    controller_revisions: Vec<ControllerRevision>,
+    persistent_volume_claims: Vec<PersistentVolumeClaim>,
+}
+
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+#[serde(tag = "action", rename_all = "camelCase")]
+enum StatefulSetResponse {
+    UpdatePod {
+        pod: PodResource,
+    },
+    CreatePod {
+        pod: PodResource,
+    },
+    DeletePod {
+        pod: PodResource,
+    },
+    UpdateStatefulSetStatus {
+        statefulset: StatefulSetResource,
+    },
+    CreateControllerRevision {
+        #[serde(rename = "controllerRevision")]
+        controller_revision: ControllerRevision,
+    },
+    UpdateControllerRevision {
+        #[serde(rename = "controllerRevision")]
+        controller_revision: ControllerRevision,
+    },
+    CreatePersistentVolumeClaim {
+        #[serde(rename = "persistentVolumeClaim")]
+        persistent_volume_claim: PersistentVolumeClaim,
+    },
 }
 
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
@@ -228,6 +271,69 @@ async fn replicaset(
         }
         Some(Operation::CreatePod(pod)) => Ok(Json(ReplicasetResponse::CreatePod { pod })),
         Some(Operation::DeletePod(pod)) => Ok(Json(ReplicasetResponse::DeletePod { pod })),
+        Some(op) => {
+            warn!(?op, "Got invalid operation");
+            Err(ErrorResponse::InvalidOperationReturned(op))
+        }
+        None => Err(ErrorResponse::NoOperation),
+    }
+}
+
+async fn statefulset(
+    Json(payload): Json<StatefulSetRequest>,
+) -> Result<Json<StatefulSetResponse>, ErrorResponse> {
+    let s = StatefulSet;
+    debug!("Got statefulset controller request");
+    println!("{}", serde_yaml::to_string(&payload).unwrap());
+    let controller_id = 0;
+    let state_view = StateView {
+        revision: Revision::default(),
+        statefulsets: btreemap! {payload.statefulset.metadata.name.clone() => payload.statefulset},
+        controller_revisions: payload
+            .controller_revisions
+            .into_iter()
+            .map(|cr| (cr.metadata.name.clone(), cr))
+            .collect(),
+        pods: payload
+            .pods
+            .into_iter()
+            .map(|p| (p.metadata.name.clone(), p))
+            .collect(),
+        persistent_volume_claims: payload
+            .persistent_volume_claims
+            .into_iter()
+            .map(|p| (p.metadata.name.clone(), p))
+            .collect(),
+        controllers: btreeset![controller_id],
+        ..Default::default()
+    };
+    let mut local_state = StatefulSetState;
+    let operation = s.step(controller_id, &state_view, &mut local_state);
+    debug!(?operation, "Got operation");
+    match operation {
+        Some(Operation::UpdateStatefulSetStatus(sts)) => {
+            Ok(Json(StatefulSetResponse::UpdateStatefulSetStatus {
+                statefulset: sts,
+            }))
+        }
+        Some(Operation::UpdatePod(pod)) => Ok(Json(StatefulSetResponse::UpdatePod { pod })),
+        Some(Operation::CreatePod(pod)) => Ok(Json(StatefulSetResponse::CreatePod { pod })),
+        Some(Operation::DeletePod(pod)) => Ok(Json(StatefulSetResponse::DeletePod { pod })),
+        Some(Operation::CreateControllerRevision(cr)) => {
+            Ok(Json(StatefulSetResponse::CreateControllerRevision {
+                controller_revision: cr,
+            }))
+        }
+        Some(Operation::UpdateControllerRevision(cr)) => {
+            Ok(Json(StatefulSetResponse::UpdateControllerRevision {
+                controller_revision: cr,
+            }))
+        }
+        Some(Operation::CreatePersistentVolumeClaim(pvc)) => {
+            Ok(Json(StatefulSetResponse::CreatePersistentVolumeClaim {
+                persistent_volume_claim: pvc,
+            }))
+        }
         Some(op) => {
             warn!(?op, "Got invalid operation");
             Err(ErrorResponse::InvalidOperationReturned(op))

@@ -166,6 +166,38 @@ pub struct PodSpec {
     pub restart_policy: Option<String>,
 
     pub active_deadline_seconds: Option<u64>,
+
+    pub volumes: Vec<Volume>,
+
+    #[serde(default)]
+    pub hostname: String,
+    #[serde(default)]
+    pub subdomain: String,
+}
+
+#[derive(
+    Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff,
+)]
+#[diff(attr(
+    #[derive(Debug, PartialEq)]
+))]
+#[serde(rename_all = "camelCase")]
+pub struct Volume {
+    pub name: String,
+    pub persistent_volume_claim: Option<PersistentVolumeClaimVolumeSource>,
+}
+
+#[derive(
+    Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff,
+)]
+#[diff(attr(
+    #[derive(Debug, PartialEq)]
+))]
+#[serde(rename_all = "camelCase")]
+pub struct PersistentVolumeClaimVolumeSource {
+    pub claim_name: String,
+    #[serde(default)]
+    pub read_only: bool,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff)]
@@ -689,22 +721,205 @@ impl LabelSelector {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Diff)]
+#[derive(
+    Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff,
+)]
 #[diff(attr(
     #[derive(Debug, PartialEq)]
 ))]
-pub struct StatefulSetResource {
+#[serde(rename_all = "camelCase")]
+pub struct ControllerRevision {
     pub metadata: Metadata,
-    pub replicas: u32,
+    pub revision: u64,
+    pub data: String,
 }
 
-impl StatefulSetResource {
-    pub fn pods(&self) -> Vec<String> {
-        (0..self.replicas)
-            .map(|i| format!("{}-{}", self.metadata.name, i))
-            .collect()
-    }
+#[derive(
+    Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff,
+)]
+#[diff(attr(
+    #[derive(Debug, PartialEq)]
+))]
+#[serde(rename_all = "camelCase")]
+pub struct StatefulSetResource {
+    pub metadata: Metadata,
+    pub spec: StatefulSetSpec,
+    pub status: StatefulSetStatus,
 }
+
+#[derive(
+    Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff,
+)]
+#[diff(attr(
+    #[derive(Debug, PartialEq)]
+))]
+#[serde(rename_all = "camelCase")]
+pub struct StatefulSetSpec {
+    pub service_name: String,
+    pub selector: LabelSelector,
+    pub template: PodTemplateSpec,
+
+    pub replicas: Option<u32>,
+    #[serde(default)]
+    pub update_strategy: StatefulSetUpdateStrategy,
+    #[serde(default)]
+    pub pod_management_policy: PodManagementPolicyType,
+    pub revision_history_limit: Option<u32>,
+    pub volume_claim_templates: Vec<PersistentVolumeClaim>,
+    pub min_ready_seconds: Option<u32>,
+    pub persistent_volume_claim_retention_policy: StatefulSetPersistentVolumeClaimRetentionPolicy,
+    pub ordinals: Option<StatefulSetOrdinals>,
+}
+
+#[derive(
+    Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff,
+)]
+#[diff(attr(
+    #[derive(Debug, PartialEq)]
+))]
+pub enum PodManagementPolicyType {
+    #[default]
+    OrderedReady,
+    Parallel,
+}
+
+#[derive(
+    Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff,
+)]
+#[diff(attr(
+    #[derive(Debug, PartialEq)]
+))]
+#[serde(rename_all = "camelCase")]
+pub struct StatefulSetStatus {
+    pub replicas: u32,
+    #[serde(default)]
+    pub ready_replicas: u32,
+    #[serde(default)]
+    pub current_replicas: u32,
+    #[serde(default)]
+    pub updated_replicas: u32,
+    #[serde(default)]
+    pub available_replicas: u32,
+    #[serde(default)]
+    pub collision_count: u32,
+    #[serde(default)]
+    pub conditions: Vec<StatefulSetCondition>,
+    #[serde(default)]
+    pub current_revision: String,
+    #[serde(default)]
+    pub update_revision: String,
+    #[serde(default)]
+    pub observed_generation: u64,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff)]
+#[diff(attr(
+    #[derive(Debug, PartialEq)]
+))]
+#[serde(rename_all = "camelCase")]
+pub struct StatefulSetCondition {
+    // Status of the condition, one of True, False, Unknown.
+    pub status: ConditionStatus,
+    // Type of deployment condition.
+    pub r#type: StatefulSetConditionType,
+    // Last time the condition transitioned from one status to another.
+    pub last_transition_time: Option<Time>,
+    // A human readable message indicating details about the transition.
+    pub message: Option<String>,
+    // The reason for the condition's last transition.
+    pub reason: Option<String>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff)]
+#[diff(attr(
+    #[derive(Debug, PartialEq)]
+))]
+pub enum StatefulSetConditionType {
+    Unknown,
+}
+
+#[derive(
+    Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff,
+)]
+#[diff(attr(
+    #[derive(Debug, PartialEq)]
+))]
+#[serde(rename_all = "camelCase")]
+pub struct StatefulSetPersistentVolumeClaimRetentionPolicy {
+    pub when_deleted: String,
+    pub when_scaled: String,
+}
+
+#[derive(
+    Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff,
+)]
+#[diff(attr(
+    #[derive(Debug, PartialEq)]
+))]
+#[serde(rename_all = "camelCase")]
+pub struct StatefulSetOrdinals {
+    pub start: u32,
+}
+
+#[derive(
+    Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff,
+)]
+#[diff(attr(
+    #[derive(Debug, PartialEq)]
+))]
+#[serde(rename_all = "camelCase")]
+pub struct StatefulSetUpdateStrategy {
+    #[serde(default)]
+    pub r#type: String,
+    #[serde(default)]
+    pub rolling_update: Option<RollingUpdateStatefulSetStrategy>,
+}
+
+#[derive(
+    Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff,
+)]
+#[diff(attr(
+    #[derive(Debug, PartialEq)]
+))]
+#[serde(rename_all = "camelCase")]
+pub struct RollingUpdateStatefulSetStrategy {
+    pub max_unavailable: Option<IntOrString>,
+    pub partition: u32,
+}
+
+#[derive(
+    Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff,
+)]
+#[diff(attr(
+    #[derive(Debug, PartialEq)]
+))]
+#[serde(rename_all = "camelCase")]
+pub struct PersistentVolumeClaim {
+    pub metadata: Metadata,
+    pub spec: PersistentVolumeClaimSpec,
+    pub status: PersistentVolumeClaimStatus,
+}
+
+#[derive(
+    Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff,
+)]
+#[diff(attr(
+    #[derive(Debug, PartialEq)]
+))]
+#[serde(rename_all = "camelCase")]
+pub struct PersistentVolumeClaimSpec {
+    #[serde(default)]
+    pub selector: LabelSelector,
+}
+
+#[derive(
+    Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff,
+)]
+#[diff(attr(
+    #[derive(Debug, PartialEq)]
+))]
+#[serde(rename_all = "camelCase")]
+pub struct PersistentVolumeClaimStatus {}
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff)]
 #[diff(attr(

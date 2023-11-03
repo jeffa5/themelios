@@ -1,6 +1,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use crate::controller::ControllerStates;
+use crate::resources::{ControllerRevision, PersistentVolumeClaim};
 use crate::utils;
 use crate::{
     abstract_model::{Change, Operation},
@@ -563,6 +564,8 @@ pub struct StateView {
     pub replica_sets: BTreeMap<String, ReplicaSetResource>,
     pub deployments: BTreeMap<String, DeploymentResource>,
     pub statefulsets: BTreeMap<String, StatefulSetResource>,
+    pub controller_revisions: BTreeMap<String, ControllerRevision>,
+    pub persistent_volume_claims: BTreeMap<String, PersistentVolumeClaim>,
 }
 
 impl StateView {
@@ -666,6 +669,9 @@ impl StateView {
                             active_deadline_seconds: None,
                             termination_grace_period_seconds: None,
                             restart_policy: None,
+                            volumes: Vec::new(),
+                            hostname: String::new(),
+                            subdomain: String::new(),
                         },
                         status: PodStatus::default(),
                     },
@@ -733,8 +739,27 @@ impl StateView {
                         .insert(rs.metadata.name.clone(), rs.clone());
                 }
             }
+            Operation::UpdateStatefulSetStatus(sts) => {
+                self.statefulsets
+                    .insert(sts.metadata.name.clone(), sts.clone());
+            }
+            Operation::CreateControllerRevision(cr) => {
+                self.controller_revisions
+                    .insert(cr.metadata.name.clone(), cr.clone());
+            }
+            Operation::UpdateControllerRevision(cr) => {
+                self.controller_revisions
+                    .insert(cr.metadata.name.clone(), cr.clone());
+            }
+            Operation::DeleteControllerRevision(cr) => {
+                self.controller_revisions.remove(&cr.metadata.name);
+            }
             Operation::DeleteReplicaSet(rs) => {
                 self.replica_sets.remove(&rs.metadata.name);
+            }
+            Operation::CreatePersistentVolumeClaim(pvc) => {
+                self.persistent_volume_claims
+                    .insert(pvc.metadata.name.clone(), pvc.clone());
             }
         }
         self.revision = new_revision;

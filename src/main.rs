@@ -16,6 +16,8 @@ use model_checked_orchestration::resources::ReplicaSetStatus;
 use model_checked_orchestration::resources::ResourceQuantities;
 use model_checked_orchestration::resources::ResourceRequirements;
 use model_checked_orchestration::resources::StatefulSetResource;
+use model_checked_orchestration::resources::StatefulSetSpec;
+use model_checked_orchestration::resources::StatefulSetStatus;
 use model_checked_orchestration::state::ConsistencySetup;
 use model_checked_orchestration::state::StateView;
 use model_checked_orchestration::utils;
@@ -64,6 +66,9 @@ fn main() {
                 active_deadline_seconds: None,
                 termination_grace_period_seconds: None,
                 restart_policy: None,
+                volumes: Vec::new(),
+                hostname: String::new(),
+                subdomain: String::new(),
             },
             status: PodStatus::default(),
         }))
@@ -81,6 +86,9 @@ fn main() {
                         active_deadline_seconds: None,
                         termination_grace_period_seconds: None,
                         restart_policy: None,
+                        volumes: Vec::new(),
+                        hostname: String::new(),
+                        subdomain: String::new(),
                     },
                 },
                 min_ready_seconds: 0,
@@ -104,6 +112,9 @@ fn main() {
                         active_deadline_seconds: None,
                         termination_grace_period_seconds: None,
                         restart_policy: None,
+                        volumes: Vec::new(),
+                        hostname: String::new(),
+                        subdomain: String::new(),
                     },
                 },
                 min_ready_seconds: 0,
@@ -119,7 +130,11 @@ fn main() {
         }))
         .with_statefulsets((1..=opts.statefulsets).map(|i| StatefulSetResource {
             metadata: utils::metadata(format!("sts-{i}")),
-            replicas: opts.pods_per_statefulset,
+            spec: StatefulSetSpec {
+                replicas: Some(opts.pods_per_statefulset),
+                ..Default::default()
+            },
+            status: StatefulSetStatus::default(),
         }));
 
     let consistency_level = if let Some(k) = opts.bounded_staleness {

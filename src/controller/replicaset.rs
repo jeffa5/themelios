@@ -9,13 +9,14 @@ use crate::abstract_model::Operation;
 use crate::controller::util::new_controller_ref;
 use crate::controller::Controller;
 use crate::resources::{
-    ConditionStatus, GroupVersionKind, LabelSelector, Metadata, PodConditionType, PodPhase,
-    PodResource, PodStatus, ReplicaSetCondition, ReplicaSetConditionType, ReplicaSetResource,
-    ReplicaSetStatus, Time,
+    ConditionStatus, GroupVersionKind, LabelSelector, PodConditionType, PodPhase, PodResource,
+    ReplicaSetCondition, ReplicaSetConditionType, ReplicaSetResource, ReplicaSetStatus,
+    Time,
 };
 use crate::state::StateView;
 use crate::utils::now;
 
+use super::util::get_pod_from_template;
 use super::util::ResourceOrOp;
 
 const CONTROLLER_KIND: GroupVersionKind = GroupVersionKind {
@@ -321,7 +322,11 @@ fn manage_replicas(
             // after one of its pods fails.  Conveniently, this also prevents the
             // event spam that those failures would generate.
             // TODO: batch size??
-            let pod = make_pod_for(replicaset);
+            let pod = get_pod_from_template(
+                &replicaset.metadata,
+                &replicaset.spec.template,
+                &CONTROLLER_KIND,
+            );
             Some(Operation::CreatePod(pod))
         }
         Ordering::Greater => {
@@ -494,36 +499,6 @@ fn get_replicasets_with_same_controller<'a>(
         }
     }
     matched
-}
-
-fn make_pod_for(parent: &ReplicaSetResource) -> PodResource {
-    let desired_labels = parent.spec.template.metadata.labels.clone();
-    let desired_finalizers = parent.spec.template.metadata.finalizers.clone();
-    let desired_annotations = parent.spec.template.metadata.annotations.clone();
-    let prefix = get_pods_prefix(&parent.metadata.name);
-    let mut pod = PodResource {
-        metadata: Metadata {
-            generate_name: prefix,
-            namespace: parent.metadata.namespace.clone(),
-            labels: desired_labels,
-            annotations: desired_annotations,
-            finalizers: desired_finalizers,
-            ..Default::default()
-        },
-        spec: parent.spec.template.spec.clone(),
-        status: PodStatus::default(),
-    };
-    pod.metadata
-        .owner_references
-        .push(new_controller_ref(&parent.metadata, &CONTROLLER_KIND));
-    pod
-}
-
-fn get_pods_prefix(controller_name: &str) -> String {
-    // use the dash (if the name isn't too long) to make the pod name a bit prettier
-    let prefix = format!("{}-", controller_name);
-    // TODO: validate pod name and maybe remove dash
-    prefix
 }
 
 fn get_deletion_cost_from_pod_annotations(annotations: &BTreeMap<String, String>) -> i32 {

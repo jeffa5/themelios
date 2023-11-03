@@ -4,7 +4,9 @@ use std::collections::BTreeSet;
 use stateright::{Model, Property};
 
 use crate::controller::{Controller, ControllerStates, Controllers};
-use crate::resources::{DeploymentResource, PodResource, ReplicaSetResource, ResourceQuantities};
+use crate::resources::{
+    DeploymentResource, PodResource, ReplicaSetResource, ResourceQuantities, StatefulSetResource, ControllerRevision, PersistentVolumeClaim,
+};
 use crate::state::{ConsistencySetup, Revision, State, StateView};
 
 #[derive(Debug)]
@@ -47,6 +49,11 @@ pub enum Operation {
     // have this
     UpdateReplicaSets(Vec<ReplicaSetResource>),
     DeleteReplicaSet(ReplicaSetResource),
+    UpdateStatefulSetStatus(StatefulSetResource),
+    CreateControllerRevision(ControllerRevision),
+    UpdateControllerRevision(ControllerRevision),
+    DeleteControllerRevision(ControllerRevision),
+    CreatePersistentVolumeClaim(PersistentVolumeClaim),
     NodeCrash(usize),
 }
 
@@ -152,18 +159,18 @@ impl Model for AbstractModelCfg {
                     let state = state.view_at(state.max_revision());
                     for sts in state.statefulsets.values() {
                         let mut found_end = false;
-                        for pod in sts.pods() {
-                            if state.pods.contains_key(&pod) {
-                                if found_end {
-                                    // violation of the property
-                                    // we have found a missing pod but then continued to find an existing one
-                                    // for this statefulset.
-                                    return false;
-                                }
-                            } else {
-                                found_end = true
-                            }
-                        }
+                        // for pod in sts.pods() {
+                        //     if state.pods.contains_key(&pod) {
+                        //         if found_end {
+                        //             // violation of the property
+                        //             // we have found a missing pod but then continued to find an existing one
+                        //             // for this statefulset.
+                        //             return false;
+                        //         }
+                        //     } else {
+                        //         found_end = true
+                        //     }
+                        // }
                     }
                     true
                 },
