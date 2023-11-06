@@ -1,4 +1,5 @@
 use std::collections::BTreeMap;
+use std::io::IsTerminal;
 
 use clap::Parser;
 use model_checked_orchestration::model;
@@ -40,11 +41,12 @@ pub mod report;
 fn main() {
     let opts = opts::Opts::parse();
 
+    let is_terminal = std::io::stdout().is_terminal();
     let log_filter = EnvFilter::builder()
         .with_default_directive(LevelFilter::INFO.into())
         .from_env_lossy();
     tracing_subscriber::registry()
-        .with(fmt::layer().with_ansi(true))
+        .with(fmt::layer().with_ansi(is_terminal))
         .with(log_filter)
         .init();
 
