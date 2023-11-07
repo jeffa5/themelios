@@ -182,6 +182,48 @@ pub struct PodSpec {
     pub hostname: String,
     #[serde(default)]
     pub subdomain: String,
+
+    #[serde(default)]
+    pub tolerations: Vec<Toleration>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff)]
+#[diff(attr(
+    #[derive(Debug, PartialEq)]
+))]
+#[serde(rename_all = "camelCase")]
+pub struct Toleration {
+    #[serde(default)]
+    pub key: String,
+    #[serde(default)]
+    pub operator: Operator,
+    #[serde(default)]
+    pub value: String,
+    pub effect: Option<TaintEffect>,
+    #[serde(default)]
+    pub toleration_seconds: u64,
+}
+
+#[derive(
+    Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff,
+)]
+#[diff(attr(
+    #[derive(Debug, PartialEq)]
+))]
+pub enum Operator {
+    #[default]
+    Equal,
+    Exists,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff)]
+#[diff(attr(
+    #[derive(Debug, PartialEq)]
+))]
+pub enum TaintEffect {
+    NoSchedule,
+    PreferNoSchedule,
+    NoExecute,
 }
 
 #[derive(
@@ -997,7 +1039,26 @@ pub struct NodeResource {
 #[diff(attr(
     #[derive(Debug, PartialEq)]
 ))]
-pub struct NodeSpec {}
+#[serde(rename_all = "camelCase")]
+pub struct NodeSpec {
+    #[serde(default)]
+    pub taints: Vec<Taint>,
+    #[serde(default)]
+    pub unschedulable: bool,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff)]
+#[diff(attr(
+    #[derive(Debug, PartialEq)]
+))]
+#[serde(rename_all = "camelCase")]
+pub struct Taint {
+    pub effect: TaintEffect,
+    pub key: String,
+    pub time_added: Option<Time>,
+    #[serde(default)]
+    pub value: String,
+}
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff)]
 #[diff(attr(

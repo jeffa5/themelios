@@ -73,6 +73,7 @@ fn main() {
                 volumes: Vec::new(),
                 hostname: String::new(),
                 subdomain: String::new(),
+                tolerations: Vec::new(),
             },
             status: PodStatus::default(),
         }))
@@ -93,6 +94,7 @@ fn main() {
                         volumes: Vec::new(),
                         hostname: String::new(),
                         subdomain: String::new(),
+                        tolerations: Vec::new(),
                     },
                 },
                 min_ready_seconds: 0,
@@ -119,6 +121,7 @@ fn main() {
                         volumes: Vec::new(),
                         hostname: String::new(),
                         subdomain: String::new(),
+                        tolerations: Vec::new(),
                     },
                 },
                 min_ready_seconds: 0,

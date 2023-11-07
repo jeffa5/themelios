@@ -28,15 +28,17 @@ pub fn app() -> Router {
 }
 
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct SchedulerRequest {
     pod: PodResource,
+    bound_pods: Vec<PodResource>,
     nodes: Vec<NodeResource>,
 }
 
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct SchedulerResponse {
-    node_name: String,
+#[serde(tag = "action", rename_all = "camelCase")]
+enum SchedulerResponse {
+    SchedulePod { node_name: String },
 }
 
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
@@ -168,18 +170,26 @@ async fn scheduler(
     Json(payload): Json<SchedulerRequest>,
 ) -> Result<Json<SchedulerResponse>, ErrorResponse> {
     let s = Scheduler;
-    let pod = payload.pod;
+    debug!("Got scheduler request");
+    println!("{}", serde_yaml::to_string(&payload).unwrap());
     let controller_id = 0;
+    let mut pods = payload.bound_pods;
+    pods.push(payload.pod);
     let state_view = StateView {
         revision: Revision::default(),
-        nodes: payload.nodes.iter().cloned().enumerate().collect(),
-        pods: btreemap!(pod.metadata.name.clone() => pod),
+        nodes: payload.nodes.into_iter().enumerate().collect(),
+        pods: pods
+            .into_iter()
+            .map(|p| (p.metadata.name.clone(), p))
+            .collect(),
         controllers: btreeset![controller_id],
         ..Default::default()
     };
     let mut local_state = SchedulerState;
     match s.step(controller_id, &state_view, &mut local_state) {
-        Some(Operation::SchedulePod(_, node)) => Ok(Json(SchedulerResponse { node_name: node })),
+        Some(Operation::SchedulePod(_, node)) => {
+            Ok(Json(SchedulerResponse::SchedulePod { node_name: node }))
+        }
         Some(op) => Err(ErrorResponse::InvalidOperationReturned(op)),
         None => Err(ErrorResponse::NoOperation),
     }

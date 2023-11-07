@@ -645,7 +645,10 @@ impl StateView {
                     *i,
                     NodeResource {
                         metadata: utils::metadata(format!("node-{i}")),
-                        spec: crate::resources::NodeSpec {},
+                        spec: crate::resources::NodeSpec {
+                            taints: Vec::new(),
+                            unschedulable: false,
+                        },
                         status: crate::resources::NodeStatus {
                             capacity: capacity.clone(),
                             allocatable: capacity.clone(),
@@ -672,6 +675,7 @@ impl StateView {
                             volumes: Vec::new(),
                             hostname: String::new(),
                             subdomain: String::new(),
+                            tolerations: Vec::new(),
                         },
                         status: PodStatus::default(),
                     },
