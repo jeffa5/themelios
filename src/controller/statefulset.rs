@@ -75,13 +75,13 @@ fn reconcile(
     // TODO: claim things
 
     let pods = all_pods
-        .into_iter()
+        .iter()
         .filter(|p| statefulset.spec.selector.matches(&p.metadata.labels))
         .copied()
         .collect::<Vec<_>>();
 
     let revisions = all_revisions
-        .into_iter()
+        .iter()
         .filter(|r| statefulset.spec.selector.matches(&r.metadata.labels))
         .copied()
         .collect::<Vec<_>>();
@@ -211,7 +211,7 @@ fn do_update_statefulset(
         sts.spec.min_ready_seconds.unwrap_or_default(),
         current_revision,
         update_revision,
-        &vec![pods.to_vec()],
+        &[pods.to_vec()],
     );
 
     if status != sts.status {
@@ -272,19 +272,15 @@ fn do_update_statefulset(
 
     // find the first unhealthy Pod
     for replica in &replicas {
-        if !is_healthy(replica.as_ref().unwrap()) {
-            if first_unhealthy_pod.is_none() {
-                first_unhealthy_pod = replica.clone()
-            }
+        if !is_healthy(replica.as_ref().unwrap()) && first_unhealthy_pod.is_none() {
+            first_unhealthy_pod = replica.clone()
         }
     }
 
     // or the first unhealthy condemned Pod (condemned are sorted in descending order for ease of use)
     for c in &condemned {
-        if !is_healthy(c) {
-            if first_unhealthy_pod.is_none() {
-                first_unhealthy_pod = Some((*c).clone());
-            }
+        if !is_healthy(c) && first_unhealthy_pod.is_none() {
+            first_unhealthy_pod = Some((*c).clone());
         }
     }
 
@@ -326,10 +322,8 @@ fn do_update_statefulset(
                     sts.spec.min_ready_seconds.unwrap_or_default(),
                     current_revision,
                     update_revision,
-                    &vec![
-                        replicas.iter().filter_map(|i| i.as_ref()).collect(),
-                        condemned,
-                    ],
+                    &[replicas.iter().filter_map(|i| i.as_ref()).collect(),
+                        condemned],
                 );
                 return ResourceOrOp::Resource(status);
             }
@@ -360,10 +354,8 @@ fn do_update_statefulset(
                     sts.spec.min_ready_seconds.unwrap_or_default(),
                     current_revision,
                     update_revision,
-                    &vec![
-                        replicas.iter().filter_map(|i| i.as_ref()).collect(),
-                        condemned,
-                    ],
+                    &[replicas.iter().filter_map(|i| i.as_ref()).collect(),
+                        condemned],
                 );
                 return ResourceOrOp::Resource(status);
             }
@@ -389,10 +381,8 @@ fn do_update_statefulset(
                     sts.spec.min_ready_seconds.unwrap_or_default(),
                     current_revision,
                     update_revision,
-                    &vec![
-                        replicas.iter().filter_map(|i| i.as_ref()).collect(),
-                        condemned,
-                    ],
+                    &[replicas.iter().filter_map(|i| i.as_ref()).collect(),
+                        condemned],
                 );
                 return ResourceOrOp::Resource(status);
             }
@@ -404,10 +394,8 @@ fn do_update_statefulset(
         sts.spec.min_ready_seconds.unwrap_or_default(),
         current_revision,
         update_revision,
-        &vec![
-            replicas.iter().filter_map(|i| i.as_ref()).collect(),
-            condemned,
-        ],
+        &[replicas.iter().filter_map(|i| i.as_ref()).collect(),
+            condemned],
     );
 
     // for the OnDelete strategy we short circuit. Pods will be updated when they are manually deleted.
@@ -852,7 +840,7 @@ fn run_for_all<'a>(
 ) -> ResourceOrOp<bool> {
     if monotonic {
         for pod in pods {
-            match f(*pod) {
+            match f(pod) {
                 ResourceOrOp::Resource(should_exit) => {
                     if should_exit {
                         return ResourceOrOp::Resource(true);
@@ -864,7 +852,7 @@ fn run_for_all<'a>(
     } else {
         // TODO: could be slowstartbatch instead
         for pod in pods {
-            match f(*pod) {
+            match f(pod) {
                 ResourceOrOp::Resource(should_exit) => {
                     if should_exit {
                         return ResourceOrOp::Resource(true);
@@ -940,7 +928,7 @@ fn storage_matches(sts: &StatefulSetResource, pod: &PodResource) -> bool {
                     .as_ref()
                     .unwrap()
                     .claim_name
-                    != get_persistent_volume_claim_name(sts, &claim, ordinal)
+                    != get_persistent_volume_claim_name(sts, claim, ordinal)
             {
                 return false;
             }
@@ -1144,8 +1132,8 @@ fn new_revision(
 }
 
 fn get_patch(sts: &StatefulSetResource) -> Vec<u8> {
-    let data = serde_json::to_vec(&sts).unwrap();
-    data
+    
+    serde_json::to_vec(&sts).unwrap()
 }
 
 fn find_equal_revisions<'a>(
@@ -1238,7 +1226,7 @@ fn update_statefulset_status(
 ) -> Option<Operation> {
     complete_rolling_update(sts, status);
 
-    if !inconsistent_status(sts, &status) {
+    if !inconsistent_status(sts, status) {
         return None;
     }
 

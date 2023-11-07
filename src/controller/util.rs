@@ -42,7 +42,7 @@ pub fn get_pod_from_template(
     };
     pod.metadata
         .owner_references
-        .push(new_controller_ref(&metadata, controller_kind));
+        .push(new_controller_ref(metadata, controller_kind));
     pod
 }
 
