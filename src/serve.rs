@@ -34,6 +34,7 @@ struct SchedulerRequest {
 }
 
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct SchedulerResponse {
     node_name: String,
 }
