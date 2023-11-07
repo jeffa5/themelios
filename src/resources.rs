@@ -144,6 +144,14 @@ pub struct PodResource {
     pub status: PodStatus,
 }
 
+impl PodResource {
+    pub const GVK: GroupVersionKind = GroupVersionKind {
+        group: "",
+        version: "v1",
+        kind: "Pod",
+    };
+}
+
 #[derive(
     Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff,
 )]
@@ -373,6 +381,8 @@ pub struct ResourceRequirements {
     pub requests: Option<ResourceQuantities>,
     /// What a pod/container cannot use more than (maximums).
     pub limits: Option<ResourceQuantities>,
+    #[serde(default)]
+    pub claims: Vec<ResourceClaim>,
 }
 
 #[derive(
@@ -388,6 +398,20 @@ pub struct ResourceQuantities {
     pub memory_mb: Option<Quantity>,
     /// Number of pods.
     pub pods: Option<Quantity>,
+
+    // catch other resource types that we haven't included here yet
+    #[serde(flatten)]
+    pub others: BTreeMap<String, Quantity>,
+}
+
+#[derive(
+    Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff,
+)]
+#[diff(attr(
+    #[derive(Debug, PartialEq)]
+))]
+pub struct ResourceClaim {
+    pub name: String,
 }
 
 impl Sub for ResourceQuantities {
@@ -416,6 +440,7 @@ impl Sub for ResourceQuantities {
                     .saturating_sub(rhs.pods.unwrap_or_default().to_int())
                     .into(),
             ),
+            others: BTreeMap::new(),
         }
     }
 }
@@ -710,6 +735,7 @@ pub enum DeploymentConditionType {
 #[serde(rename_all = "camelCase")]
 pub struct LabelSelector {
     // matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels map is equivalent to an element of matchExpressions, whose key field is "key", the operator is "In", and the values array contains only "value". The requirements are ANDed.
+    #[serde(default)]
     pub match_labels: BTreeMap<String, String>,
 }
 
@@ -747,6 +773,14 @@ pub struct StatefulSetResource {
     pub status: StatefulSetStatus,
 }
 
+impl StatefulSetResource {
+    pub const GVK: GroupVersionKind = GroupVersionKind {
+        group: "apps",
+        version: "v1",
+        kind: "StatefulSet",
+    };
+}
+
 #[derive(
     Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff,
 )]
@@ -767,6 +801,7 @@ pub struct StatefulSetSpec {
     pub revision_history_limit: Option<u32>,
     pub volume_claim_templates: Vec<PersistentVolumeClaim>,
     pub min_ready_seconds: Option<u32>,
+    #[serde(default)]
     pub persistent_volume_claim_retention_policy: StatefulSetPersistentVolumeClaimRetentionPolicy,
     pub ordinals: Option<StatefulSetOrdinals>,
 }
@@ -846,8 +881,22 @@ pub enum StatefulSetConditionType {
 ))]
 #[serde(rename_all = "camelCase")]
 pub struct StatefulSetPersistentVolumeClaimRetentionPolicy {
-    pub when_deleted: String,
-    pub when_scaled: String,
+    #[serde(default)]
+    pub when_deleted: StatefulSetPersistentVolumeClaimRetentionPolicyType,
+    #[serde(default)]
+    pub when_scaled: StatefulSetPersistentVolumeClaimRetentionPolicyType,
+}
+
+#[derive(
+    Clone, Copy, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff,
+)]
+#[diff(attr(
+    #[derive(Debug, PartialEq)]
+))]
+pub enum StatefulSetPersistentVolumeClaimRetentionPolicyType {
+    #[default]
+    Retain,
+    Delete,
 }
 
 #[derive(
@@ -910,6 +959,15 @@ pub struct PersistentVolumeClaim {
 pub struct PersistentVolumeClaimSpec {
     #[serde(default)]
     pub selector: LabelSelector,
+    #[serde(default)]
+    pub access_modes: Vec<String>,
+
+    #[serde(default)]
+    pub resources: ResourceRequirements,
+
+    pub volume_name: Option<String>,
+    pub storage_class_name: Option<String>,
+    pub volume_mode: Option<String>,
 }
 
 #[derive(
@@ -919,7 +977,10 @@ pub struct PersistentVolumeClaimSpec {
     #[derive(Debug, PartialEq)]
 ))]
 #[serde(rename_all = "camelCase")]
-pub struct PersistentVolumeClaimStatus {}
+pub struct PersistentVolumeClaimStatus {
+    #[serde(default)]
+    pub access_modes: Vec<String>,
+}
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff)]
 #[diff(attr(
@@ -1064,6 +1125,17 @@ impl GroupVersionKind {
         GroupVersion {
             group: self.group,
             version: self.version,
+        }
+    }
+
+    pub fn api_version(&self) -> String {
+        match (self.group, self.version) {
+            ("", "") => "".to_owned(),
+            ("", version) => version.to_owned(),
+            (group, "") => group.to_owned(),
+            (group, version) => {
+                format!("{}/{}", group, version)
+            }
         }
     }
 }

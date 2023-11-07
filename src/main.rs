@@ -61,8 +61,10 @@ fn main() {
                         cpu_cores: Some(2.into()),
                         memory_mb: Some(3000.into()),
                         pods: Some(32.into()),
+                        others: BTreeMap::new()
                     }),
                     limits: None,
+                    claims: Vec::new(),
                 }),
                 containers: Vec::new(),
                 active_deadline_seconds: None,

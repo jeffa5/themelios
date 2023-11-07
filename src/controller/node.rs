@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 use crate::abstract_model::Operation;
 use crate::controller::Controller;
 use crate::resources::ResourceQuantities;
@@ -39,6 +41,7 @@ impl Controller for Node {
                     cpu_cores: Some(4.into()),
                     memory_mb: Some(4000.into()),
                     pods: Some(32.into()),
+                    others:BTreeMap::new()
                 },
             ));
         }

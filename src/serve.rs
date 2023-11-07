@@ -119,6 +119,10 @@ enum StatefulSetResponse {
         #[serde(rename = "persistentVolumeClaim")]
         persistent_volume_claim: PersistentVolumeClaim,
     },
+    UpdatePersistentVolumeClaim {
+        #[serde(rename = "persistentVolumeClaim")]
+        persistent_volume_claim: PersistentVolumeClaim,
+    },
 }
 
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
@@ -331,6 +335,11 @@ async fn statefulset(
         }
         Some(Operation::CreatePersistentVolumeClaim(pvc)) => {
             Ok(Json(StatefulSetResponse::CreatePersistentVolumeClaim {
+                persistent_volume_claim: pvc,
+            }))
+        }
+        Some(Operation::UpdatePersistentVolumeClaim(pvc)) => {
+            Ok(Json(StatefulSetResponse::UpdatePersistentVolumeClaim {
                 persistent_volume_claim: pvc,
             }))
         }

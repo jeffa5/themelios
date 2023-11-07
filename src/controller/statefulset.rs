@@ -10,18 +10,14 @@ use crate::{
     abstract_model::Operation,
     hasher::FnvHasher,
     resources::{
-        ConditionStatus, ControllerRevision, GroupVersionKind, Metadata, PersistentVolumeClaim,
-        PersistentVolumeClaimVolumeSource, PodConditionType, PodManagementPolicyType, PodPhase,
-        PodResource, StatefulSetResource, StatefulSetStatus, Volume,
+        ConditionStatus, ControllerRevision, GroupVersionKind, Metadata, OwnerReference,
+        PersistentVolumeClaim, PersistentVolumeClaimVolumeSource, PodConditionType,
+        PodManagementPolicyType, PodPhase, PodResource,
+        StatefulSetPersistentVolumeClaimRetentionPolicyType, StatefulSetResource,
+        StatefulSetStatus, Volume,
     },
     state::StateView,
     utils::now,
-};
-
-const CONTROLLER_KIND: GroupVersionKind = GroupVersionKind {
-    group: "apps",
-    version: "v1",
-    kind: "StatefulSet",
 };
 
 const STATEFULSET_REVISION_LABEL: &str = "controller-revision-hash";
@@ -210,7 +206,6 @@ fn do_update_statefulset(
     status.update_revision = update_revision.metadata.name.clone();
     status.collision_count = collision_count;
 
-    debug!("updating status");
     update_status(
         &mut status,
         sts.spec.min_ready_seconds.unwrap_or_default(),
@@ -218,6 +213,12 @@ fn do_update_statefulset(
         update_revision,
         &vec![pods.to_vec()],
     );
+
+    if status != sts.status {
+        let mut sts = sts.clone();
+        sts.status = status;
+        return ResourceOrOp::Op(Operation::UpdateStatefulSetStatus(sts));
+    }
 
     let replica_count = sts.spec.replicas;
     let mut replicas = vec![None; replica_count.unwrap_or_default() as usize];
@@ -227,14 +228,17 @@ fn do_update_statefulset(
     // First we partition pods into two lists valid replicas and condemned Pods
     for pod in pods {
         if pod_in_ordinal_range(pod, sts) {
+            debug!(name = pod.metadata.name, "Pod in ordinal range");
             // if the ordinal of the pod is within the range of the current number of replicas,
             // insert it at the indirection of its ordinal
             if let Some(ordinal) = get_ordinal(pod) {
-                if (ordinal as usize) < replicas.len() {
-                    replicas[(ordinal - get_start_ordinal(sts)) as usize] = Some((*pod).clone());
+                let replica_index = (ordinal - get_start_ordinal(sts)) as usize;
+                if replica_index < replicas.len() {
+                    replicas[replica_index] = Some((*pod).clone());
                 }
             }
         } else if get_ordinal(pod).map_or(false, |o| o >= 0) {
+            debug!(name = pod.metadata.name, "Pod not in ordinal range");
             // if the ordinal is valid, but not within the range add it to the condemned list
             condemned.push(*pod)
         }
@@ -308,6 +312,7 @@ fn do_update_statefulset(
             pvcs,
         )
     };
+    debug!("Processing replicas");
     match run_for_all(
         &replicas
             .iter()
@@ -335,7 +340,38 @@ fn do_update_statefulset(
     }
 
     // Fix pod claims for condemned pods, if necessary.
-    // TODO
+    let fix_pod_claim = |replica| {
+        let match_policy = dbg!(claims_match_retention_policy(&update_sts, replica, pvcs));
+        if !match_policy {
+            if let Some(op) = dbg!(update_pod_claim_for_retention_policy(
+                &update_sts,
+                replica,
+                pvcs
+            )) {
+                return ResourceOrOp::Op(op);
+            }
+        }
+        ResourceOrOp::Resource(false)
+    };
+    debug!("Fixing pod claims");
+    match run_for_all(&condemned, fix_pod_claim, monotonic) {
+        ResourceOrOp::Op(op) => return ResourceOrOp::Op(op),
+        ResourceOrOp::Resource(should_exit) => {
+            if should_exit {
+                update_status(
+                    &mut status,
+                    sts.spec.min_ready_seconds.unwrap_or_default(),
+                    current_revision,
+                    update_revision,
+                    &vec![
+                        replicas.iter().filter_map(|i| i.as_ref()).collect(),
+                        condemned,
+                    ],
+                );
+                return ResourceOrOp::Resource(status);
+            }
+        }
+    }
 
     // At this point, in monotonic mode all of the current Replicas are Running, Ready and Available,
     // and we can consider termination.
@@ -346,6 +382,7 @@ fn do_update_statefulset(
     let process_condemned_fn =
         |replica| process_condemned(sts, first_unhealthy_pod.as_ref(), monotonic, replica);
 
+    debug!("Processing condemned pods");
     match run_for_all(&condemned, process_condemned_fn, monotonic) {
         ResourceOrOp::Op(op) => return ResourceOrOp::Op(op),
         ResourceOrOp::Resource(should_exit) => {
@@ -560,6 +597,27 @@ fn is_failed(pod: &PodResource) -> bool {
     pod.status.phase == PodPhase::Failed
 }
 
+fn pod_claim_is_stale(
+    sts: &StatefulSetResource,
+    pod: &PodResource,
+    claims: &[&PersistentVolumeClaim],
+) -> bool {
+    let policy = &sts.spec.persistent_volume_claim_retention_policy;
+    if policy.when_scaled == StatefulSetPersistentVolumeClaimRetentionPolicyType::Retain {
+        // PVCs are meant to be reused and so can't be stale.
+        return false;
+    }
+    for (_, claim) in get_persistent_volume_claims(sts, pod) {
+        if let Some(pvc) = claims.iter().find(|c| c.metadata.uid == claim.metadata.uid) {
+            // A claim is stale if it doesn't match the pod's UID, including if the pod has no UID.
+            if has_stale_owner_ref(&pvc.metadata.owner_references, &pod.metadata) {
+                return true;
+            }
+        }
+    }
+    false
+}
+
 fn allows_burst(sts: &StatefulSetResource) -> bool {
     sts.spec.pod_management_policy == PodManagementPolicyType::Parallel
 }
@@ -683,19 +741,41 @@ fn process_replica(
     replica: &PodResource,
     pvcs: &[&PersistentVolumeClaim],
 ) -> ResourceOrOp<bool> {
-    debug!("Processing replica");
+    debug!(
+        name = replica.metadata.name,
+        phase = ?replica.status.phase,
+        "Processing replica"
+    );
     // delete and recreate failed pods
     if is_failed(replica) {
+        debug!(
+            name = replica.metadata.name,
+            "Replica has failed, deleting it"
+        );
         return ResourceOrOp::Op(Operation::DeletePod(replica.clone()));
     }
 
     // If we find a Pod that has not been created we create the Pod
     if !is_created(replica) {
+        let is_stale = pod_claim_is_stale(sts, replica, pvcs);
+        if is_stale {
+            debug!(name = replica.metadata.name, "Pod was stale");
+            // If a pod has a stale PVC, no more work can be done this round.
+            return ResourceOrOp::Resource(true);
+        }
+        debug!(
+            name = replica.metadata.name,
+            "Replica hasn't been created, creating it"
+        );
         return ResourceOrOp::Op(Operation::CreatePod(replica.clone()));
     }
 
     // If the Pod is in pending state then trigger PVC creation to create missing PVCs
     if is_pending(replica) {
+        debug!(
+            name = replica.metadata.name,
+            "Replica is pending, trying to create missing persistent volume claims"
+        );
         if let Some(op) = create_missing_persistent_volume_claims(sts, replica, pvcs) {
             return ResourceOrOp::Op(op);
         }
@@ -723,11 +803,49 @@ fn process_replica(
         return ResourceOrOp::Resource(true);
     }
 
-    if identity_matches(sts, replica) && storage_matches(sts, replica) {
+    let retention_match = claims_match_retention_policy(update_sts, replica, pvcs);
+
+    if identity_matches(sts, replica) && storage_matches(sts, replica) && retention_match {
         return ResourceOrOp::Resource(false);
     }
 
-    ResourceOrOp::Op(Operation::UpdatePod(replica.clone()))
+    let mut replica = replica.clone();
+    if let Some(op) = update_stateful_pod(update_sts, &mut replica, pvcs) {
+        return ResourceOrOp::Op(op);
+    }
+
+    ResourceOrOp::Resource(false)
+}
+
+fn update_stateful_pod(
+    sts: &StatefulSetResource,
+    pod: &mut PodResource,
+    claims: &[&PersistentVolumeClaim],
+) -> Option<Operation> {
+    let mut consistent = true;
+    if !identity_matches(sts, pod) {
+        update_identity(sts, pod);
+        consistent = false;
+    }
+
+    if !storage_matches(sts, pod) {
+        update_storage(sts, pod);
+        return create_missing_persistent_volume_claims(sts, pod, claims);
+    }
+
+    // if the Pod's PVCs are not consistent with the StatefulSet's PVC deletion policy, update the PVC
+    // and dirty the pod.
+    if !claims_match_retention_policy(sts, pod, claims) {
+        if let Some(op) = update_pod_claim_for_retention_policy(sts, pod, claims) {
+            return Some(op);
+        }
+    }
+
+    if consistent {
+        None
+    } else {
+        Some(Operation::UpdatePod(pod.clone()))
+    }
 }
 
 fn run_for_all<'a>(
@@ -849,15 +967,37 @@ fn create_missing_persistent_volume_claims(
     pod: &PodResource,
     claims: &[&PersistentVolumeClaim],
 ) -> Option<Operation> {
+    if let Some(op) = create_persistent_volume_claims(sts, pod, claims) {
+        let Operation::CreatePersistentVolumeClaim(mut claim) =  op else {
+            unreachable!()
+        };
+        update_claim_owner_ref_for_set_and_pod(&mut claim, sts, pod);
+        Some(Operation::CreatePersistentVolumeClaim(claim))
+    } else {
+        None
+    }
+}
+
+fn create_persistent_volume_claims(
+    sts: &StatefulSetResource,
+    pod: &PodResource,
+    claims: &[&PersistentVolumeClaim],
+) -> Option<Operation> {
+    debug!(pod = pod.metadata.name, "Creating persistent volume claims");
     for (_, claim) in get_persistent_volume_claims(sts, pod) {
-        if claims
+        if !claims
             .iter()
             .any(|c| c.metadata.name == claim.metadata.name)
         {
+            debug!(
+                pod = pod.metadata.name,
+                claim = claim.metadata.name,
+                "Creating persistent volume claim"
+            );
             return Some(Operation::CreatePersistentVolumeClaim(claim));
         }
-        // find claim in all claims, create if missing
     }
+
     None
 }
 
@@ -867,14 +1007,19 @@ fn get_persistent_volume_claims(
 ) -> BTreeMap<String, PersistentVolumeClaim> {
     let mut claims = BTreeMap::new();
     if let Some(ordinal) = get_ordinal(pod) {
-        for oclaim in &sts.spec.volume_claim_templates {
-            let mut claim = oclaim.clone();
+        for template_claim in &sts.spec.volume_claim_templates {
+            debug!(
+                ordinal,
+                template_name = template_claim.metadata.name,
+                "Found volume claim template"
+            );
+            let mut claim = template_claim.clone();
             claim.metadata.name = get_persistent_volume_claim_name(sts, &claim, ordinal);
             claim.metadata.namespace = sts.metadata.namespace.clone();
             for (k, v) in &sts.spec.selector.match_labels {
                 claim.metadata.labels.insert(k.clone(), v.clone());
             }
-            claims.insert(oclaim.metadata.name.clone(), claim);
+            claims.insert(template_claim.metadata.name.clone(), claim);
         }
     }
     claims
@@ -912,7 +1057,8 @@ fn new_versioned_statefulset_pod(
 }
 
 fn new_statefulset_pod(sts: &StatefulSetResource, ordinal: u32) -> PodResource {
-    let mut pod = get_pod_from_template(&sts.metadata, &sts.spec.template, &CONTROLLER_KIND);
+    let mut pod =
+        get_pod_from_template(&sts.metadata, &sts.spec.template, &StatefulSetResource::GVK);
     pod.metadata.name = get_pod_name(sts, ordinal);
     init_identity(sts, &mut pod);
     update_storage(sts, &mut pod);
@@ -987,7 +1133,7 @@ fn new_revision(
 
     let mut cr = new_controller_revision(
         sts,
-        &CONTROLLER_KIND,
+        &StatefulSetResource::GVK,
         &sts.spec.template.metadata.labels,
         String::from_utf8(patch).unwrap(),
         revision,
@@ -1123,4 +1269,192 @@ fn inconsistent_status(sts: &StatefulSetResource, status: &StatefulSetStatus) ->
         || status.current_revision != sts.status.current_revision
         || status.available_replicas != sts.status.available_replicas
         || status.update_revision != sts.status.update_revision
+}
+
+fn claims_match_retention_policy(
+    sts: &StatefulSetResource,
+    pod: &PodResource,
+    claims: &[&PersistentVolumeClaim],
+) -> bool {
+    if let Some(ordinal) = get_ordinal(pod) {
+        for template in &sts.spec.volume_claim_templates {
+            let claim_name = get_persistent_volume_claim_name(sts, template, ordinal);
+            if let Some(claim) = claims.iter().find(|c| c.metadata.name == claim_name) {
+                if !claim_owner_matches_set_and_pod(claim, sts, pod) {
+                    return false;
+                }
+            }
+        }
+    }
+    true
+}
+
+fn update_pod_claim_for_retention_policy(
+    sts: &StatefulSetResource,
+    pod: &PodResource,
+    claims: &[&PersistentVolumeClaim],
+) -> Option<Operation> {
+    if let Some(ordinal) = get_ordinal(pod) {
+        for template in &sts.spec.volume_claim_templates {
+            let claim_name = get_persistent_volume_claim_name(sts, template, ordinal);
+            if let Some(claim) = claims.iter().find(|c| c.metadata.name == claim_name) {
+                if !claim_owner_matches_set_and_pod(claim, sts, pod) {
+                    debug!("Updating pod claim for retention policy");
+                    let mut updated_claim = (*claim).clone();
+                    update_claim_owner_ref_for_set_and_pod(&mut updated_claim, sts, pod);
+                    if &updated_claim != *claim {
+                        return Some(Operation::UpdatePersistentVolumeClaim(updated_claim));
+                    }
+                }
+            }
+        }
+    }
+    None
+}
+
+fn claim_owner_matches_set_and_pod(
+    claim: &PersistentVolumeClaim,
+    sts: &StatefulSetResource,
+    pod: &PodResource,
+) -> bool {
+    let policy = &sts.spec.persistent_volume_claim_retention_policy;
+
+    match (policy.when_scaled, policy.when_deleted) {
+        (
+            StatefulSetPersistentVolumeClaimRetentionPolicyType::Retain,
+            StatefulSetPersistentVolumeClaimRetentionPolicyType::Retain,
+        ) => {
+            if has_owner_ref(&claim.metadata.owner_references, &sts.metadata.uid)
+                || has_owner_ref(&claim.metadata.owner_references, &pod.metadata.uid)
+            {
+                return false;
+            }
+        }
+        (
+            StatefulSetPersistentVolumeClaimRetentionPolicyType::Retain,
+            StatefulSetPersistentVolumeClaimRetentionPolicyType::Delete,
+        ) => {
+            if !has_owner_ref(&claim.metadata.owner_references, &sts.metadata.uid)
+                || has_owner_ref(&claim.metadata.owner_references, &pod.metadata.uid)
+            {
+                return false;
+            }
+        }
+        (
+            StatefulSetPersistentVolumeClaimRetentionPolicyType::Delete,
+            StatefulSetPersistentVolumeClaimRetentionPolicyType::Retain,
+        ) => {
+            if has_owner_ref(&claim.metadata.owner_references, &sts.metadata.uid) {
+                return false;
+            }
+            let pod_scaled_down = !pod_in_ordinal_range(pod, sts);
+            if pod_scaled_down != has_owner_ref(&claim.metadata.owner_references, &pod.metadata.uid)
+            {
+                return false;
+            }
+        }
+        (
+            StatefulSetPersistentVolumeClaimRetentionPolicyType::Delete,
+            StatefulSetPersistentVolumeClaimRetentionPolicyType::Delete,
+        ) => {
+            let pod_scaled_down = !pod_in_ordinal_range(pod, sts);
+            // If a pod is scaled down, there should be no set ref and a pod ref;
+            // if the pod is not scaled down it's the other way around.
+            if pod_scaled_down == has_owner_ref(&claim.metadata.owner_references, &sts.metadata.uid)
+            {
+                return false;
+            }
+            if pod_scaled_down != has_owner_ref(&claim.metadata.owner_references, &pod.metadata.uid)
+            {
+                return false;
+            }
+        }
+    }
+    true
+}
+
+fn update_claim_owner_ref_for_set_and_pod(
+    claim: &mut PersistentVolumeClaim,
+    sts: &StatefulSetResource,
+    pod: &PodResource,
+) {
+    let pod_meta = PodResource::GVK;
+    let sts_meta = StatefulSetResource::GVK;
+
+    let policy = &sts.spec.persistent_volume_claim_retention_policy;
+    match (policy.when_scaled, policy.when_deleted) {
+        (
+            StatefulSetPersistentVolumeClaimRetentionPolicyType::Retain,
+            StatefulSetPersistentVolumeClaimRetentionPolicyType::Retain,
+        ) => {
+            remove_owner_ref(&mut claim.metadata, &sts.metadata);
+            remove_owner_ref(&mut claim.metadata, &pod.metadata);
+        }
+        (
+            StatefulSetPersistentVolumeClaimRetentionPolicyType::Retain,
+            StatefulSetPersistentVolumeClaimRetentionPolicyType::Delete,
+        ) => {
+            set_owner_ref(&mut claim.metadata, &sts.metadata, &sts_meta);
+            remove_owner_ref(&mut claim.metadata, &pod.metadata);
+        }
+        (
+            StatefulSetPersistentVolumeClaimRetentionPolicyType::Delete,
+            StatefulSetPersistentVolumeClaimRetentionPolicyType::Retain,
+        ) => {
+            remove_owner_ref(&mut claim.metadata, &sts.metadata);
+            let pod_scaled_down = !pod_in_ordinal_range(pod, sts);
+            if pod_scaled_down {
+                set_owner_ref(&mut claim.metadata, &pod.metadata, &pod_meta);
+            } else {
+                remove_owner_ref(&mut claim.metadata, &pod.metadata);
+            }
+        }
+        (
+            StatefulSetPersistentVolumeClaimRetentionPolicyType::Delete,
+            StatefulSetPersistentVolumeClaimRetentionPolicyType::Delete,
+        ) => {
+            let pod_scaled_down = !pod_in_ordinal_range(pod, sts);
+            if pod_scaled_down {
+                remove_owner_ref(&mut claim.metadata, &sts.metadata);
+                set_owner_ref(&mut claim.metadata, &pod.metadata, &pod_meta);
+            } else {
+                set_owner_ref(&mut claim.metadata, &sts.metadata, &sts_meta);
+                remove_owner_ref(&mut claim.metadata, &pod.metadata);
+            }
+        }
+    }
+}
+
+fn has_owner_ref(owner_refs: &[OwnerReference], owner_uid: &str) -> bool {
+    owner_refs.iter().any(|or| or.uid == owner_uid)
+}
+
+fn set_owner_ref(target: &mut Metadata, owner: &Metadata, owner_type: &GroupVersionKind) -> bool {
+    if has_owner_ref(&target.owner_references, &owner.uid) {
+        return false;
+    }
+    target.owner_references.push(OwnerReference {
+        api_version: owner_type.api_version(),
+        kind: owner_type.kind.to_owned(),
+        name: owner.name.clone(),
+        uid: owner.uid.clone(),
+        block_owner_deletion: false,
+        controller: false,
+    });
+    true
+}
+
+fn remove_owner_ref(target: &mut Metadata, owner: &Metadata) -> bool {
+    if !has_owner_ref(&target.owner_references, &owner.uid) {
+        return false;
+    }
+
+    target.owner_references.retain(|or| or.uid != owner.uid);
+    true
+}
+
+fn has_stale_owner_ref(target: &[OwnerReference], owner: &Metadata) -> bool {
+    target
+        .iter()
+        .any(|or| or.name == owner.name && or.uid != owner.uid)
 }

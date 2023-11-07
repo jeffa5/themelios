@@ -761,6 +761,10 @@ impl StateView {
                 self.persistent_volume_claims
                     .insert(pvc.metadata.name.clone(), pvc.clone());
             }
+            Operation::UpdatePersistentVolumeClaim(pvc) => {
+                self.persistent_volume_claims
+                    .insert(pvc.metadata.name.clone(), pvc.clone());
+            }
         }
         self.revision = new_revision;
     }

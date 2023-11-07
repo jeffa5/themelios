@@ -54,6 +54,7 @@ pub enum Operation {
     UpdateControllerRevision(ControllerRevision),
     DeleteControllerRevision(ControllerRevision),
     CreatePersistentVolumeClaim(PersistentVolumeClaim),
+    UpdatePersistentVolumeClaim(PersistentVolumeClaim),
     NodeCrash(usize),
 }
 
