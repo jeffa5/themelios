@@ -175,6 +175,7 @@ pub struct PodSpec {
 
     pub active_deadline_seconds: Option<u64>,
 
+    #[serde(default)]
     pub volumes: Vec<Volume>,
 
     #[serde(default)]
