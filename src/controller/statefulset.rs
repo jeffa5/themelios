@@ -129,7 +129,7 @@ fn update_statefulset(
     )
 }
 
-fn sort_controller_revisions(revisions: &mut Vec<&ControllerRevision>) {
+fn sort_controller_revisions(revisions: &mut [&ControllerRevision]) {
     revisions.sort_by(|r1, r2| {
         if r1.revision == r2.revision {
             if r1.metadata.creation_timestamp == r2.metadata.creation_timestamp {
@@ -200,11 +200,13 @@ fn do_update_statefulset(
     let update_sts = apply_revision(sts, update_revision);
 
     // set the generation, and revisions in the returned status
-    let mut status = StatefulSetStatus::default();
-    status.observed_generation = sts.metadata.generation;
-    status.current_revision = current_revision.metadata.name.clone();
-    status.update_revision = update_revision.metadata.name.clone();
-    status.collision_count = collision_count;
+    let mut status = StatefulSetStatus {
+        observed_generation: sts.metadata.generation,
+        current_revision: current_revision.metadata.name.clone(),
+        update_revision: update_revision.metadata.name.clone(),
+        collision_count,
+        ..Default::default()
+    };
 
     update_status(
         &mut status,
@@ -322,8 +324,10 @@ fn do_update_statefulset(
                     sts.spec.min_ready_seconds.unwrap_or_default(),
                     current_revision,
                     update_revision,
-                    &[replicas.iter().filter_map(|i| i.as_ref()).collect(),
-                        condemned],
+                    &[
+                        replicas.iter().filter_map(|i| i.as_ref()).collect(),
+                        condemned,
+                    ],
                 );
                 return ResourceOrOp::Resource(status);
             }
@@ -354,8 +358,10 @@ fn do_update_statefulset(
                     sts.spec.min_ready_seconds.unwrap_or_default(),
                     current_revision,
                     update_revision,
-                    &[replicas.iter().filter_map(|i| i.as_ref()).collect(),
-                        condemned],
+                    &[
+                        replicas.iter().filter_map(|i| i.as_ref()).collect(),
+                        condemned,
+                    ],
                 );
                 return ResourceOrOp::Resource(status);
             }
@@ -381,8 +387,10 @@ fn do_update_statefulset(
                     sts.spec.min_ready_seconds.unwrap_or_default(),
                     current_revision,
                     update_revision,
-                    &[replicas.iter().filter_map(|i| i.as_ref()).collect(),
-                        condemned],
+                    &[
+                        replicas.iter().filter_map(|i| i.as_ref()).collect(),
+                        condemned,
+                    ],
                 );
                 return ResourceOrOp::Resource(status);
             }
@@ -394,8 +402,10 @@ fn do_update_statefulset(
         sts.spec.min_ready_seconds.unwrap_or_default(),
         current_revision,
         update_revision,
-        &[replicas.iter().filter_map(|i| i.as_ref()).collect(),
-            condemned],
+        &[
+            replicas.iter().filter_map(|i| i.as_ref()).collect(),
+            condemned,
+        ],
     );
 
     // for the OnDelete strategy we short circuit. Pods will be updated when they are manually deleted.
@@ -520,7 +530,8 @@ fn truncate_history(
 
     // delete any non-live history to maintain revision limit
     let history = &history[..(history_len - history_limit)];
-    for rev in history {
+    // for rev in history {
+    if let Some(rev) = history.first() {
         return Some(Operation::DeleteControllerRevision((**rev).clone()));
     }
     None
@@ -607,7 +618,10 @@ fn allows_burst(sts: &StatefulSetResource) -> bool {
     sts.spec.pod_management_policy == PodManagementPolicyType::Parallel
 }
 
-fn apply_revision(_sts: &StatefulSetResource, revision: &ControllerRevision) -> StatefulSetResource {
+fn apply_revision(
+    _sts: &StatefulSetResource,
+    revision: &ControllerRevision,
+) -> StatefulSetResource {
     serde_json::from_str(&revision.data).unwrap()
 }
 
@@ -836,32 +850,32 @@ fn update_stateful_pod(
 fn run_for_all<'a>(
     pods: &[&'a PodResource],
     f: impl Fn(&'a PodResource) -> ResourceOrOp<bool>,
-    monotonic: bool,
+    _monotonic: bool,
 ) -> ResourceOrOp<bool> {
-    if monotonic {
-        for pod in pods {
-            match f(pod) {
-                ResourceOrOp::Resource(should_exit) => {
-                    if should_exit {
-                        return ResourceOrOp::Resource(true);
-                    }
+    // if monotonic {
+    for pod in pods {
+        match f(pod) {
+            ResourceOrOp::Resource(should_exit) => {
+                if should_exit {
+                    return ResourceOrOp::Resource(true);
                 }
-                ResourceOrOp::Op(op) => return ResourceOrOp::Op(op),
             }
-        }
-    } else {
-        // TODO: could be slowstartbatch instead
-        for pod in pods {
-            match f(pod) {
-                ResourceOrOp::Resource(should_exit) => {
-                    if should_exit {
-                        return ResourceOrOp::Resource(true);
-                    }
-                }
-                ResourceOrOp::Op(op) => return ResourceOrOp::Op(op),
-            }
+            ResourceOrOp::Op(op) => return ResourceOrOp::Op(op),
         }
     }
+    // } else {
+    //     // TODO: could be slowstartbatch instead
+    //     for pod in pods {
+    //         match f(pod) {
+    //             ResourceOrOp::Resource(should_exit) => {
+    //                 if should_exit {
+    //                     return ResourceOrOp::Resource(true);
+    //                 }
+    //             }
+    //             ResourceOrOp::Op(op) => return ResourceOrOp::Op(op),
+    //         }
+    //     }
+    // }
     ResourceOrOp::Resource(false)
 }
 
@@ -1132,7 +1146,6 @@ fn new_revision(
 }
 
 fn get_patch(sts: &StatefulSetResource) -> Vec<u8> {
-    
     serde_json::to_vec(&sts).unwrap()
 }
 

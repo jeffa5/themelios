@@ -10,8 +10,7 @@ use crate::controller::util::new_controller_ref;
 use crate::controller::Controller;
 use crate::resources::{
     ConditionStatus, GroupVersionKind, LabelSelector, PodConditionType, PodPhase, PodResource,
-    ReplicaSetCondition, ReplicaSetConditionType, ReplicaSetResource, ReplicaSetStatus,
-    Time,
+    ReplicaSetCondition, ReplicaSetConditionType, ReplicaSetResource, ReplicaSetStatus, Time,
 };
 use crate::state::StateView;
 use crate::utils::now;

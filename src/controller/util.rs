@@ -1,6 +1,8 @@
 use crate::{
     abstract_model::Operation,
-    resources::{GroupVersionKind, Metadata, OwnerReference, PodResource, PodTemplateSpec, PodStatus},
+    resources::{
+        GroupVersionKind, Metadata, OwnerReference, PodResource, PodStatus, PodTemplateSpec,
+    },
 };
 
 pub enum ResourceOrOp<R> {
