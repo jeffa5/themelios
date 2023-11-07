@@ -19,7 +19,7 @@ mod deployment;
 mod node;
 mod replicaset;
 mod scheduler;
-mod statefulset;
+pub mod statefulset;
 mod util;
 
 pub trait Controller {

@@ -223,7 +223,6 @@ fn do_update_statefulset(
     let replica_count = sts.spec.replicas;
     let mut replicas = vec![None; replica_count.unwrap_or_default() as usize];
     let mut condemned = Vec::new();
-    let mut unhealthy = 0;
 
     // First we partition pods into two lists valid replicas and condemned Pods
     for pod in pods {
@@ -237,7 +236,7 @@ fn do_update_statefulset(
                     replicas[replica_index] = Some((*pod).clone());
                 }
             }
-        } else if get_ordinal(pod).map_or(false, |o| o >= 0) {
+        } else if get_ordinal(pod).is_some() {
             debug!(name = pod.metadata.name, "Pod not in ordinal range");
             // if the ordinal is valid, but not within the range add it to the condemned list
             condemned.push(*pod)
@@ -274,7 +273,6 @@ fn do_update_statefulset(
     // find the first unhealthy Pod
     for replica in &replicas {
         if !is_healthy(replica.as_ref().unwrap()) {
-            unhealthy += 1;
             if first_unhealthy_pod.is_none() {
                 first_unhealthy_pod = replica.clone()
             }
@@ -284,7 +282,6 @@ fn do_update_statefulset(
     // or the first unhealthy condemned Pod (condemned are sorted in descending order for ease of use)
     for c in &condemned {
         if !is_healthy(c) {
-            unhealthy += 1;
             if first_unhealthy_pod.is_none() {
                 first_unhealthy_pod = Some((*c).clone());
             }
@@ -622,7 +619,7 @@ fn allows_burst(sts: &StatefulSetResource) -> bool {
     sts.spec.pod_management_policy == PodManagementPolicyType::Parallel
 }
 
-fn apply_revision(sts: &StatefulSetResource, revision: &ControllerRevision) -> StatefulSetResource {
+fn apply_revision(_sts: &StatefulSetResource, revision: &ControllerRevision) -> StatefulSetResource {
     serde_json::from_str(&revision.data).unwrap()
 }
 
@@ -703,7 +700,7 @@ fn get_pod_revision(pod: &PodResource) -> String {
         .unwrap_or_default()
 }
 
-fn get_ordinal(pod: &PodResource) -> Option<u32> {
+pub fn get_ordinal(pod: &PodResource) -> Option<u32> {
     pod.metadata
         .name
         .split('-')
@@ -733,9 +730,9 @@ fn pod_in_ordinal_range(pod: &PodResource, sts: &StatefulSetResource) -> bool {
 
 fn process_replica(
     sts: &StatefulSetResource,
-    current_revision: &ControllerRevision,
-    update_revision: &ControllerRevision,
-    current_sts: &StatefulSetResource,
+    _current_revision: &ControllerRevision,
+    _update_revision: &ControllerRevision,
+    _current_sts: &StatefulSetResource,
     update_sts: &StatefulSetResource,
     monotonic: bool,
     replica: &PodResource,
@@ -1162,7 +1159,7 @@ fn find_equal_revisions<'a>(
         .collect()
 }
 
-fn equal_revision(lhs: &ControllerRevision, rhs: &ControllerRevision) -> bool {
+fn equal_revision(_lhs: &ControllerRevision, _rhs: &ControllerRevision) -> bool {
     // lhs.metadata.labels.get(CONTROLLER_REVISION_HASH);
     // TODO: fixme
     true

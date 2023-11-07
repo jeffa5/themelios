@@ -5,7 +5,8 @@ use stateright::{Model, Property};
 
 use crate::controller::{Controller, ControllerStates, Controllers};
 use crate::resources::{
-    DeploymentResource, PodResource, ReplicaSetResource, ResourceQuantities, StatefulSetResource, ControllerRevision, PersistentVolumeClaim,
+    ControllerRevision, DeploymentResource, PersistentVolumeClaim, PodResource, ReplicaSetResource,
+    ResourceQuantities, StatefulSetResource,
 };
 use crate::state::{ConsistencySetup, Revision, State, StateView};
 
@@ -159,19 +160,23 @@ impl Model for AbstractModelCfg {
                     // point one and two from https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/#deployment-and-scaling-guarantees
                     let state = state.view_at(state.max_revision());
                     for sts in state.statefulsets.values() {
-                        let mut found_end = false;
-                        // for pod in sts.pods() {
-                        //     if state.pods.contains_key(&pod) {
-                        //         if found_end {
-                        //             // violation of the property
-                        //             // we have found a missing pod but then continued to find an existing one
-                        //             // for this statefulset.
-                        //             return false;
-                        //         }
-                        //     } else {
-                        //         found_end = true
-                        //     }
-                        // }
+                        let mut ordinals = Vec::new();
+                        for pod in state.pods.values() {
+                            if sts.spec.selector.matches(&pod.metadata.labels) {
+                                ordinals.push(
+                                    crate::controller::statefulset::get_ordinal(pod).unwrap(),
+                                );
+                            }
+                        }
+                        ordinals.sort();
+                        for os in ordinals.windows(2) {
+                            if os[0] + 1 != os[1] {
+                                // violation of the property
+                                // we have found a missing pod but then continued to find an existing one
+                                // for this statefulset.
+                                return false;
+                            }
+                        }
                     }
                     true
                 },
