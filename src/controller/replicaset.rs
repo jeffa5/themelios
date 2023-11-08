@@ -211,33 +211,8 @@ fn get_condition(
     status.conditions.iter().find(|c| c.r#type == cond_type)
 }
 
-fn set_condition(status: &mut ReplicaSetStatus, condition: ReplicaSetCondition) {
-    if let Some(cc) = get_condition(status, condition.r#type) {
-        if cc.status == condition.status && cc.reason == condition.reason {
-            return;
-        }
-    }
-    remove_condition(status, condition.r#type);
-    status.conditions.push(condition);
-}
-
 fn remove_condition(status: &mut ReplicaSetStatus, cond_type: ReplicaSetConditionType) {
     status.conditions.retain(|c| c.r#type != cond_type)
-}
-
-fn new_replicaset_condition(
-    cond_type: ReplicaSetConditionType,
-    status: ConditionStatus,
-    reason: String,
-    message: String,
-) -> ReplicaSetCondition {
-    ReplicaSetCondition {
-        status,
-        r#type: cond_type,
-        last_transition_time: Some(now()),
-        message: Some(message),
-        reason: Some(reason),
-    }
 }
 
 fn is_pod_ready(pod: &Pod) -> bool {
