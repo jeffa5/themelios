@@ -7,8 +7,8 @@ use crate::{
     hasher::FnvHasher,
     resources::{
         ConditionStatus, Deployment, DeploymentCondition, DeploymentConditionType,
-        DeploymentStatus, DeploymentStrategyType, GroupVersionKind, LabelSelector, Pod,
-        PodTemplateSpec, ReplicaSet, ReplicaSetCondition, ReplicaSetConditionType,
+        DeploymentStatus, DeploymentStrategyType, LabelSelector, Pod, PodTemplateSpec, ReplicaSet,
+        ReplicaSetCondition, ReplicaSetConditionType,
     },
     state::StateView,
     utils::now,
@@ -17,12 +17,6 @@ use diff::Diff;
 use tracing::debug;
 
 use super::Controller;
-
-const CONTROLLER_KIND: GroupVersionKind = GroupVersionKind {
-    group: "apps",
-    version: "v1",
-    kind: "Deployment",
-};
 
 // PausedDeployReason is added in a deployment when it is paused. Lack of progress shouldn't be
 // estimated once a deployment is paused.
@@ -245,7 +239,7 @@ fn claim_replicasets<'a>(
             } else {
                 rs.metadata
                     .owner_references
-                    .push(new_controller_ref(&deployment.metadata, &CONTROLLER_KIND));
+                    .push(new_controller_ref(&deployment.metadata, &Deployment::GVK));
             }
             return ValOrOp::Op(Operation::UpdateReplicaSet(rs));
         }
@@ -534,7 +528,7 @@ fn get_new_replicaset(
             // Make the name deterministic, to ensure idempotence
             name: format!("{}-{}", deployment.metadata.name, pod_template_spec_hash),
             namespace: deployment.metadata.namespace.clone(),
-            owner_references: vec![new_controller_ref(&deployment.metadata, &CONTROLLER_KIND)],
+            owner_references: vec![new_controller_ref(&deployment.metadata, &Deployment::GVK)],
             labels: new_rs_template.metadata.labels.clone(),
             ..Default::default()
         },

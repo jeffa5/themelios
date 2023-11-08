@@ -9,7 +9,7 @@ use crate::abstract_model::Operation;
 use crate::controller::util::new_controller_ref;
 use crate::controller::Controller;
 use crate::resources::{
-    ConditionStatus, GroupVersionKind, LabelSelector, Pod, PodConditionType, PodPhase, ReplicaSet,
+    ConditionStatus, LabelSelector, Pod, PodConditionType, PodPhase, ReplicaSet,
     ReplicaSetCondition, ReplicaSetConditionType, ReplicaSetStatus, Time,
 };
 use crate::state::StateView;
@@ -17,12 +17,6 @@ use crate::utils::now;
 
 use super::util::get_pod_from_template;
 use super::util::ValOrOp;
-
-const CONTROLLER_KIND: GroupVersionKind = GroupVersionKind {
-    group: "apps",
-    version: "v1",
-    kind: "ReplicaSet",
-};
 
 const POD_DELETION_COST: &str = "controller.kubernetes.io/pod-deletion-cost";
 
@@ -126,7 +120,7 @@ fn claim_pods<'a>(replicaset: &ReplicaSet, filtered_pods: &[&'a Pod]) -> ValOrOp
             } else {
                 pod.metadata
                     .owner_references
-                    .push(new_controller_ref(&replicaset.metadata, &CONTROLLER_KIND));
+                    .push(new_controller_ref(&replicaset.metadata, &ReplicaSet::GVK));
             }
             return ValOrOp::Op(Operation::UpdatePod(pod));
         }
@@ -294,7 +288,7 @@ fn manage_replicas(filtered_pods: &[&Pod], replicaset: &ReplicaSet) -> Option<Op
             let pod = get_pod_from_template(
                 &replicaset.metadata,
                 &replicaset.spec.template,
-                &CONTROLLER_KIND,
+                &ReplicaSet::GVK,
             );
             Some(Operation::CreatePod(pod))
         }

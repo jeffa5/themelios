@@ -498,6 +498,12 @@ pub struct ReplicaSet {
 }
 
 impl ReplicaSet {
+    pub const GVK: GroupVersionKind = GroupVersionKind {
+        group: "apps",
+        version: "v1",
+        kind: "ReplicaSet",
+    };
+
     pub fn pods(&self) -> Vec<String> {
         (0..self.status.replicas)
             .map(|i| format!("{}-{}", self.metadata.name, i))
@@ -617,6 +623,12 @@ pub struct Deployment {
 }
 
 impl Deployment {
+    pub const GVK: GroupVersionKind = GroupVersionKind {
+        group: "apps",
+        version: "v1",
+        kind: "Deployment",
+    };
+
     pub fn replicasets(&self) -> Vec<String> {
         vec![self.metadata.name.clone()]
     }
