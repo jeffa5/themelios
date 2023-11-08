@@ -64,6 +64,11 @@ fn schedule(
     for (node, pods) in nodes {
         debug!(node = node.metadata.name, "Seeing if node fits");
 
+        if node.spec.unschedulable {
+            debug!("Node is not schedulable");
+            continue;
+        }
+
         if !tolerates_taints(pod, node) {
             debug!("Pod doesn't tolerate node's taints");
             continue;
