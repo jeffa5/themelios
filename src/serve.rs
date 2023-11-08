@@ -33,12 +33,16 @@ struct SchedulerRequest {
     pod: PodResource,
     bound_pods: Vec<PodResource>,
     nodes: Vec<NodeResource>,
+    persistent_volume_claims: Vec<PersistentVolumeClaim>,
 }
 
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 #[serde(tag = "action", rename_all = "camelCase")]
 enum SchedulerResponse {
-    SchedulePod { node_name: String },
+    SchedulePod {
+        #[serde(rename = "nodeName")]
+        node_name: String,
+    },
 }
 
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
@@ -182,11 +186,18 @@ async fn scheduler(
             .into_iter()
             .map(|p| (p.metadata.name.clone(), p))
             .collect(),
+        persistent_volume_claims: payload
+            .persistent_volume_claims
+            .into_iter()
+            .map(|p| (p.metadata.name.clone(), p))
+            .collect(),
         controllers: btreeset![controller_id],
         ..Default::default()
     };
     let mut local_state = SchedulerState;
-    match s.step(controller_id, &state_view, &mut local_state) {
+    let operation = s.step(controller_id, &state_view, &mut local_state);
+    debug!(?operation, "Got operation");
+    match operation {
         Some(Operation::SchedulePod(_, node)) => {
             Ok(Json(SchedulerResponse::SchedulePod { node_name: node }))
         }

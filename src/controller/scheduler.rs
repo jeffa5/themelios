@@ -2,7 +2,7 @@ use tracing::debug;
 
 use crate::abstract_model::Operation;
 use crate::controller::Controller;
-use crate::resources::{NodeResource, PodResource};
+use crate::resources::{NodeResource, PersistentVolumeClaim, PodResource};
 use crate::state::StateView;
 
 #[derive(Clone, Debug)]
@@ -36,8 +36,13 @@ impl Controller for Scheduler {
                 .values()
                 .filter(|p| p.spec.node_name.is_none());
 
+            let pvcs = global_state
+                .persistent_volume_claims
+                .values()
+                .collect::<Vec<_>>();
+
             for pod in pods_to_schedule {
-                if let Some(op) = schedule(pod, &nodes) {
+                if let Some(op) = schedule(pod, &nodes, &pvcs) {
                     return Some(op);
                 }
             }
@@ -50,44 +55,34 @@ impl Controller for Scheduler {
     }
 }
 
-fn schedule(pod: &PodResource, nodes: &[(&NodeResource, Vec<&PodResource>)]) -> Option<Operation> {
-    let requests = pod
-        .spec
-        .resources
-        .as_ref()
-        .and_then(|r| r.requests.as_ref())
-        .cloned()
-        .unwrap_or_default();
+fn schedule(
+    pod: &PodResource,
+    nodes: &[(&NodeResource, Vec<&PodResource>)],
+    pvcs: &[&PersistentVolumeClaim],
+) -> Option<Operation> {
     // try to find a node suitable
     for (node, pods) in nodes {
         debug!(node = node.metadata.name, "Seeing if node fits");
 
         if !tolerates_taints(pod, node) {
+            debug!("Pod doesn't tolerate node's taints");
             continue;
         }
 
-        let mut remaining_capacity = node.status.capacity.clone();
-        for running_pod in pods {
-            if let Some(resources) = &running_pod.spec.resources {
-                if let Some(requests) = &resources.requests {
-                    remaining_capacity -= requests.clone();
-                }
-            }
+        if !volumes_exist(pod, pvcs) {
+            debug!("Pod requires volumes that don't exist");
+            continue;
         }
-        debug!(?remaining_capacity, ?requests, "Checking if node has space");
-        if remaining_capacity >= requests {
-            debug!(
-                pod = pod.metadata.name,
-                node = node.metadata.name,
-                "Did have space, scheduling pod"
-            );
-            return Some(Operation::SchedulePod(
-                pod.metadata.name.clone(),
-                node.metadata.name.clone(),
-            ));
-        } else {
-            debug!(node = node.metadata.name, "Node does not have space");
+
+        if !fits_resources(pod, node, pods) {
+            debug!("Pod requires more resources than the node has available");
+            continue;
         }
+
+        return Some(Operation::SchedulePod(
+            pod.metadata.name.clone(),
+            node.metadata.name.clone(),
+        ));
     }
     None
 }
@@ -102,4 +97,49 @@ fn tolerates_taints(pod: &PodResource, node: &NodeResource) -> bool {
         }
     }
     true
+}
+
+fn volumes_exist(pod: &PodResource, pvcs: &[&PersistentVolumeClaim]) -> bool {
+    for volume in &pod.spec.volumes {
+        if !pvcs.iter().any(|pvc| pvc.metadata.name == volume.name) {
+            return false;
+        }
+    }
+    true
+}
+
+fn fits_resources(pod: &PodResource, node: &NodeResource, pods_for_node: &[&PodResource]) -> bool {
+    match pod
+        .spec
+        .resources
+        .as_ref()
+        .and_then(|r| r.requests.as_ref())
+    {
+        None => {
+            // if the pod being scheduled doesn't request any resources then it can go anywhere
+            true
+        }
+        Some(requests) => {
+            let mut remaining_capacity = node.status.capacity.clone();
+            for running_pod in pods_for_node {
+                if let Some(resources) = &running_pod.spec.resources {
+                    if let Some(requests) = &resources.requests {
+                        remaining_capacity -= requests.clone();
+                    }
+                }
+            }
+            debug!(?remaining_capacity, ?requests, "Checking if node has space");
+            if &remaining_capacity >= requests {
+                debug!(
+                    pod = pod.metadata.name,
+                    node = node.metadata.name,
+                    "Did have space, scheduling pod"
+                );
+                true
+            } else {
+                debug!(node = node.metadata.name, "Node does not have space");
+                false
+            }
+        }
+    }
 }
