@@ -1087,8 +1087,10 @@ fn cleanup_deployment(
         .filter(|rs| rs.metadata.deletion_timestamp.is_none())
         .collect::<Vec<_>>();
 
-    let diff = cleanable_replicasets.len() - deployment.spec.revision_history_limit as usize;
-    if diff <= 0 {
+    let diff = cleanable_replicasets
+        .len()
+        .saturating_sub(deployment.spec.revision_history_limit as usize);
+    if diff == 0 {
         return None;
     }
 
@@ -1301,44 +1303,46 @@ fn set_new_replicaset_annotations(
     // If a revision annotation already existed and this replica set was updated with a new revision
     // then that means we are rolling back to this replica set. We need to preserve the old revisions
     // for historical information.
-    if old_revision.is_some() && old_revision_int < new_revision_int {
-        let revision_history_annotation = new_replicaset
-            .metadata
-            .annotations
-            .get(REVISION_HISTORY_ANNOTATION);
-        let mut old_revisions = revision_history_annotation
-            .cloned()
-            .unwrap_or_default()
-            .split(',')
-            .map(|s| s.to_owned())
-            .collect::<Vec<String>>();
-        if old_revisions[0].is_empty() {
-            new_replicaset.metadata.annotations.insert(
-                REVISION_HISTORY_ANNOTATION.to_owned(),
-                old_revision.unwrap().clone(),
-            );
-        } else {
-            let mut total_len = revision_history_annotation.map_or(0, |a| a.len())
-                + old_revision.as_ref().map_or(0, |r| r.len())
-                + 1;
-            // index for the starting position in oldRevisions
-            let mut start = 0;
-            while total_len > rev_history_limit_in_chars && start < old_revisions.len() {
-                total_len -= old_revisions[start].len() - 1;
-                start += 1;
-            }
-            if total_len <= rev_history_limit_in_chars {
-                old_revisions = old_revisions[start..].to_vec();
-                old_revisions.push(old_revision.unwrap());
+    if let Some(old_revision) = old_revision {
+        if old_revision_int < new_revision_int {
+            let revision_history_annotation = new_replicaset
+                .metadata
+                .annotations
+                .get(REVISION_HISTORY_ANNOTATION);
+            let mut old_revisions = revision_history_annotation
+                .cloned()
+                .unwrap_or_default()
+                .split(',')
+                .map(|s| s.to_owned())
+                .collect::<Vec<String>>();
+            if old_revisions[0].is_empty() {
                 new_replicaset.metadata.annotations.insert(
                     REVISION_HISTORY_ANNOTATION.to_owned(),
-                    old_revisions.join(","),
+                    old_revision.clone(),
                 );
             } else {
-                debug!(
-                    rev_history_limit_in_chars,
-                    "Not appending revision due to revision history length limit reached"
-                );
+                let mut total_len = revision_history_annotation.map_or(0, |a| a.len())
+                    + old_revision.len()
+                    + 1;
+                // index for the starting position in oldRevisions
+                let mut start = 0;
+                while total_len > rev_history_limit_in_chars && start < old_revisions.len() {
+                    total_len -= old_revisions[start].len() - 1;
+                    start += 1;
+                }
+                if total_len <= rev_history_limit_in_chars {
+                    old_revisions = old_revisions[start..].to_vec();
+                    old_revisions.push(old_revision);
+                    new_replicaset.metadata.annotations.insert(
+                        REVISION_HISTORY_ANNOTATION.to_owned(),
+                        old_revisions.join(","),
+                    );
+                } else {
+                    debug!(
+                        rev_history_limit_in_chars,
+                        "Not appending revision due to revision history length limit reached"
+                    );
+                }
             }
         }
     }
@@ -1907,8 +1911,10 @@ fn reconcile_old_replicasets(
     let min_avilable = deployment.spec.replicas - max_unavailable;
     let new_rs_unavailable_pod_count =
         new_rs.spec.replicas.unwrap() - new_rs.status.available_replicas;
-    let max_scaled_down = all_pods_count - min_avilable - new_rs_unavailable_pod_count;
-    if max_scaled_down <= 0 {
+    let max_scaled_down = all_pods_count
+        .saturating_sub(min_avilable)
+        .saturating_sub(new_rs_unavailable_pod_count);
+    if max_scaled_down == 0 {
         debug!("can't scale below zero");
         return None;
     }
