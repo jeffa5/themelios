@@ -184,19 +184,20 @@ fn calculate_status(replicaset: &ReplicaSetResource, pods: &[&PodResource]) -> R
     {
         remove_condition(&mut new_status, ReplicaSetConditionType::ReplicaFailure)
     } else {
-        let diff = pods.len() as isize - replicaset.spec.replicas.unwrap_or_default() as isize;
-        let reason = if diff < 0 {
-            "FailedCreate"
-        } else {
-            "FailedDelete"
-        };
-        let cond = new_replicaset_condition(
-            ReplicaSetConditionType::ReplicaFailure,
-            ConditionStatus::True,
-            reason.to_owned(),
-            "TODO some manage replicas err?".to_owned(),
-        );
-        set_condition(&mut new_status, cond);
+        // We never get a manage replicas error so ignore adding this condition.
+        // let diff = pods.len() as isize - replicaset.spec.replicas.unwrap_or_default() as isize;
+        // let reason = if diff < 0 {
+        //     "FailedCreate"
+        // } else {
+        //     "FailedDelete"
+        // };
+        // let cond = new_replicaset_condition(
+        //     ReplicaSetConditionType::ReplicaFailure,
+        //     ConditionStatus::True,
+        //     reason.to_owned(),
+        //     "TODO some manage replicas err?".to_owned(),
+        // );
+        // set_condition(&mut new_status, cond);
     }
 
     new_status.replicas = pods.len() as u32;
