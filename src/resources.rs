@@ -1073,60 +1073,89 @@ pub struct NodeStatus {
 #[serde(untagged)]
 pub enum Quantity {
     Str(String),
-    Int(u32),
+    Num(u64),
 }
 
 impl Default for Quantity {
     fn default() -> Self {
-        Self::Int(0)
+        Self::Num(0)
+    }
+}
+
+fn split_quantity(s: &str) -> (String, String) {
+    if let Some(alpha_pos) = s.chars().position(char::is_alphabetic) {
+        (
+            s.chars().take(alpha_pos).collect(),
+            s.chars().skip(alpha_pos).collect(),
+        )
+    } else {
+        (s.to_owned(), String::new())
     }
 }
 
 impl Quantity {
-    pub fn to_int(&self) -> u32 {
+    pub fn to_num(&self) -> u64 {
         match self {
             Quantity::Str(s) => {
-                let (digit, _unit) = s.split_once(char::is_alphabetic).unwrap();
-
-                // match unit {
-                //     u => panic!("unhandled unit {u}"),
-                // };
-                digit.parse().unwrap()
+                let (digit, unit) = split_quantity(s);
+                let num: u64 = digit.parse().unwrap();
+                match unit.as_str() {
+                    "" => num,
+                    "m" => num / 1000,
+                    "k" => num * 1000,
+                    u => panic!("unhandled unit {u:?} when splitting {s:?}"),
+                }
             }
-            Quantity::Int(i) => *i,
+            Quantity::Num(i) => *i,
         }
+    }
+}
+
+impl Display for Quantity {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = match self {
+            Quantity::Str(s) => s.clone(),
+            Quantity::Num(n) => n.to_string(),
+        };
+        f.write_str(&s)
     }
 }
 
 impl From<u32> for Quantity {
     fn from(value: u32) -> Self {
-        Quantity::Int(value)
+        Quantity::Num(value.into())
+    }
+}
+
+impl From<u64> for Quantity {
+    fn from(value: u64) -> Self {
+        Quantity::Num(value)
     }
 }
 
 impl Add<Quantity> for Quantity {
     type Output = Quantity;
     fn add(self, rhs: Quantity) -> Self::Output {
-        Quantity::Int(self.to_int() + rhs.to_int())
+        (self.to_num() + rhs.to_num()).into()
     }
 }
 
 impl AddAssign<Quantity> for Quantity {
     fn add_assign(&mut self, rhs: Quantity) {
-        *self = Quantity::Int(self.to_int() + rhs.to_int())
+        *self = self.clone() + rhs;
     }
 }
 
 impl Sub<Quantity> for Quantity {
     type Output = Quantity;
     fn sub(self, rhs: Quantity) -> Self::Output {
-        Quantity::Int(self.to_int() + rhs.to_int())
+        (self.to_num() - rhs.to_num()).into()
     }
 }
 
 impl SubAssign<Quantity> for Quantity {
     fn sub_assign(&mut self, rhs: Quantity) {
-        *self = Quantity::Int(self.to_int() + rhs.to_int())
+        *self = self.clone() - rhs;
     }
 }
 
