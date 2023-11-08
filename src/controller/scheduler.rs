@@ -1,6 +1,6 @@
 use tracing::debug;
 
-use crate::abstract_model::Operation;
+use crate::abstract_model::ControllerAction;
 use crate::controller::Controller;
 use crate::resources::{Node, PersistentVolumeClaim, Pod, ResourceQuantities};
 use crate::state::StateView;
@@ -19,9 +19,9 @@ impl Controller for SchedulerController {
         id: usize,
         global_state: &StateView,
         _local_state: &mut Self::State,
-    ) -> Option<Operation> {
+    ) -> Option<ControllerAction> {
         if !global_state.controllers.contains(&id) {
-            return Some(Operation::ControllerJoin(id));
+            return Some(ControllerAction::ControllerJoin(id));
         } else {
             let mut nodes = global_state
                 .nodes
@@ -59,7 +59,7 @@ fn schedule(
     pod: &Pod,
     nodes: &[(&Node, Vec<&Pod>)],
     pvcs: &[&PersistentVolumeClaim],
-) -> Option<Operation> {
+) -> Option<ControllerAction> {
     // try to find a node suitable
     for (node, pods) in nodes {
         debug!(node = node.metadata.name, "Seeing if node fits");
@@ -84,7 +84,7 @@ fn schedule(
             continue;
         }
 
-        return Some(Operation::SchedulePod(
+        return Some(ControllerAction::SchedulePod(
             pod.metadata.name.clone(),
             node.metadata.name.clone(),
         ));

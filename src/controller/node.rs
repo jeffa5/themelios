@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use crate::abstract_model::Operation;
+use crate::abstract_model::ControllerAction;
 use crate::controller::Controller;
 use crate::resources::ResourceQuantities;
 use crate::state::StateView;
@@ -23,7 +23,7 @@ impl Controller for NodeController {
         id: usize,
         global_state: &StateView,
         local_state: &mut Self::State,
-    ) -> Option<Operation> {
+    ) -> Option<ControllerAction> {
         if let Some(_node) = global_state.nodes.get(&id) {
             for pod in global_state
                 .pods
@@ -31,11 +31,11 @@ impl Controller for NodeController {
                 .filter(|p| p.spec.node_name.as_ref().map_or(false, |n| n == &self.name))
             {
                 if !local_state.running.contains(&pod.metadata.name) {
-                    return Some(Operation::RunPod(pod.metadata.name.clone(), id));
+                    local_state.running.push(pod.metadata.name.clone());
                 }
             }
         } else {
-            return Some(Operation::NodeJoin(
+            return Some(ControllerAction::NodeJoin(
                 id,
                 ResourceQuantities {
                     others: BTreeMap::new(),

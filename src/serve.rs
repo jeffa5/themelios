@@ -8,7 +8,7 @@ use serde_json::json;
 use tracing::debug;
 use tracing::warn;
 
-use crate::abstract_model::Operation;
+use crate::abstract_model::ControllerAction;
 use crate::controller::{
     Controller, DeploymentController, DeploymentControllerState, ReplicaSetController,
     ReplicaSetControllerState, SchedulerController, SchedulerControllerState,
@@ -122,7 +122,7 @@ enum StatefulSetResponse {
 
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 enum ErrorResponse {
-    InvalidOperationReturned(Operation),
+    InvalidOperationReturned(ControllerAction),
     NoOperation,
 }
 
@@ -187,7 +187,7 @@ async fn scheduler(
     let operation = s.step(controller_id, &state_view, &mut local_state);
     debug!(?operation, "Got operation");
     match operation {
-        Some(Operation::SchedulePod(_, node)) => {
+        Some(ControllerAction::SchedulePod(_, node)) => {
             Ok(Json(SchedulerResponse::SchedulePod { node_name: node }))
         }
         Some(op) => Err(ErrorResponse::InvalidOperationReturned(op)),
@@ -218,26 +218,32 @@ async fn deployment(
     let operation = s.step(controller_id, &state_view, &mut local_state);
     debug!(?operation, "Got operation");
     match operation {
-        Some(Operation::UpdateDeployment(dep)) => Ok(Json(DeploymentResponse::UpdateDeployment {
-            deployment: dep,
-        })),
-        Some(Operation::RequeueDeployment(dep)) => {
+        Some(ControllerAction::UpdateDeployment(dep)) => {
+            Ok(Json(DeploymentResponse::UpdateDeployment {
+                deployment: dep,
+            }))
+        }
+        Some(ControllerAction::RequeueDeployment(dep)) => {
             Ok(Json(DeploymentResponse::RequeueDeployment {
                 deployment: dep,
             }))
         }
-        Some(Operation::UpdateDeploymentStatus(dep)) => {
+        Some(ControllerAction::UpdateDeploymentStatus(dep)) => {
             Ok(Json(DeploymentResponse::UpdateDeploymentStatus {
                 deployment: dep,
             }))
         }
-        Some(Operation::CreateReplicaSet(rs)) => Ok(Json(DeploymentResponse::CreateReplicaSet {
-            replicaset: rs,
-        })),
-        Some(Operation::UpdateReplicaSet(rs)) => Ok(Json(DeploymentResponse::UpdateReplicaSet {
-            replicaset: rs,
-        })),
-        Some(Operation::UpdateReplicaSets(rss)) => {
+        Some(ControllerAction::CreateReplicaSet(rs)) => {
+            Ok(Json(DeploymentResponse::CreateReplicaSet {
+                replicaset: rs,
+            }))
+        }
+        Some(ControllerAction::UpdateReplicaSet(rs)) => {
+            Ok(Json(DeploymentResponse::UpdateReplicaSet {
+                replicaset: rs,
+            }))
+        }
+        Some(ControllerAction::UpdateReplicaSets(rss)) => {
             Ok(Json(DeploymentResponse::UpdateReplicaSets {
                 replicasets: rss,
             }))
@@ -280,14 +286,14 @@ async fn replicaset(
     let operation = s.step(controller_id, &state_view, &mut local_state);
     debug!(?operation, "Got operation");
     match operation {
-        Some(Operation::UpdatePod(pod)) => Ok(Json(ReplicasetResponse::UpdatePod { pod })),
-        Some(Operation::UpdateReplicaSetStatus(rs)) => {
+        Some(ControllerAction::UpdatePod(pod)) => Ok(Json(ReplicasetResponse::UpdatePod { pod })),
+        Some(ControllerAction::UpdateReplicaSetStatus(rs)) => {
             Ok(Json(ReplicasetResponse::UpdateReplicaSetStatus {
                 replicaset: rs,
             }))
         }
-        Some(Operation::CreatePod(pod)) => Ok(Json(ReplicasetResponse::CreatePod { pod })),
-        Some(Operation::DeletePod(pod)) => Ok(Json(ReplicasetResponse::DeletePod { pod })),
+        Some(ControllerAction::CreatePod(pod)) => Ok(Json(ReplicasetResponse::CreatePod { pod })),
+        Some(ControllerAction::DeletePod(pod)) => Ok(Json(ReplicasetResponse::DeletePod { pod })),
         Some(op) => {
             warn!(?op, "Got invalid operation");
             Err(ErrorResponse::InvalidOperationReturned(op))
@@ -329,30 +335,30 @@ async fn statefulset(
     let operation = s.step(controller_id, &state_view, &mut local_state);
     debug!(?operation, "Got operation");
     match operation {
-        Some(Operation::UpdateStatefulSetStatus(sts)) => {
+        Some(ControllerAction::UpdateStatefulSetStatus(sts)) => {
             Ok(Json(StatefulSetResponse::UpdateStatefulSetStatus {
                 statefulset: sts,
             }))
         }
-        Some(Operation::UpdatePod(pod)) => Ok(Json(StatefulSetResponse::UpdatePod { pod })),
-        Some(Operation::CreatePod(pod)) => Ok(Json(StatefulSetResponse::CreatePod { pod })),
-        Some(Operation::DeletePod(pod)) => Ok(Json(StatefulSetResponse::DeletePod { pod })),
-        Some(Operation::CreateControllerRevision(cr)) => {
+        Some(ControllerAction::UpdatePod(pod)) => Ok(Json(StatefulSetResponse::UpdatePod { pod })),
+        Some(ControllerAction::CreatePod(pod)) => Ok(Json(StatefulSetResponse::CreatePod { pod })),
+        Some(ControllerAction::DeletePod(pod)) => Ok(Json(StatefulSetResponse::DeletePod { pod })),
+        Some(ControllerAction::CreateControllerRevision(cr)) => {
             Ok(Json(StatefulSetResponse::CreateControllerRevision {
                 controller_revision: cr,
             }))
         }
-        Some(Operation::UpdateControllerRevision(cr)) => {
+        Some(ControllerAction::UpdateControllerRevision(cr)) => {
             Ok(Json(StatefulSetResponse::UpdateControllerRevision {
                 controller_revision: cr,
             }))
         }
-        Some(Operation::CreatePersistentVolumeClaim(pvc)) => {
+        Some(ControllerAction::CreatePersistentVolumeClaim(pvc)) => {
             Ok(Json(StatefulSetResponse::CreatePersistentVolumeClaim {
                 persistent_volume_claim: pvc,
             }))
         }
-        Some(Operation::UpdatePersistentVolumeClaim(pvc)) => {
+        Some(ControllerAction::UpdatePersistentVolumeClaim(pvc)) => {
             Ok(Json(StatefulSetResponse::UpdatePersistentVolumeClaim {
                 persistent_volume_claim: pvc,
             }))

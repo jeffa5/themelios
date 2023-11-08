@@ -5,7 +5,7 @@ use std::time::Duration;
 
 use tracing::debug;
 
-use crate::abstract_model::Operation;
+use crate::abstract_model::ControllerAction;
 use crate::controller::util::new_controller_ref;
 use crate::controller::Controller;
 use crate::resources::{
@@ -33,9 +33,9 @@ impl Controller for ReplicaSetController {
         id: usize,
         global_state: &StateView,
         _local_state: &mut Self::State,
-    ) -> Option<Operation> {
+    ) -> Option<ControllerAction> {
         if !global_state.controllers.contains(&id) {
-            return Some(Operation::ControllerJoin(id));
+            return Some(ControllerAction::ControllerJoin(id));
         } else {
             for replicaset in global_state.replica_sets.values() {
                 let pods = global_state.pods.values().collect::<Vec<_>>();
@@ -52,7 +52,7 @@ impl Controller for ReplicaSetController {
     }
 }
 
-fn reconcile(replicaset: &ReplicaSet, all_pods: &[&Pod]) -> Option<Operation> {
+fn reconcile(replicaset: &ReplicaSet, all_pods: &[&Pod]) -> Option<ControllerAction> {
     let filtered_pods = filter_active_pods(all_pods);
     let filtered_pods = claim_pods(replicaset, &filtered_pods);
 
@@ -93,7 +93,7 @@ fn claim_pods<'a>(replicaset: &ReplicaSet, filtered_pods: &[&'a Pod]) -> ValOrOp
             pod.metadata
                 .owner_references
                 .retain(|or| or.uid != replicaset.metadata.uid);
-            return ValOrOp::Op(Operation::UpdatePod(pod));
+            return ValOrOp::Op(ControllerAction::UpdatePod(pod));
         }
     }
 
@@ -122,7 +122,7 @@ fn claim_pods<'a>(replicaset: &ReplicaSet, filtered_pods: &[&'a Pod]) -> ValOrOp
                     .owner_references
                     .push(new_controller_ref(&replicaset.metadata, &ReplicaSet::GVK));
             }
-            return ValOrOp::Op(Operation::UpdatePod(pod));
+            return ValOrOp::Op(ControllerAction::UpdatePod(pod));
         }
 
         // collect the ones that we actually own
@@ -245,7 +245,7 @@ fn is_pod_active(pod: &Pod) -> bool {
 fn update_replicaset_status(
     rs: &ReplicaSet,
     mut new_status: ReplicaSetStatus,
-) -> Option<Operation> {
+) -> Option<ControllerAction> {
     if rs.status.replicas == new_status.replicas
         && rs.status.fully_labeled_replicas == new_status.fully_labeled_replicas
         && rs.status.ready_replicas == new_status.ready_replicas
@@ -260,13 +260,13 @@ fn update_replicaset_status(
 
     let mut rs = rs.clone();
     rs.status = new_status;
-    Some(Operation::UpdateReplicaSetStatus(rs))
+    Some(ControllerAction::UpdateReplicaSetStatus(rs))
 }
 
 // manageReplicas checks and updates replicas for the given ReplicaSet.
 // Does NOT modify <filteredPods>.
 // It will requeue the replica set in case of an error while creating/deleting pods.
-fn manage_replicas(filtered_pods: &[&Pod], replicaset: &ReplicaSet) -> Option<Operation> {
+fn manage_replicas(filtered_pods: &[&Pod], replicaset: &ReplicaSet) -> Option<ControllerAction> {
     match filtered_pods
         .len()
         .cmp(&(replicaset.spec.replicas.unwrap_or_default() as usize))
@@ -290,7 +290,7 @@ fn manage_replicas(filtered_pods: &[&Pod], replicaset: &ReplicaSet) -> Option<Op
                 &replicaset.spec.template,
                 &ReplicaSet::GVK,
             );
-            Some(Operation::CreatePod(pod))
+            Some(ControllerAction::CreatePod(pod))
         }
         Ordering::Greater => {
             // if diff > burst_replicas {
@@ -305,7 +305,7 @@ fn manage_replicas(filtered_pods: &[&Pod], replicaset: &ReplicaSet) -> Option<Op
 
             pods_to_delete
                 .first()
-                .map(|pod| Operation::DeletePod((*pod).clone()))
+                .map(|pod| ControllerAction::DeletePod((*pod).clone()))
         }
         Ordering::Equal => None,
     }

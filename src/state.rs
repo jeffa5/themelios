@@ -4,8 +4,8 @@ use crate::controller::ControllerStates;
 use crate::resources::{ControllerRevision, PersistentVolumeClaim};
 use crate::utils;
 use crate::{
-    abstract_model::{Change, Operation},
-    resources::{Deployment, Node, Pod, PodSpec, PodStatus, ReplicaSet, StatefulSet},
+    abstract_model::{Change, ControllerAction},
+    resources::{Deployment, Node, Pod, ReplicaSet, StatefulSet},
 };
 
 /// Consistency level for viewing the state with.
@@ -622,7 +622,7 @@ impl StateView {
 
     pub fn apply_change(&mut self, change: &Change, new_revision: Revision) {
         match &change.operation {
-            Operation::NodeJoin(i, capacity) => {
+            ControllerAction::NodeJoin(i, capacity) => {
                 self.nodes.insert(
                     *i,
                     Node {
@@ -638,49 +638,24 @@ impl StateView {
                     },
                 );
             }
-            Operation::ControllerJoin(i) => {
+            ControllerAction::ControllerJoin(i) => {
                 self.controllers.insert(*i);
             }
-            Operation::NewPod(i) => {
-                self.pods.insert(
-                    i.clone(),
-                    Pod {
-                        metadata: utils::metadata(i.clone()),
-                        spec: PodSpec {
-                            scheduler_name: None,
-                            node_name: None,
-                            containers: Vec::new(),
-                            active_deadline_seconds: None,
-                            termination_grace_period_seconds: None,
-                            restart_policy: None,
-                            volumes: Vec::new(),
-                            hostname: String::new(),
-                            subdomain: String::new(),
-                            tolerations: Vec::new(),
-                        },
-                        status: PodStatus::default(),
-                    },
-                );
-            }
-            Operation::CreatePod(pod) => {
+            ControllerAction::CreatePod(pod) => {
                 self.pods.insert(pod.metadata.name.clone(), pod.clone());
             }
-            Operation::UpdatePod(pod) => {
+            ControllerAction::UpdatePod(pod) => {
                 self.pods.insert(pod.metadata.name.clone(), pod.clone());
             }
-            Operation::DeletePod(pod) => {
+            ControllerAction::DeletePod(pod) => {
                 self.pods.remove(&pod.metadata.name);
             }
-            Operation::SchedulePod(pod, node) => {
+            ControllerAction::SchedulePod(pod, node) => {
                 if let Some(pod) = self.pods.get_mut(pod) {
                     pod.spec.node_name = Some(node.clone());
                 }
             }
-            Operation::RunPod(_pod, _node) => {
-                // self.nodes.get_mut(node).unwrap().pods.push(pod.clone());
-                // TODO: is there anything to do here? should just be on the nodes local state?
-            }
-            Operation::NodeCrash(node) => {
+            ControllerAction::NodeCrash(node) => {
                 // TODO: reset local state for the node
                 if let Some(node) = self.nodes.remove(node) {
                     self.pods.retain(|_, pod| {
@@ -691,62 +666,62 @@ impl StateView {
                     });
                 }
             }
-            Operation::UpdateDeployment(dep) => {
+            ControllerAction::UpdateDeployment(dep) => {
                 self.deployments
                     .insert(dep.metadata.name.clone(), dep.clone());
             }
-            Operation::RequeueDeployment(_dep) => {
+            ControllerAction::RequeueDeployment(_dep) => {
                 // skip
             }
-            Operation::UpdateDeploymentStatus(dep) => {
+            ControllerAction::UpdateDeploymentStatus(dep) => {
                 if let Some(mut dp) = self.deployments.remove(&dep.metadata.name) {
                     dp.status = dep.status.clone();
                     self.deployments.insert(dp.metadata.name.clone(), dp);
                 }
             }
-            Operation::CreateReplicaSet(rs) => {
+            ControllerAction::CreateReplicaSet(rs) => {
                 self.replica_sets
                     .insert(rs.metadata.name.clone(), rs.clone());
             }
-            Operation::UpdateReplicaSet(rs) => {
+            ControllerAction::UpdateReplicaSet(rs) => {
                 self.replica_sets
                     .insert(rs.metadata.name.clone(), rs.clone());
             }
-            Operation::UpdateReplicaSetStatus(rs) => {
+            ControllerAction::UpdateReplicaSetStatus(rs) => {
                 if let Some(mut r) = self.replica_sets.remove(&rs.metadata.name) {
                     r.status = rs.status.clone();
                     self.replica_sets.insert(r.metadata.name.clone(), r);
                 }
             }
-            Operation::UpdateReplicaSets(rss) => {
+            ControllerAction::UpdateReplicaSets(rss) => {
                 for rs in rss {
                     self.replica_sets
                         .insert(rs.metadata.name.clone(), rs.clone());
                 }
             }
-            Operation::UpdateStatefulSetStatus(sts) => {
+            ControllerAction::UpdateStatefulSetStatus(sts) => {
                 self.statefulsets
                     .insert(sts.metadata.name.clone(), sts.clone());
             }
-            Operation::CreateControllerRevision(cr) => {
+            ControllerAction::CreateControllerRevision(cr) => {
                 self.controller_revisions
                     .insert(cr.metadata.name.clone(), cr.clone());
             }
-            Operation::UpdateControllerRevision(cr) => {
+            ControllerAction::UpdateControllerRevision(cr) => {
                 self.controller_revisions
                     .insert(cr.metadata.name.clone(), cr.clone());
             }
-            Operation::DeleteControllerRevision(cr) => {
+            ControllerAction::DeleteControllerRevision(cr) => {
                 self.controller_revisions.remove(&cr.metadata.name);
             }
-            Operation::DeleteReplicaSet(rs) => {
+            ControllerAction::DeleteReplicaSet(rs) => {
                 self.replica_sets.remove(&rs.metadata.name);
             }
-            Operation::CreatePersistentVolumeClaim(pvc) => {
+            ControllerAction::CreatePersistentVolumeClaim(pvc) => {
                 self.persistent_volume_claims
                     .insert(pvc.metadata.name.clone(), pvc.clone());
             }
-            Operation::UpdatePersistentVolumeClaim(pvc) => {
+            ControllerAction::UpdatePersistentVolumeClaim(pvc) => {
                 self.persistent_volume_claims
                     .insert(pvc.metadata.name.clone(), pvc.clone());
             }

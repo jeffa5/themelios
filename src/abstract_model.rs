@@ -26,23 +26,27 @@ pub struct Change {
     /// The revision of the state that this change was generated from.
     pub revision: Revision,
     /// The operation to perform on the state.
-    pub operation: Operation,
+    pub operation: ControllerAction,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub enum Operation {
+pub enum ControllerAction {
     NodeJoin(usize, ResourceQuantities),
     ControllerJoin(usize),
-    NewPod(String),
+
+    // Pods
     CreatePod(Pod),
     DeletePod(Pod),
     SchedulePod(String, String),
-    RunPod(String, usize),
     UpdatePod(Pod),
+
+    // Deployments
     UpdateDeployment(Deployment),
     RequeueDeployment(Deployment),
     // Update just the status part of the resource, not triggering more reconciliations (I think)
     UpdateDeploymentStatus(Deployment),
+
+    // ReplicaSets
     CreateReplicaSet(ReplicaSet),
     UpdateReplicaSet(ReplicaSet),
     UpdateReplicaSetStatus(ReplicaSet),
@@ -50,12 +54,20 @@ pub enum Operation {
     // have this
     UpdateReplicaSets(Vec<ReplicaSet>),
     DeleteReplicaSet(ReplicaSet),
+
+    // StatefulSets
     UpdateStatefulSetStatus(StatefulSet),
+
+    // ControllerRevisions
     CreateControllerRevision(ControllerRevision),
     UpdateControllerRevision(ControllerRevision),
     DeleteControllerRevision(ControllerRevision),
+
+    // PersistentVolumeClaims
     CreatePersistentVolumeClaim(PersistentVolumeClaim),
     UpdatePersistentVolumeClaim(PersistentVolumeClaim),
+
+    // Environmental
     NodeCrash(usize),
 }
 
@@ -120,7 +132,7 @@ impl Model for AbstractModelCfg {
                 state.push_change(
                     Change {
                         revision: last_state.max_revision(),
-                        operation: Operation::NodeCrash(node),
+                        operation: ControllerAction::NodeCrash(node),
                     },
                     node,
                 );

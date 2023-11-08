@@ -1,11 +1,11 @@
 use crate::{
-    abstract_model::Operation,
+    abstract_model::ControllerAction,
     resources::{GroupVersionKind, Metadata, OwnerReference, Pod, PodStatus, PodTemplateSpec},
 };
 
 pub enum ValOrOp<V> {
     Resource(V),
-    Op(Operation),
+    Op(ControllerAction),
 }
 
 pub fn new_controller_ref(owner: &Metadata, gvk: &GroupVersionKind) -> OwnerReference {

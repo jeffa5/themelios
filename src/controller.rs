@@ -1,6 +1,6 @@
 use std::hash::Hash;
 
-use crate::abstract_model::Operation;
+use crate::abstract_model::ControllerAction;
 use crate::state::StateView;
 
 pub use deployment::DeploymentController;
@@ -31,7 +31,7 @@ pub trait Controller {
         id: usize,
         global_state: &StateView,
         local_state: &mut Self::State,
-    ) -> Option<Operation>;
+    ) -> Option<ControllerAction>;
 
     /// Name of this controller.
     fn name(&self) -> String;
@@ -69,7 +69,7 @@ impl Controller for Controllers {
         id: usize,
         global_state: &StateView,
         local_state: &mut Self::State,
-    ) -> Option<Operation> {
+    ) -> Option<ControllerAction> {
         match (self, local_state) {
             (Controllers::Node(c), ControllerStates::Node(s)) => c.step(id, global_state, s),
             (Controllers::Scheduler(c), ControllerStates::Scheduler(s)) => {
