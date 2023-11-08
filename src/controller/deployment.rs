@@ -142,65 +142,10 @@ fn reconcile(
 
     // TODO: handle podmap thing
 
-    // trim down replicasets to those for this deployment
-    let (replicaset_matches, not_our_replicasets): (Vec<_>, Vec<_>) = all_replicasets
-        .iter()
-        .copied()
-        .partition(|rs| deployment.spec.selector.matches(&rs.metadata.labels));
-
-    for rs in not_our_replicasets {
-        // try and disown things that aren't ours
-        // TODO: should we check that this is a deployment kind?
-        if rs
-            .metadata
-            .owner_references
-            .iter()
-            .any(|or| or.name == deployment.metadata.name)
-        {
-            debug!("Updating replicaset to remove ourselves as an owner");
-            let mut rs = rs.clone();
-            rs.metadata
-                .owner_references
-                .retain(|or| or.uid != deployment.metadata.uid);
-            return Some(Operation::UpdateReplicaSet(rs));
-        }
-    }
-
-    let mut replicasets = Vec::new();
-    for rs in &replicaset_matches {
-        // claim any that don't have the owner reference set with controller
-        // TODO: should we check that this is a deployment kind?
-        let owned = rs.metadata.owner_references.iter().any(|or| or.controller);
-        if !owned {
-            // our ref isn't there, set it
-            debug!("Claiming replicaset");
-            let mut rs = (*rs).clone();
-            if let Some(us) = rs
-                .metadata
-                .owner_references
-                .iter_mut()
-                .find(|or| or.uid == deployment.metadata.uid)
-            {
-                us.block_owner_deletion = true;
-                us.controller = true;
-            } else {
-                rs.metadata
-                    .owner_references
-                    .push(new_controller_ref(&deployment.metadata, &CONTROLLER_KIND));
-            }
-            return Some(Operation::UpdateReplicaSet(rs));
-        }
-
-        // collect the ones that we actually own
-        let ours = rs
-            .metadata
-            .owner_references
-            .iter()
-            .find(|or| or.uid == deployment.metadata.uid);
-        if ours.is_some() {
-            replicasets.push(*rs)
-        }
-    }
+    let replicasets = match claim_replicasets(deployment, all_replicasets) {
+        ResourceOrOp::Resource(r) => r,
+        ResourceOrOp::Op(op) => return Some(op),
+    };
 
     if deployment.metadata.deletion_timestamp.is_some() {
         return sync_status_only(&mut deployment.clone(), &replicasets, all_replicasets);
@@ -250,6 +195,72 @@ fn reconcile(
             rollout_rolling(&mut deployment.clone(), &replicasets, all_replicasets)
         }
     }
+}
+
+fn claim_replicasets<'a>(
+    deployment: &DeploymentResource,
+    all_replicasets: &[&'a ReplicaSetResource],
+) -> ResourceOrOp<Vec<&'a ReplicaSetResource>> {
+    // trim down replicasets to those for this deployment
+    let (replicaset_matches, not_our_replicasets): (Vec<_>, Vec<_>) = all_replicasets
+        .iter()
+        .copied()
+        .partition(|rs| deployment.spec.selector.matches(&rs.metadata.labels));
+
+    for rs in not_our_replicasets {
+        // try and disown things that aren't ours
+        // TODO: should we check that this is a deployment kind?
+        if rs
+            .metadata
+            .owner_references
+            .iter()
+            .any(|or| or.name == deployment.metadata.name)
+        {
+            debug!("Updating replicaset to remove ourselves as an owner");
+            let mut rs = rs.clone();
+            rs.metadata
+                .owner_references
+                .retain(|or| or.uid != deployment.metadata.uid);
+            return ResourceOrOp::Op(Operation::UpdateReplicaSet(rs));
+        }
+    }
+
+    let mut replicasets = Vec::new();
+    for rs in &replicaset_matches {
+        // claim any that don't have the owner reference set with controller
+        // TODO: should we check that this is a deployment kind?
+        let owned = rs.metadata.owner_references.iter().any(|or| or.controller);
+        if !owned {
+            // our ref isn't there, set it
+            debug!("Claiming replicaset");
+            let mut rs = (*rs).clone();
+            if let Some(us) = rs
+                .metadata
+                .owner_references
+                .iter_mut()
+                .find(|or| or.uid == deployment.metadata.uid)
+            {
+                us.block_owner_deletion = true;
+                us.controller = true;
+            } else {
+                rs.metadata
+                    .owner_references
+                    .push(new_controller_ref(&deployment.metadata, &CONTROLLER_KIND));
+            }
+            return ResourceOrOp::Op(Operation::UpdateReplicaSet(rs));
+        }
+
+        // collect the ones that we actually own
+        let ours = rs
+            .metadata
+            .owner_references
+            .iter()
+            .find(|or| or.uid == deployment.metadata.uid);
+        if ours.is_some() {
+            replicasets.push(*rs)
+        }
+    }
+    ResourceOrOp::Resource(replicasets)
 }
 
 fn sync_status_only(
