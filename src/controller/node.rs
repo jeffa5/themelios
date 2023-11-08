@@ -6,17 +6,17 @@ use crate::resources::ResourceQuantities;
 use crate::state::StateView;
 
 #[derive(Clone, Debug)]
-pub struct Node {
+pub struct NodeController {
     pub name: String,
 }
 
 #[derive(Debug, Default, Hash, Clone, PartialEq, Eq)]
-pub struct NodeState {
+pub struct NodeControllerState {
     pub running: Vec<String>,
 }
 
-impl Controller for Node {
-    type State = NodeState;
+impl Controller for NodeController {
+    type State = NodeControllerState;
 
     fn step(
         &self,

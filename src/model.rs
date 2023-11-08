@@ -3,7 +3,10 @@ use stateright::actor::{ActorModel, Network};
 use crate::{
     abstract_model::AbstractModelCfg,
     actor_model::{ActorModelCfg, ActorState, Actors, ControllerActor, Datastore},
-    controller::{Controllers, Deployment, Node, ReplicaSet, Scheduler, StatefulSet},
+    controller::{
+        Controllers, DeploymentController, NodeController, ReplicaSetController,
+        SchedulerController, StatefulSetController,
+    },
     state::{ConsistencySetup, StateView},
 };
 
@@ -43,25 +46,31 @@ impl OrchestrationModelCfg {
         }
 
         for i in 0..self.nodes {
-            model = model.actor(Actors::Node(ControllerActor::new(Node {
+            model = model.actor(Actors::Node(ControllerActor::new(NodeController {
                 name: format!("node-{i}"),
             })));
         }
 
         for _ in 0..self.schedulers {
-            model = model.actor(Actors::Scheduler(ControllerActor::new(Scheduler)));
+            model = model.actor(Actors::Scheduler(ControllerActor::new(SchedulerController)));
         }
 
         for _ in 0..self.replicaset_controllers {
-            model = model.actor(Actors::ReplicaSet(ControllerActor::new(ReplicaSet)));
+            model = model.actor(Actors::ReplicaSet(ControllerActor::new(
+                ReplicaSetController,
+            )));
         }
 
         for _ in 0..self.deployment_controllers {
-            model = model.actor(Actors::Deployment(ControllerActor::new(Deployment)));
+            model = model.actor(Actors::Deployment(ControllerActor::new(
+                DeploymentController,
+            )));
         }
 
         for _ in 0..self.replicaset_controllers {
-            model = model.actor(Actors::StatefulSet(ControllerActor::new(StatefulSet)));
+            model = model.actor(Actors::StatefulSet(ControllerActor::new(
+                StatefulSetController,
+            )));
         }
 
         model = model.init_network(Network::new_unordered_nonduplicating(vec![]));
@@ -100,27 +109,33 @@ impl OrchestrationModelCfg {
         assert!(self.datastores > 0);
 
         for i in 0..self.nodes {
-            model.controllers.push(Controllers::Node(Node {
+            model.controllers.push(Controllers::Node(NodeController {
                 name: format!("node-{i}"),
             }));
         }
 
         for _ in 0..self.schedulers {
-            model.controllers.push(Controllers::Scheduler(Scheduler));
+            model
+                .controllers
+                .push(Controllers::Scheduler(SchedulerController));
         }
 
         for _ in 0..self.replicaset_controllers {
-            model.controllers.push(Controllers::ReplicaSet(ReplicaSet));
+            model
+                .controllers
+                .push(Controllers::ReplicaSet(ReplicaSetController));
         }
 
         for _ in 0..self.deployment_controllers {
-            model.controllers.push(Controllers::Deployment(Deployment));
+            model
+                .controllers
+                .push(Controllers::Deployment(DeploymentController));
         }
 
         for _ in 0..self.statefulset_controllers {
             model
                 .controllers
-                .push(Controllers::StatefulSet(StatefulSet));
+                .push(Controllers::StatefulSet(StatefulSetController));
         }
 
         model

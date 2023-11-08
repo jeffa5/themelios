@@ -2,10 +2,11 @@ use std::borrow::Cow;
 
 use stateright::actor::{Actor, Out};
 
-use crate::controller::{ControllerStates, Deployment, StatefulSet};
+use crate::controller::{ControllerStates, DeploymentController, StatefulSetController};
 use crate::state::{State, StateView};
 use crate::{
-    abstract_model::Change, controller::Node, controller::ReplicaSet, controller::Scheduler,
+    abstract_model::Change, controller::NodeController, controller::ReplicaSetController,
+    controller::SchedulerController,
 };
 
 pub use self::controller::ControllerActor;
@@ -26,11 +27,11 @@ pub enum Message {
 
 pub enum Actors {
     Datastore(Datastore),
-    Node(ControllerActor<Node>),
-    Scheduler(ControllerActor<Scheduler>),
-    ReplicaSet(ControllerActor<ReplicaSet>),
-    Deployment(ControllerActor<Deployment>),
-    StatefulSet(ControllerActor<StatefulSet>),
+    Node(ControllerActor<NodeController>),
+    Scheduler(ControllerActor<SchedulerController>),
+    ReplicaSet(ControllerActor<ReplicaSetController>),
+    Deployment(ControllerActor<DeploymentController>),
+    StatefulSet(ControllerActor<StatefulSetController>),
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]

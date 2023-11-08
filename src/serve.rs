@@ -10,12 +10,12 @@ use tracing::warn;
 
 use crate::abstract_model::Operation;
 use crate::controller::{
-    Controller, Deployment, DeploymentState, ReplicaSet, ReplicaSetState, Scheduler,
-    SchedulerState, StatefulSet, StatefulSetState,
+    Controller, DeploymentController, DeploymentControllerState, ReplicaSetController,
+    ReplicaSetControllerState, SchedulerController, SchedulerControllerState,
+    StatefulSetController, StatefulSetControllerState,
 };
 use crate::resources::{
-    ControllerRevision, DeploymentResource, NodeResource, PersistentVolumeClaim, PodResource,
-    ReplicaSetResource, StatefulSetResource,
+    ControllerRevision, Deployment, Node, PersistentVolumeClaim, Pod, ReplicaSet, StatefulSet,
 };
 use crate::state::{Revision, StateView};
 
@@ -30,9 +30,9 @@ pub fn app() -> Router {
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct SchedulerRequest {
-    pod: PodResource,
-    bound_pods: Vec<PodResource>,
-    nodes: Vec<NodeResource>,
+    pod: Pod,
+    bound_pods: Vec<Pod>,
+    nodes: Vec<Node>,
     persistent_volume_claims: Vec<PersistentVolumeClaim>,
 }
 
@@ -47,54 +47,42 @@ enum SchedulerResponse {
 
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 struct DeploymentRequest {
-    deployment: DeploymentResource,
-    replicasets: Vec<ReplicaSetResource>,
+    deployment: Deployment,
+    replicasets: Vec<ReplicaSet>,
 }
 
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 #[serde(tag = "action", rename_all = "camelCase")]
 enum DeploymentResponse {
-    UpdateDeployment {
-        deployment: DeploymentResource,
-    },
-    RequeueDeployment {
-        deployment: DeploymentResource,
-    },
-    UpdateDeploymentStatus {
-        deployment: DeploymentResource,
-    },
-    CreateReplicaSet {
-        replicaset: ReplicaSetResource,
-    },
-    UpdateReplicaSet {
-        replicaset: ReplicaSetResource,
-    },
-    UpdateReplicaSets {
-        replicasets: Vec<ReplicaSetResource>,
-    },
+    UpdateDeployment { deployment: Deployment },
+    RequeueDeployment { deployment: Deployment },
+    UpdateDeploymentStatus { deployment: Deployment },
+    CreateReplicaSet { replicaset: ReplicaSet },
+    UpdateReplicaSet { replicaset: ReplicaSet },
+    UpdateReplicaSets { replicasets: Vec<ReplicaSet> },
 }
 
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 struct ReplicasetRequest {
-    replicaset: ReplicaSetResource,
-    replicasets: Vec<ReplicaSetResource>,
-    pods: Vec<PodResource>,
+    replicaset: ReplicaSet,
+    replicasets: Vec<ReplicaSet>,
+    pods: Vec<Pod>,
 }
 
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 #[serde(tag = "action", rename_all = "camelCase")]
 enum ReplicasetResponse {
-    UpdatePod { pod: PodResource },
-    CreatePod { pod: PodResource },
-    DeletePod { pod: PodResource },
-    UpdateReplicaSetStatus { replicaset: ReplicaSetResource },
+    UpdatePod { pod: Pod },
+    CreatePod { pod: Pod },
+    DeletePod { pod: Pod },
+    UpdateReplicaSetStatus { replicaset: ReplicaSet },
 }
 
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct StatefulSetRequest {
-    statefulset: StatefulSetResource,
-    pods: Vec<PodResource>,
+    statefulset: StatefulSet,
+    pods: Vec<Pod>,
     controller_revisions: Vec<ControllerRevision>,
     persistent_volume_claims: Vec<PersistentVolumeClaim>,
 }
@@ -103,16 +91,16 @@ struct StatefulSetRequest {
 #[serde(tag = "action", rename_all = "camelCase")]
 enum StatefulSetResponse {
     UpdatePod {
-        pod: PodResource,
+        pod: Pod,
     },
     CreatePod {
-        pod: PodResource,
+        pod: Pod,
     },
     DeletePod {
-        pod: PodResource,
+        pod: Pod,
     },
     UpdateStatefulSetStatus {
-        statefulset: StatefulSetResource,
+        statefulset: StatefulSet,
     },
     CreateControllerRevision {
         #[serde(rename = "controllerRevision")]
@@ -174,7 +162,7 @@ impl IntoResponse for ErrorResponse {
 async fn scheduler(
     Json(payload): Json<SchedulerRequest>,
 ) -> Result<Json<SchedulerResponse>, ErrorResponse> {
-    let s = Scheduler;
+    let s = SchedulerController;
     debug!("Got scheduler request");
     println!("{}", serde_yaml::to_string(&payload).unwrap());
     let controller_id = 0;
@@ -195,7 +183,7 @@ async fn scheduler(
         controllers: btreeset![controller_id],
         ..Default::default()
     };
-    let mut local_state = SchedulerState;
+    let mut local_state = SchedulerControllerState;
     let operation = s.step(controller_id, &state_view, &mut local_state);
     debug!(?operation, "Got operation");
     match operation {
@@ -211,7 +199,7 @@ async fn scheduler(
 async fn deployment(
     Json(payload): Json<DeploymentRequest>,
 ) -> Result<Json<DeploymentResponse>, ErrorResponse> {
-    let s = Deployment;
+    let s = DeploymentController;
     debug!("Got deployment controller request");
     println!("{}", serde_yaml::to_string(&payload).unwrap());
     let controller_id = 0;
@@ -226,7 +214,7 @@ async fn deployment(
         controllers: btreeset![controller_id],
         ..Default::default()
     };
-    let mut local_state = DeploymentState;
+    let mut local_state = DeploymentControllerState;
     let operation = s.step(controller_id, &state_view, &mut local_state);
     debug!(?operation, "Got operation");
     match operation {
@@ -263,7 +251,7 @@ async fn deployment(
 async fn replicaset(
     Json(payload): Json<ReplicasetRequest>,
 ) -> Result<Json<ReplicasetResponse>, ErrorResponse> {
-    let s = ReplicaSet;
+    let s = ReplicaSetController;
     debug!("Got replicaset controller request");
     println!("{}", serde_yaml::to_string(&payload).unwrap());
     let controller_id = 0;
@@ -288,7 +276,7 @@ async fn replicaset(
         controllers: btreeset![controller_id],
         ..Default::default()
     };
-    let mut local_state = ReplicaSetState;
+    let mut local_state = ReplicaSetControllerState;
     let operation = s.step(controller_id, &state_view, &mut local_state);
     debug!(?operation, "Got operation");
     match operation {
@@ -312,7 +300,7 @@ async fn replicaset(
 async fn statefulset(
     Json(payload): Json<StatefulSetRequest>,
 ) -> Result<Json<StatefulSetResponse>, ErrorResponse> {
-    let s = StatefulSet;
+    let s = StatefulSetController;
     debug!("Got statefulset controller request");
     println!("{}", serde_yaml::to_string(&payload).unwrap());
     let controller_id = 0;
@@ -337,7 +325,7 @@ async fn statefulset(
         controllers: btreeset![controller_id],
         ..Default::default()
     };
-    let mut local_state = StatefulSetState;
+    let mut local_state = StatefulSetControllerState;
     let operation = s.step(controller_id, &state_view, &mut local_state);
     debug!(?operation, "Got operation");
     match operation {

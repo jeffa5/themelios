@@ -1,12 +1,10 @@
 use crate::{
     abstract_model::Operation,
-    resources::{
-        GroupVersionKind, Metadata, OwnerReference, PodResource, PodStatus, PodTemplateSpec,
-    },
+    resources::{GroupVersionKind, Metadata, OwnerReference, Pod, PodStatus, PodTemplateSpec},
 };
 
-pub enum ResourceOrOp<R> {
-    Resource(R),
+pub enum ValOrOp<V> {
+    Resource(V),
     Op(Operation),
 }
 
@@ -25,12 +23,12 @@ pub fn get_pod_from_template(
     metadata: &Metadata,
     template: &PodTemplateSpec,
     controller_kind: &GroupVersionKind,
-) -> PodResource {
+) -> Pod {
     let desired_labels = template.metadata.labels.clone();
     let desired_finalizers = template.metadata.finalizers.clone();
     let desired_annotations = template.metadata.annotations.clone();
     let prefix = get_pods_prefix(&metadata.name);
-    let mut pod = PodResource {
+    let mut pod = Pod {
         metadata: Metadata {
             generate_name: prefix,
             namespace: metadata.namespace.clone(),

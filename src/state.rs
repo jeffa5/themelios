@@ -5,10 +5,7 @@ use crate::resources::{ControllerRevision, PersistentVolumeClaim};
 use crate::utils;
 use crate::{
     abstract_model::{Change, Operation},
-    resources::{
-        DeploymentResource, NodeResource, PodResource, PodSpec, PodStatus, ReplicaSetResource,
-        StatefulSetResource,
-    },
+    resources::{Deployment, Node, Pod, PodSpec, PodStatus, ReplicaSet, StatefulSet},
 };
 
 /// Consistency level for viewing the state with.
@@ -557,42 +554,36 @@ pub struct StateView {
     // Ignore the revision field as we just care whether the rest of the state is the same.
     #[derivative(PartialEq = "ignore", Hash = "ignore")]
     pub revision: Revision,
-    pub nodes: BTreeMap<usize, NodeResource>,
+    pub nodes: BTreeMap<usize, Node>,
     /// Set of the controllers that have joined the cluster.
     pub controllers: BTreeSet<usize>,
-    pub pods: BTreeMap<String, PodResource>,
-    pub replica_sets: BTreeMap<String, ReplicaSetResource>,
-    pub deployments: BTreeMap<String, DeploymentResource>,
-    pub statefulsets: BTreeMap<String, StatefulSetResource>,
+    pub pods: BTreeMap<String, Pod>,
+    pub replica_sets: BTreeMap<String, ReplicaSet>,
+    pub deployments: BTreeMap<String, Deployment>,
+    pub statefulsets: BTreeMap<String, StatefulSet>,
     pub controller_revisions: BTreeMap<String, ControllerRevision>,
     pub persistent_volume_claims: BTreeMap<String, PersistentVolumeClaim>,
 }
 
 impl StateView {
-    pub fn with_pods(mut self, pods: impl Iterator<Item = PodResource>) -> Self {
+    pub fn with_pods(mut self, pods: impl Iterator<Item = Pod>) -> Self {
         self.set_pods(pods);
         self
     }
 
-    pub fn set_pods(&mut self, pods: impl Iterator<Item = PodResource>) -> &mut Self {
+    pub fn set_pods(&mut self, pods: impl Iterator<Item = Pod>) -> &mut Self {
         for pod in pods {
             self.pods.insert(pod.metadata.name.clone(), pod);
         }
         self
     }
 
-    pub fn with_replicasets(
-        mut self,
-        replicasets: impl Iterator<Item = ReplicaSetResource>,
-    ) -> Self {
+    pub fn with_replicasets(mut self, replicasets: impl Iterator<Item = ReplicaSet>) -> Self {
         self.set_replicasets(replicasets);
         self
     }
 
-    pub fn set_replicasets(
-        &mut self,
-        replicasets: impl Iterator<Item = ReplicaSetResource>,
-    ) -> &mut Self {
+    pub fn set_replicasets(&mut self, replicasets: impl Iterator<Item = ReplicaSet>) -> &mut Self {
         for replicaset in replicasets {
             self.replica_sets
                 .insert(replicaset.metadata.name.clone(), replicaset);
@@ -600,18 +591,12 @@ impl StateView {
         self
     }
 
-    pub fn with_deployments(
-        mut self,
-        deployments: impl Iterator<Item = DeploymentResource>,
-    ) -> Self {
+    pub fn with_deployments(mut self, deployments: impl Iterator<Item = Deployment>) -> Self {
         self.set_deployments(deployments);
         self
     }
 
-    pub fn set_deployments(
-        &mut self,
-        deployments: impl Iterator<Item = DeploymentResource>,
-    ) -> &mut Self {
+    pub fn set_deployments(&mut self, deployments: impl Iterator<Item = Deployment>) -> &mut Self {
         for deployment in deployments {
             self.deployments
                 .insert(deployment.metadata.name.clone(), deployment);
@@ -619,17 +604,14 @@ impl StateView {
         self
     }
 
-    pub fn with_statefulsets(
-        mut self,
-        statefulsets: impl Iterator<Item = StatefulSetResource>,
-    ) -> Self {
+    pub fn with_statefulsets(mut self, statefulsets: impl Iterator<Item = StatefulSet>) -> Self {
         self.set_statefulsets(statefulsets);
         self
     }
 
     pub fn set_statefulsets(
         &mut self,
-        statefulsets: impl Iterator<Item = StatefulSetResource>,
+        statefulsets: impl Iterator<Item = StatefulSet>,
     ) -> &mut Self {
         for statefulset in statefulsets {
             self.statefulsets
@@ -643,7 +625,7 @@ impl StateView {
             Operation::NodeJoin(i, capacity) => {
                 self.nodes.insert(
                     *i,
-                    NodeResource {
+                    Node {
                         metadata: utils::metadata(format!("node-{i}")),
                         spec: crate::resources::NodeSpec {
                             taints: Vec::new(),
@@ -662,7 +644,7 @@ impl StateView {
             Operation::NewPod(i) => {
                 self.pods.insert(
                     i.clone(),
-                    PodResource {
+                    Pod {
                         metadata: utils::metadata(i.clone()),
                         spec: PodSpec {
                             scheduler_name: None,
@@ -772,7 +754,7 @@ impl StateView {
         self.revision = new_revision;
     }
 
-    pub fn pods_for_node(&self, node: &str) -> Vec<&PodResource> {
+    pub fn pods_for_node(&self, node: &str) -> Vec<&Pod> {
         self.pods
             .values()
             .filter(|p| p.spec.node_name.as_ref().map_or(false, |n| n == node))

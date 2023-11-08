@@ -3,18 +3,18 @@ use std::io::IsTerminal;
 
 use clap::Parser;
 use model_checked_orchestration::model;
-use model_checked_orchestration::resources::DeploymentResource;
+use model_checked_orchestration::resources::Deployment;
 use model_checked_orchestration::resources::DeploymentSpec;
 use model_checked_orchestration::resources::DeploymentStatus;
 use model_checked_orchestration::resources::LabelSelector;
-use model_checked_orchestration::resources::PodResource;
+use model_checked_orchestration::resources::Pod;
 use model_checked_orchestration::resources::PodSpec;
 use model_checked_orchestration::resources::PodStatus;
 use model_checked_orchestration::resources::PodTemplateSpec;
-use model_checked_orchestration::resources::ReplicaSetResource;
+use model_checked_orchestration::resources::ReplicaSet;
 use model_checked_orchestration::resources::ReplicaSetSpec;
 use model_checked_orchestration::resources::ReplicaSetStatus;
-use model_checked_orchestration::resources::StatefulSetResource;
+use model_checked_orchestration::resources::StatefulSet;
 use model_checked_orchestration::resources::StatefulSetSpec;
 use model_checked_orchestration::resources::StatefulSetStatus;
 use model_checked_orchestration::state::ConsistencySetup;
@@ -49,7 +49,7 @@ fn main() {
         .init();
 
     let initial_state = StateView::default()
-        .with_pods((0..opts.initial_pods).map(|i| PodResource {
+        .with_pods((0..opts.initial_pods).map(|i| Pod {
             metadata: utils::metadata(format!("pod-{i}")),
             spec: PodSpec {
                 node_name: None,
@@ -65,7 +65,7 @@ fn main() {
             },
             status: PodStatus::default(),
         }))
-        .with_replicasets((1..=opts.replicasets).map(|i| ReplicaSetResource {
+        .with_replicasets((1..=opts.replicasets).map(|i| ReplicaSet {
             metadata: utils::metadata(format!("rep-{i}")),
             spec: ReplicaSetSpec {
                 replicas: Some(opts.pods_per_replicaset),
@@ -91,7 +91,7 @@ fn main() {
             },
             status: ReplicaSetStatus::default(),
         }))
-        .with_deployments((1..=opts.deployments).map(|i| DeploymentResource {
+        .with_deployments((1..=opts.deployments).map(|i| Deployment {
             metadata: utils::metadata(format!("dep-{i}")),
             spec: DeploymentSpec {
                 replicas: opts.pods_per_replicaset,
@@ -121,7 +121,7 @@ fn main() {
             },
             status: DeploymentStatus::default(),
         }))
-        .with_statefulsets((1..=opts.statefulsets).map(|i| StatefulSetResource {
+        .with_statefulsets((1..=opts.statefulsets).map(|i| StatefulSet {
             metadata: utils::metadata(format!("sts-{i}")),
             spec: StatefulSetSpec {
                 replicas: Some(opts.pods_per_statefulset),

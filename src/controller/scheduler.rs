@@ -2,17 +2,17 @@ use tracing::debug;
 
 use crate::abstract_model::Operation;
 use crate::controller::Controller;
-use crate::resources::{NodeResource, PersistentVolumeClaim, PodResource, ResourceQuantities};
+use crate::resources::{Node, PersistentVolumeClaim, Pod, ResourceQuantities};
 use crate::state::StateView;
 
 #[derive(Clone, Debug)]
-pub struct Scheduler;
+pub struct SchedulerController;
 
 #[derive(Debug, Default, Hash, Clone, PartialEq, Eq)]
-pub struct SchedulerState;
+pub struct SchedulerControllerState;
 
-impl Controller for Scheduler {
-    type State = SchedulerState;
+impl Controller for SchedulerController {
+    type State = SchedulerControllerState;
 
     fn step(
         &self,
@@ -56,8 +56,8 @@ impl Controller for Scheduler {
 }
 
 fn schedule(
-    pod: &PodResource,
-    nodes: &[(&NodeResource, Vec<&PodResource>)],
+    pod: &Pod,
+    nodes: &[(&Node, Vec<&Pod>)],
     pvcs: &[&PersistentVolumeClaim],
 ) -> Option<Operation> {
     // try to find a node suitable
@@ -92,7 +92,7 @@ fn schedule(
     None
 }
 
-fn tolerates_taints(pod: &PodResource, node: &NodeResource) -> bool {
+fn tolerates_taints(pod: &Pod, node: &Node) -> bool {
     for taint in &node.spec.taints {
         if pod.spec.tolerations.iter().any(|t| t.key == taint.key) {
             // this pod tolerates this taint and so is immune to its effects
@@ -104,7 +104,7 @@ fn tolerates_taints(pod: &PodResource, node: &NodeResource) -> bool {
     true
 }
 
-fn volumes_exist(pod: &PodResource, pvcs: &[&PersistentVolumeClaim]) -> bool {
+fn volumes_exist(pod: &Pod, pvcs: &[&PersistentVolumeClaim]) -> bool {
     for volume in &pod.spec.volumes {
         if !pvcs.iter().any(|pvc| pvc.metadata.name == volume.name) {
             return false;
@@ -113,7 +113,7 @@ fn volumes_exist(pod: &PodResource, pvcs: &[&PersistentVolumeClaim]) -> bool {
     true
 }
 
-fn fits_resources(pod: &PodResource, node: &NodeResource, pods_for_node: &[&PodResource]) -> bool {
+fn fits_resources(pod: &Pod, node: &Node, pods_for_node: &[&Pod]) -> bool {
     let requests = pod
         .spec
         .containers

@@ -139,13 +139,13 @@ pub struct OwnerReference {
 #[diff(attr(
     #[derive(Debug, PartialEq)]
 ))]
-pub struct PodResource {
+pub struct Pod {
     pub metadata: Metadata,
     pub spec: PodSpec,
     pub status: PodStatus,
 }
 
-impl PodResource {
+impl Pod {
     pub const GVK: GroupVersionKind = GroupVersionKind {
         group: "",
         version: "v1",
@@ -491,13 +491,13 @@ impl SubAssign for ResourceQuantities {
 #[diff(attr(
     #[derive(Debug, PartialEq)]
 ))]
-pub struct ReplicaSetResource {
+pub struct ReplicaSet {
     pub metadata: Metadata,
     pub spec: ReplicaSetSpec,
     pub status: ReplicaSetStatus,
 }
 
-impl ReplicaSetResource {
+impl ReplicaSet {
     pub fn pods(&self) -> Vec<String> {
         (0..self.status.replicas)
             .map(|i| format!("{}-{}", self.metadata.name, i))
@@ -610,13 +610,13 @@ pub enum ConditionStatus {
 #[diff(attr(
     #[derive(Debug, PartialEq)]
 ))]
-pub struct DeploymentResource {
+pub struct Deployment {
     pub metadata: Metadata,
     pub spec: DeploymentSpec,
     pub status: DeploymentStatus,
 }
 
-impl DeploymentResource {
+impl Deployment {
     pub fn replicasets(&self) -> Vec<String> {
         vec![self.metadata.name.clone()]
     }
@@ -803,13 +803,13 @@ pub struct ControllerRevision {
     #[derive(Debug, PartialEq)]
 ))]
 #[serde(rename_all = "camelCase")]
-pub struct StatefulSetResource {
+pub struct StatefulSet {
     pub metadata: Metadata,
     pub spec: StatefulSetSpec,
     pub status: StatefulSetStatus,
 }
 
-impl StatefulSetResource {
+impl StatefulSet {
     pub const GVK: GroupVersionKind = GroupVersionKind {
         group: "apps",
         version: "v1",
@@ -1022,7 +1022,7 @@ pub struct PersistentVolumeClaimStatus {
 #[diff(attr(
     #[derive(Debug, PartialEq)]
 ))]
-pub struct NodeResource {
+pub struct Node {
     pub metadata: Metadata,
     pub spec: NodeSpec,
     pub status: NodeStatus,

@@ -3,7 +3,7 @@ use std::{collections::BTreeMap, time::Duration};
 use tracing::debug;
 
 use super::{
-    util::{get_pod_from_template, new_controller_ref, ResourceOrOp},
+    util::{get_pod_from_template, new_controller_ref, ValOrOp},
     Controller,
 };
 use crate::{
@@ -11,10 +11,9 @@ use crate::{
     hasher::FnvHasher,
     resources::{
         ConditionStatus, ControllerRevision, GroupVersionKind, Metadata, OwnerReference,
-        PersistentVolumeClaim, PersistentVolumeClaimVolumeSource, PodConditionType,
-        PodManagementPolicyType, PodPhase, PodResource,
-        StatefulSetPersistentVolumeClaimRetentionPolicyType, StatefulSetResource,
-        StatefulSetStatus, Volume,
+        PersistentVolumeClaim, PersistentVolumeClaimVolumeSource, Pod, PodConditionType,
+        PodManagementPolicyType, PodPhase, StatefulSet,
+        StatefulSetPersistentVolumeClaimRetentionPolicyType, StatefulSetStatus, Volume,
     },
     state::StateView,
     utils::now,
@@ -26,13 +25,13 @@ const POD_INDEX_LABEL: &str = "apps.kubernetes.io/pod-index";
 const CONTROLLER_REVISION_HASH_LABEL: &str = "controller.kubernetes.io/hash";
 
 #[derive(Clone, Debug)]
-pub struct StatefulSet;
+pub struct StatefulSetController;
 
 #[derive(Debug, Default, Hash, Clone, PartialEq, Eq)]
-pub struct StatefulSetState;
+pub struct StatefulSetControllerState;
 
-impl Controller for StatefulSet {
-    type State = StatefulSetState;
+impl Controller for StatefulSetController {
+    type State = StatefulSetControllerState;
 
     fn step(
         &self,
@@ -67,8 +66,8 @@ impl Controller for StatefulSet {
 }
 
 fn reconcile(
-    statefulset: &StatefulSetResource,
-    all_pods: &[&PodResource],
+    statefulset: &StatefulSet,
+    all_pods: &[&Pod],
     all_revisions: &[&ControllerRevision],
     all_pvcs: &[&PersistentVolumeClaim],
 ) -> Option<Operation> {
@@ -92,8 +91,8 @@ fn reconcile(
 }
 
 fn sync(
-    statefulset: &StatefulSetResource,
-    pods: &[&PodResource],
+    statefulset: &StatefulSet,
+    pods: &[&Pod],
     revisions: &[&ControllerRevision],
     pvcs: &[&PersistentVolumeClaim],
 ) -> Option<Operation> {
@@ -104,8 +103,8 @@ fn sync(
 }
 
 fn update_statefulset(
-    statefulset: &StatefulSetResource,
-    pods: &[&PodResource],
+    statefulset: &StatefulSet,
+    pods: &[&Pod],
     revisions: &[&ControllerRevision],
     pvcs: &[&PersistentVolumeClaim],
 ) -> Option<Operation> {
@@ -115,8 +114,8 @@ fn update_statefulset(
 
     let rop = perform_update(statefulset, pods, &revisions, pvcs);
     let (current_revision, update_revision, _status) = match rop {
-        ResourceOrOp::Op(op) => return Some(op),
-        ResourceOrOp::Resource(r) => r,
+        ValOrOp::Op(op) => return Some(op),
+        ValOrOp::Resource(r) => r,
     };
 
     // maintain the set's revision history limit
@@ -146,16 +145,16 @@ fn sort_controller_revisions(revisions: &mut [&ControllerRevision]) {
 }
 
 fn perform_update(
-    sts: &StatefulSetResource,
-    pods: &[&PodResource],
+    sts: &StatefulSet,
+    pods: &[&Pod],
     revisions: &[&ControllerRevision],
     pvcs: &[&PersistentVolumeClaim],
-) -> ResourceOrOp<(ControllerRevision, ControllerRevision, StatefulSetStatus)> {
+) -> ValOrOp<(ControllerRevision, ControllerRevision, StatefulSetStatus)> {
     debug!("perform_update");
     let (current_revision, update_revision, collision_count) =
         match get_statefulset_revisions(sts, revisions) {
-            ResourceOrOp::Resource(r) => r,
-            ResourceOrOp::Op(op) => return ResourceOrOp::Op(op),
+            ValOrOp::Resource(r) => r,
+            ValOrOp::Op(op) => return ValOrOp::Op(op),
         };
 
     let current_status = do_update_statefulset(
@@ -167,15 +166,15 @@ fn perform_update(
         pvcs,
     );
     let mut current_status = match current_status {
-        ResourceOrOp::Resource(r) => r,
-        ResourceOrOp::Op(op) => return ResourceOrOp::Op(op),
+        ValOrOp::Resource(r) => r,
+        ValOrOp::Op(op) => return ValOrOp::Op(op),
     };
 
     if let Some(op) = update_statefulset_status(sts, &mut current_status) {
-        return ResourceOrOp::Op(op);
+        return ValOrOp::Op(op);
     }
 
-    ResourceOrOp::Resource((current_revision, update_revision, current_status))
+    ValOrOp::Resource((current_revision, update_revision, current_status))
 }
 
 // updateStatefulSet performs the update function for a StatefulSet. This method creates, updates, and deletes Pods in
@@ -188,13 +187,13 @@ fn perform_update(
 // Pods must be at Status.UpdateRevision. If the returned error is nil, the returned StatefulSetStatus is valid and the
 // update must be recorded. If the error is not nil, the method should be retried until successful.
 fn do_update_statefulset(
-    sts: &StatefulSetResource,
+    sts: &StatefulSet,
     current_revision: &ControllerRevision,
     update_revision: &ControllerRevision,
     collision_count: u32,
-    pods: &[&PodResource],
+    pods: &[&Pod],
     pvcs: &[&PersistentVolumeClaim],
-) -> ResourceOrOp<StatefulSetStatus> {
+) -> ValOrOp<StatefulSetStatus> {
     debug!("do_update_statefulset");
     let current_sts = apply_revision(sts, current_revision);
     let update_sts = apply_revision(sts, update_revision);
@@ -219,7 +218,7 @@ fn do_update_statefulset(
     if status != sts.status {
         let mut sts = sts.clone();
         sts.status = status;
-        return ResourceOrOp::Op(Operation::UpdateStatefulSetStatus(sts));
+        return ValOrOp::Op(Operation::UpdateStatefulSetStatus(sts));
     }
 
     let replica_count = sts.spec.replicas;
@@ -289,7 +288,7 @@ fn do_update_statefulset(
     // If the StatefulSet is being deleted, don't do anything other than updating
     // status.
     if sts.metadata.deletion_timestamp.is_some() {
-        return ResourceOrOp::Resource(status);
+        return ValOrOp::Resource(status);
     }
 
     let monotonic = !allows_burst(sts);
@@ -316,8 +315,8 @@ fn do_update_statefulset(
         process_replica_fn,
         monotonic,
     ) {
-        ResourceOrOp::Op(op) => return ResourceOrOp::Op(op),
-        ResourceOrOp::Resource(should_exit) => {
+        ValOrOp::Op(op) => return ValOrOp::Op(op),
+        ValOrOp::Resource(should_exit) => {
             if should_exit {
                 update_status(
                     &mut status,
@@ -329,7 +328,7 @@ fn do_update_statefulset(
                         condemned,
                     ],
                 );
-                return ResourceOrOp::Resource(status);
+                return ValOrOp::Resource(status);
             }
         }
     }
@@ -343,15 +342,15 @@ fn do_update_statefulset(
                 replica,
                 pvcs
             )) {
-                return ResourceOrOp::Op(op);
+                return ValOrOp::Op(op);
             }
         }
-        ResourceOrOp::Resource(false)
+        ValOrOp::Resource(false)
     };
     debug!("Fixing pod claims");
     match run_for_all(&condemned, fix_pod_claim, monotonic) {
-        ResourceOrOp::Op(op) => return ResourceOrOp::Op(op),
-        ResourceOrOp::Resource(should_exit) => {
+        ValOrOp::Op(op) => return ValOrOp::Op(op),
+        ValOrOp::Resource(should_exit) => {
             if should_exit {
                 update_status(
                     &mut status,
@@ -363,7 +362,7 @@ fn do_update_statefulset(
                         condemned,
                     ],
                 );
-                return ResourceOrOp::Resource(status);
+                return ValOrOp::Resource(status);
             }
         }
     }
@@ -379,8 +378,8 @@ fn do_update_statefulset(
 
     debug!("Processing condemned pods");
     match run_for_all(&condemned, process_condemned_fn, monotonic) {
-        ResourceOrOp::Op(op) => return ResourceOrOp::Op(op),
-        ResourceOrOp::Resource(should_exit) => {
+        ValOrOp::Op(op) => return ValOrOp::Op(op),
+        ValOrOp::Resource(should_exit) => {
             if should_exit {
                 update_status(
                     &mut status,
@@ -392,7 +391,7 @@ fn do_update_statefulset(
                         condemned,
                     ],
                 );
-                return ResourceOrOp::Resource(status);
+                return ValOrOp::Resource(status);
             }
         }
     }
@@ -410,7 +409,7 @@ fn do_update_statefulset(
 
     // for the OnDelete strategy we short circuit. Pods will be updated when they are manually deleted.
     if sts.spec.update_strategy.r#type == "OnDelete" {
-        return ResourceOrOp::Resource(status);
+        return ValOrOp::Resource(status);
     }
 
     // we compute the minimum ordinal of the target sequence for a destructive update based on the strategy.
@@ -426,22 +425,22 @@ fn do_update_statefulset(
         if get_pod_revision(replica.as_ref().unwrap()) != update_revision.metadata.name
             && is_terminating(replica.as_ref().unwrap())
         {
-            return ResourceOrOp::Op(Operation::DeletePod(replica.as_ref().unwrap().clone()));
+            return ValOrOp::Op(Operation::DeletePod(replica.as_ref().unwrap().clone()));
         }
 
         // wait for unhealthy Pods on update
         if !is_healthy(replica.as_ref().unwrap()) {
-            return ResourceOrOp::Resource(status);
+            return ValOrOp::Resource(status);
         }
     }
 
-    ResourceOrOp::Resource(status)
+    ValOrOp::Resource(status)
 }
 
 fn get_statefulset_revisions(
-    sts: &StatefulSetResource,
+    sts: &StatefulSet,
     revisions: &[&ControllerRevision],
-) -> ResourceOrOp<(ControllerRevision, ControllerRevision, u32)> {
+) -> ValOrOp<(ControllerRevision, ControllerRevision, u32)> {
     let revision_count = revisions.len();
     let mut revisions = revisions.to_vec();
     sort_controller_revisions(&mut revisions);
@@ -469,12 +468,12 @@ fn get_statefulset_revisions(
         if let Some(op) =
             update_controller_revision(equal_revisions[equal_count - 1], update_revision.revision)
         {
-            return ResourceOrOp::Op(op);
+            return ValOrOp::Op(op);
         }
         update_revision = equal_revisions[equal_count - 1].clone();
     } else {
         //if there is no equivalent revision we create a new one
-        return ResourceOrOp::Op(create_controller_revision(
+        return ValOrOp::Op(create_controller_revision(
             sts,
             &update_revision,
             collision_count,
@@ -496,12 +495,12 @@ fn get_statefulset_revisions(
         current_revision = Some(update_revision.clone());
     }
 
-    ResourceOrOp::Resource((current_revision.unwrap(), update_revision, collision_count))
+    ValOrOp::Resource((current_revision.unwrap(), update_revision, collision_count))
 }
 
 fn truncate_history(
-    sts: &StatefulSetResource,
-    pods: &[&PodResource],
+    sts: &StatefulSet,
+    pods: &[&Pod],
     revisions: &[&ControllerRevision],
     current_revision: &ControllerRevision,
     update_revision: &ControllerRevision,
@@ -537,15 +536,15 @@ fn truncate_history(
     None
 }
 
-fn is_healthy(pod: &PodResource) -> bool {
+fn is_healthy(pod: &Pod) -> bool {
     is_running_and_ready(pod) && !is_terminating(pod)
 }
 
-fn is_running_and_ready(pod: &PodResource) -> bool {
+fn is_running_and_ready(pod: &Pod) -> bool {
     pod.status.phase == PodPhase::Running && is_pod_ready(pod)
 }
 
-fn is_running_and_available(pod: &PodResource, min_ready_seconds: u32) -> bool {
+fn is_running_and_available(pod: &Pod, min_ready_seconds: u32) -> bool {
     if !is_pod_ready(pod) {
         return false;
     }
@@ -568,7 +567,7 @@ fn is_running_and_available(pod: &PodResource, min_ready_seconds: u32) -> bool {
     false
 }
 
-fn is_pod_ready(pod: &PodResource) -> bool {
+fn is_pod_ready(pod: &Pod) -> bool {
     pod.status
         .conditions
         .iter()
@@ -577,27 +576,23 @@ fn is_pod_ready(pod: &PodResource) -> bool {
         .unwrap_or_default()
 }
 
-fn is_terminating(pod: &PodResource) -> bool {
+fn is_terminating(pod: &Pod) -> bool {
     pod.metadata.deletion_timestamp.is_some()
 }
 
-fn is_created(pod: &PodResource) -> bool {
+fn is_created(pod: &Pod) -> bool {
     pod.status.phase != PodPhase::Unknown
 }
 
-fn is_pending(pod: &PodResource) -> bool {
+fn is_pending(pod: &Pod) -> bool {
     pod.status.phase == PodPhase::Pending
 }
 
-fn is_failed(pod: &PodResource) -> bool {
+fn is_failed(pod: &Pod) -> bool {
     pod.status.phase == PodPhase::Failed
 }
 
-fn pod_claim_is_stale(
-    sts: &StatefulSetResource,
-    pod: &PodResource,
-    claims: &[&PersistentVolumeClaim],
-) -> bool {
+fn pod_claim_is_stale(sts: &StatefulSet, pod: &Pod, claims: &[&PersistentVolumeClaim]) -> bool {
     let policy = &sts.spec.persistent_volume_claim_retention_policy;
     if policy.when_scaled == StatefulSetPersistentVolumeClaimRetentionPolicyType::Retain {
         // PVCs are meant to be reused and so can't be stale.
@@ -614,14 +609,11 @@ fn pod_claim_is_stale(
     false
 }
 
-fn allows_burst(sts: &StatefulSetResource) -> bool {
+fn allows_burst(sts: &StatefulSet) -> bool {
     sts.spec.pod_management_policy == PodManagementPolicyType::Parallel
 }
 
-fn apply_revision(
-    _sts: &StatefulSetResource,
-    revision: &ControllerRevision,
-) -> StatefulSetResource {
+fn apply_revision(_sts: &StatefulSet, revision: &ControllerRevision) -> StatefulSet {
     serde_json::from_str(&revision.data).unwrap()
 }
 
@@ -630,7 +622,7 @@ fn update_status(
     min_ready_seconds: u32,
     current_revision: &ControllerRevision,
     update_revision: &ControllerRevision,
-    podlists: &[Vec<&PodResource>],
+    podlists: &[Vec<&Pod>],
 ) {
     let num_pods = podlists.iter().map(|l| l.len()).sum::<usize>();
     debug!(num_pods, "Updating status");
@@ -661,7 +653,7 @@ struct ReplicaStatus {
 }
 
 fn compute_replica_status(
-    pods: &[&PodResource],
+    pods: &[&Pod],
     min_ready_seconds: u32,
     current_revision: &ControllerRevision,
     update_revision: &ControllerRevision,
@@ -694,7 +686,7 @@ fn compute_replica_status(
     status
 }
 
-fn get_pod_revision(pod: &PodResource) -> String {
+fn get_pod_revision(pod: &Pod) -> String {
     pod.metadata
         .labels
         .get(STATEFULSET_REVISION_LABEL)
@@ -702,7 +694,7 @@ fn get_pod_revision(pod: &PodResource) -> String {
         .unwrap_or_default()
 }
 
-pub fn get_ordinal(pod: &PodResource) -> Option<u32> {
+pub fn get_ordinal(pod: &Pod) -> Option<u32> {
     pod.metadata
         .name
         .split('-')
@@ -710,7 +702,7 @@ pub fn get_ordinal(pod: &PodResource) -> Option<u32> {
         .and_then(|o| o.parse().ok())
 }
 
-fn get_start_ordinal(sts: &StatefulSetResource) -> u32 {
+fn get_start_ordinal(sts: &StatefulSet) -> u32 {
     if let Some(o) = &sts.spec.ordinals {
         o.start
     } else {
@@ -718,11 +710,11 @@ fn get_start_ordinal(sts: &StatefulSetResource) -> u32 {
     }
 }
 
-fn get_end_ordinal(sts: &StatefulSetResource) -> u32 {
+fn get_end_ordinal(sts: &StatefulSet) -> u32 {
     (get_start_ordinal(sts) + sts.spec.replicas.unwrap_or_default()).saturating_sub(1)
 }
 
-fn pod_in_ordinal_range(pod: &PodResource, sts: &StatefulSetResource) -> bool {
+fn pod_in_ordinal_range(pod: &Pod, sts: &StatefulSet) -> bool {
     if let Some(ordinal) = get_ordinal(pod) {
         ordinal >= get_start_ordinal(sts) && ordinal <= get_end_ordinal(sts)
     } else {
@@ -731,15 +723,15 @@ fn pod_in_ordinal_range(pod: &PodResource, sts: &StatefulSetResource) -> bool {
 }
 
 fn process_replica(
-    sts: &StatefulSetResource,
+    sts: &StatefulSet,
     _current_revision: &ControllerRevision,
     _update_revision: &ControllerRevision,
-    _current_sts: &StatefulSetResource,
-    update_sts: &StatefulSetResource,
+    _current_sts: &StatefulSet,
+    update_sts: &StatefulSet,
     monotonic: bool,
-    replica: &PodResource,
+    replica: &Pod,
     pvcs: &[&PersistentVolumeClaim],
-) -> ResourceOrOp<bool> {
+) -> ValOrOp<bool> {
     debug!(
         name = replica.metadata.name,
         phase = ?replica.status.phase,
@@ -751,7 +743,7 @@ fn process_replica(
             name = replica.metadata.name,
             "Replica has failed, deleting it"
         );
-        return ResourceOrOp::Op(Operation::DeletePod(replica.clone()));
+        return ValOrOp::Op(Operation::DeletePod(replica.clone()));
     }
 
     // If we find a Pod that has not been created we create the Pod
@@ -760,13 +752,13 @@ fn process_replica(
         if is_stale {
             debug!(name = replica.metadata.name, "Pod was stale");
             // If a pod has a stale PVC, no more work can be done this round.
-            return ResourceOrOp::Resource(true);
+            return ValOrOp::Resource(true);
         }
         debug!(
             name = replica.metadata.name,
             "Replica hasn't been created, creating it"
         );
-        return ResourceOrOp::Op(Operation::CreatePod(replica.clone()));
+        return ValOrOp::Op(Operation::CreatePod(replica.clone()));
     }
 
     // If the Pod is in pending state then trigger PVC creation to create missing PVCs
@@ -776,21 +768,21 @@ fn process_replica(
             "Replica is pending, trying to create missing persistent volume claims"
         );
         if let Some(op) = create_missing_persistent_volume_claims(sts, replica, pvcs) {
-            return ResourceOrOp::Op(op);
+            return ValOrOp::Op(op);
         }
     }
 
     // If we find a Pod that is currently terminating, we must wait until graceful deletion
     // completes before we continue to make progress.
     if is_terminating(replica) && monotonic {
-        return ResourceOrOp::Resource(true);
+        return ValOrOp::Resource(true);
     }
 
     // If we have a Pod that has been created but is not running and ready we can not make progress.
     // We must ensure that all for each Pod, when we create it, all of its predecessors, with respect to its
     // ordinal, are Running and Ready.
     if !is_running_and_ready(replica) && monotonic {
-        return ResourceOrOp::Resource(true);
+        return ValOrOp::Resource(true);
     }
 
     // If we have a Pod that has been created but is not available we can not make progress.
@@ -799,26 +791,26 @@ fn process_replica(
     if !is_running_and_available(replica, sts.spec.min_ready_seconds.unwrap_or_default())
         && monotonic
     {
-        return ResourceOrOp::Resource(true);
+        return ValOrOp::Resource(true);
     }
 
     let retention_match = claims_match_retention_policy(update_sts, replica, pvcs);
 
     if identity_matches(sts, replica) && storage_matches(sts, replica) && retention_match {
-        return ResourceOrOp::Resource(false);
+        return ValOrOp::Resource(false);
     }
 
     let mut replica = replica.clone();
     if let Some(op) = update_stateful_pod(update_sts, &mut replica, pvcs) {
-        return ResourceOrOp::Op(op);
+        return ValOrOp::Op(op);
     }
 
-    ResourceOrOp::Resource(false)
+    ValOrOp::Resource(false)
 }
 
 fn update_stateful_pod(
-    sts: &StatefulSetResource,
-    pod: &mut PodResource,
+    sts: &StatefulSet,
+    pod: &mut Pod,
     claims: &[&PersistentVolumeClaim],
 ) -> Option<Operation> {
     let mut consistent = true;
@@ -848,19 +840,19 @@ fn update_stateful_pod(
 }
 
 fn run_for_all<'a>(
-    pods: &[&'a PodResource],
-    f: impl Fn(&'a PodResource) -> ResourceOrOp<bool>,
+    pods: &[&'a Pod],
+    f: impl Fn(&'a Pod) -> ValOrOp<bool>,
     _monotonic: bool,
-) -> ResourceOrOp<bool> {
+) -> ValOrOp<bool> {
     // if monotonic {
     for pod in pods {
         match f(pod) {
-            ResourceOrOp::Resource(should_exit) => {
+            ValOrOp::Resource(should_exit) => {
                 if should_exit {
-                    return ResourceOrOp::Resource(true);
+                    return ValOrOp::Resource(true);
                 }
             }
-            ResourceOrOp::Op(op) => return ResourceOrOp::Op(op),
+            ValOrOp::Op(op) => return ValOrOp::Op(op),
         }
     }
     // } else {
@@ -876,26 +868,26 @@ fn run_for_all<'a>(
     //         }
     //     }
     // }
-    ResourceOrOp::Resource(false)
+    ValOrOp::Resource(false)
 }
 
 fn process_condemned(
-    sts: &StatefulSetResource,
-    first_unhealthy_pod: Option<&PodResource>,
+    sts: &StatefulSet,
+    first_unhealthy_pod: Option<&Pod>,
     monotonic: bool,
-    condemned: &PodResource,
-) -> ResourceOrOp<bool> {
+    condemned: &Pod,
+) -> ValOrOp<bool> {
     if is_terminating(condemned) {
         // if we are in monotonic mode, block and wait for terminating pods to expire
         if monotonic {
-            return ResourceOrOp::Resource(true);
+            return ValOrOp::Resource(true);
         }
-        return ResourceOrOp::Resource(false);
+        return ValOrOp::Resource(false);
     }
 
     // if we are in monotonic mode and the condemned target is not the first unhealthy Pod block
     if !is_running_and_ready(condemned) && monotonic && Some(condemned) != first_unhealthy_pod {
-        return ResourceOrOp::Resource(true);
+        return ValOrOp::Resource(true);
     }
 
     // if we are in monotonic mode and the condemned target is not the first unhealthy Pod, block.
@@ -903,13 +895,13 @@ fn process_condemned(
         && monotonic
         && Some(condemned) != first_unhealthy_pod
     {
-        return ResourceOrOp::Resource(true);
+        return ValOrOp::Resource(true);
     }
 
-    ResourceOrOp::Op(Operation::DeletePod(condemned.clone()))
+    ValOrOp::Op(Operation::DeletePod(condemned.clone()))
 }
 
-fn identity_matches(sts: &StatefulSetResource, pod: &PodResource) -> bool {
+fn identity_matches(sts: &StatefulSet, pod: &Pod) -> bool {
     let mut name_parts = pod.metadata.name.split('-').collect::<Vec<_>>();
     let ordinal: u32 = name_parts.remove(name_parts.len() - 1).parse().unwrap();
     let parent = name_parts.join("-");
@@ -920,11 +912,11 @@ fn identity_matches(sts: &StatefulSetResource, pod: &PodResource) -> bool {
         && pod.metadata.labels.get(STATEFUL_SET_POD_NAME_LABEL) == Some(&pod.metadata.name)
 }
 
-fn get_pod_name(sts: &StatefulSetResource, ordinal: u32) -> String {
+fn get_pod_name(sts: &StatefulSet, ordinal: u32) -> String {
     format!("{}-{}", sts.metadata.name, ordinal)
 }
 
-fn storage_matches(sts: &StatefulSetResource, pod: &PodResource) -> bool {
+fn storage_matches(sts: &StatefulSet, pod: &Pod) -> bool {
     if let Some(ordinal) = get_ordinal(pod) {
         let volumes = pod
             .spec
@@ -954,7 +946,7 @@ fn storage_matches(sts: &StatefulSetResource, pod: &PodResource) -> bool {
 }
 
 fn get_persistent_volume_claim_name(
-    sts: &StatefulSetResource,
+    sts: &StatefulSet,
     claim: &PersistentVolumeClaim,
     ordinal: u32,
 ) -> String {
@@ -962,8 +954,8 @@ fn get_persistent_volume_claim_name(
 }
 
 fn create_missing_persistent_volume_claims(
-    sts: &StatefulSetResource,
-    pod: &PodResource,
+    sts: &StatefulSet,
+    pod: &Pod,
     claims: &[&PersistentVolumeClaim],
 ) -> Option<Operation> {
     if let Some(op) = create_persistent_volume_claims(sts, pod, claims) {
@@ -978,8 +970,8 @@ fn create_missing_persistent_volume_claims(
 }
 
 fn create_persistent_volume_claims(
-    sts: &StatefulSetResource,
-    pod: &PodResource,
+    sts: &StatefulSet,
+    pod: &Pod,
     claims: &[&PersistentVolumeClaim],
 ) -> Option<Operation> {
     debug!(pod = pod.metadata.name, "Creating persistent volume claims");
@@ -1001,8 +993,8 @@ fn create_persistent_volume_claims(
 }
 
 fn get_persistent_volume_claims(
-    sts: &StatefulSetResource,
-    pod: &PodResource,
+    sts: &StatefulSet,
+    pod: &Pod,
 ) -> BTreeMap<String, PersistentVolumeClaim> {
     let mut claims = BTreeMap::new();
     if let Some(ordinal) = get_ordinal(pod) {
@@ -1025,12 +1017,12 @@ fn get_persistent_volume_claims(
 }
 
 fn new_versioned_statefulset_pod(
-    current_sts: &StatefulSetResource,
-    update_sts: &StatefulSetResource,
+    current_sts: &StatefulSet,
+    update_sts: &StatefulSet,
     current_revision: &str,
     update_revision: &str,
     ordinal: u32,
-) -> PodResource {
+) -> Pod {
     if current_sts.spec.update_strategy.r#type == "Rolling"
         && (current_sts.spec.update_strategy.rolling_update.is_none()
             && ordinal < (get_start_ordinal(current_sts) + current_sts.status.current_replicas))
@@ -1055,29 +1047,28 @@ fn new_versioned_statefulset_pod(
     }
 }
 
-fn new_statefulset_pod(sts: &StatefulSetResource, ordinal: u32) -> PodResource {
-    let mut pod =
-        get_pod_from_template(&sts.metadata, &sts.spec.template, &StatefulSetResource::GVK);
+fn new_statefulset_pod(sts: &StatefulSet, ordinal: u32) -> Pod {
+    let mut pod = get_pod_from_template(&sts.metadata, &sts.spec.template, &StatefulSet::GVK);
     pod.metadata.name = get_pod_name(sts, ordinal);
     init_identity(sts, &mut pod);
     update_storage(sts, &mut pod);
     pod
 }
 
-fn set_pod_revision(pod: &mut PodResource, revision: String) {
+fn set_pod_revision(pod: &mut Pod, revision: String) {
     pod.metadata
         .labels
         .insert(STATEFULSET_REVISION_LABEL.to_owned(), revision);
 }
 
-fn init_identity(sts: &StatefulSetResource, pod: &mut PodResource) {
+fn init_identity(sts: &StatefulSet, pod: &mut Pod) {
     update_identity(sts, pod);
     // Set these immutable fields only on initial Pod creation, not updates.
     pod.spec.hostname = pod.metadata.name.clone();
     pod.spec.subdomain = sts.spec.service_name.clone();
 }
 
-fn update_identity(sts: &StatefulSetResource, pod: &mut PodResource) {
+fn update_identity(sts: &StatefulSet, pod: &mut Pod) {
     if let Some(ordinal) = get_ordinal(pod) {
         pod.metadata.name = get_pod_name(sts, ordinal);
         pod.metadata.namespace = sts.metadata.namespace.clone();
@@ -1091,7 +1082,7 @@ fn update_identity(sts: &StatefulSetResource, pod: &mut PodResource) {
     }
 }
 
-fn update_storage(sts: &StatefulSetResource, pod: &mut PodResource) {
+fn update_storage(sts: &StatefulSet, pod: &mut Pod) {
     let current_volumes = &pod.spec.volumes;
     let claims = get_persistent_volume_claims(sts, pod);
     let mut new_volumes = Vec::new();
@@ -1123,16 +1114,12 @@ fn next_revision(revisions: &[&ControllerRevision]) -> u64 {
     revisions.get(count - 1).map_or(0, |r| r.revision) + 1
 }
 
-fn new_revision(
-    sts: &StatefulSetResource,
-    revision: u64,
-    collision_count: u32,
-) -> ControllerRevision {
+fn new_revision(sts: &StatefulSet, revision: u64, collision_count: u32) -> ControllerRevision {
     let patch = get_patch(sts);
 
     let mut cr = new_controller_revision(
         sts,
-        &StatefulSetResource::GVK,
+        &StatefulSet::GVK,
         &sts.spec.template.metadata.labels,
         String::from_utf8(patch).unwrap(),
         revision,
@@ -1145,7 +1132,7 @@ fn new_revision(
     cr
 }
 
-fn get_patch(sts: &StatefulSetResource) -> Vec<u8> {
+fn get_patch(sts: &StatefulSet) -> Vec<u8> {
     serde_json::to_vec(&sts).unwrap()
 }
 
@@ -1180,7 +1167,7 @@ fn update_controller_revision(
 }
 
 fn create_controller_revision(
-    parent: &StatefulSetResource,
+    parent: &StatefulSet,
     revision: &ControllerRevision,
     collision_count: u32,
 ) -> Operation {
@@ -1209,7 +1196,7 @@ fn controller_revision_name(prefix: &str, hash: &str) -> String {
 }
 
 fn new_controller_revision(
-    parent: &StatefulSetResource,
+    parent: &StatefulSet,
     controller_kind: &GroupVersionKind,
     template_labels: &BTreeMap<String, String>,
     data: String,
@@ -1234,7 +1221,7 @@ fn new_controller_revision(
 }
 
 fn update_statefulset_status(
-    sts: &StatefulSetResource,
+    sts: &StatefulSet,
     status: &mut StatefulSetStatus,
 ) -> Option<Operation> {
     complete_rolling_update(sts, status);
@@ -1248,7 +1235,7 @@ fn update_statefulset_status(
     Some(Operation::UpdateStatefulSetStatus(sts))
 }
 
-fn complete_rolling_update(sts: &StatefulSetResource, status: &mut StatefulSetStatus) {
+fn complete_rolling_update(sts: &StatefulSet, status: &mut StatefulSetStatus) {
     if sts.spec.update_strategy.r#type == "RollingUpdate"
         && status.updated_replicas == status.replicas
         && status.ready_replicas == status.replicas
@@ -1258,7 +1245,7 @@ fn complete_rolling_update(sts: &StatefulSetResource, status: &mut StatefulSetSt
     }
 }
 
-fn inconsistent_status(sts: &StatefulSetResource, status: &StatefulSetStatus) -> bool {
+fn inconsistent_status(sts: &StatefulSet, status: &StatefulSetStatus) -> bool {
     status.observed_generation > sts.status.observed_generation
         || status.replicas != sts.status.replicas
         || status.current_replicas != sts.status.current_replicas
@@ -1270,8 +1257,8 @@ fn inconsistent_status(sts: &StatefulSetResource, status: &StatefulSetStatus) ->
 }
 
 fn claims_match_retention_policy(
-    sts: &StatefulSetResource,
-    pod: &PodResource,
+    sts: &StatefulSet,
+    pod: &Pod,
     claims: &[&PersistentVolumeClaim],
 ) -> bool {
     if let Some(ordinal) = get_ordinal(pod) {
@@ -1288,8 +1275,8 @@ fn claims_match_retention_policy(
 }
 
 fn update_pod_claim_for_retention_policy(
-    sts: &StatefulSetResource,
-    pod: &PodResource,
+    sts: &StatefulSet,
+    pod: &Pod,
     claims: &[&PersistentVolumeClaim],
 ) -> Option<Operation> {
     if let Some(ordinal) = get_ordinal(pod) {
@@ -1312,8 +1299,8 @@ fn update_pod_claim_for_retention_policy(
 
 fn claim_owner_matches_set_and_pod(
     claim: &PersistentVolumeClaim,
-    sts: &StatefulSetResource,
-    pod: &PodResource,
+    sts: &StatefulSet,
+    pod: &Pod,
 ) -> bool {
     let policy = &sts.spec.persistent_volume_claim_retention_policy;
 
@@ -1373,11 +1360,11 @@ fn claim_owner_matches_set_and_pod(
 
 fn update_claim_owner_ref_for_set_and_pod(
     claim: &mut PersistentVolumeClaim,
-    sts: &StatefulSetResource,
-    pod: &PodResource,
+    sts: &StatefulSet,
+    pod: &Pod,
 ) {
-    let pod_meta = PodResource::GVK;
-    let sts_meta = StatefulSetResource::GVK;
+    let pod_meta = Pod::GVK;
+    let sts_meta = StatefulSet::GVK;
 
     let policy = &sts.spec.persistent_volume_claim_retention_policy;
     match (policy.when_scaled, policy.when_deleted) {

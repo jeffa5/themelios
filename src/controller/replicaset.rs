@@ -9,14 +9,14 @@ use crate::abstract_model::Operation;
 use crate::controller::util::new_controller_ref;
 use crate::controller::Controller;
 use crate::resources::{
-    ConditionStatus, GroupVersionKind, LabelSelector, PodConditionType, PodPhase, PodResource,
-    ReplicaSetCondition, ReplicaSetConditionType, ReplicaSetResource, ReplicaSetStatus, Time,
+    ConditionStatus, GroupVersionKind, LabelSelector, Pod, PodConditionType, PodPhase, ReplicaSet,
+    ReplicaSetCondition, ReplicaSetConditionType, ReplicaSetStatus, Time,
 };
 use crate::state::StateView;
 use crate::utils::now;
 
 use super::util::get_pod_from_template;
-use super::util::ResourceOrOp;
+use super::util::ValOrOp;
 
 const CONTROLLER_KIND: GroupVersionKind = GroupVersionKind {
     group: "apps",
@@ -27,13 +27,13 @@ const CONTROLLER_KIND: GroupVersionKind = GroupVersionKind {
 const POD_DELETION_COST: &str = "controller.kubernetes.io/pod-deletion-cost";
 
 #[derive(Clone, Debug)]
-pub struct ReplicaSet;
+pub struct ReplicaSetController;
 
 #[derive(Debug, Default, Hash, Clone, PartialEq, Eq)]
-pub struct ReplicaSetState;
+pub struct ReplicaSetControllerState;
 
-impl Controller for ReplicaSet {
-    type State = ReplicaSetState;
+impl Controller for ReplicaSetController {
+    type State = ReplicaSetControllerState;
     fn step(
         &self,
         id: usize,
@@ -58,13 +58,13 @@ impl Controller for ReplicaSet {
     }
 }
 
-fn reconcile(replicaset: &ReplicaSetResource, all_pods: &[&PodResource]) -> Option<Operation> {
+fn reconcile(replicaset: &ReplicaSet, all_pods: &[&Pod]) -> Option<Operation> {
     let filtered_pods = filter_active_pods(all_pods);
     let filtered_pods = claim_pods(replicaset, &filtered_pods);
 
     let filtered_pods = match filtered_pods {
-        ResourceOrOp::Resource(r) => r,
-        ResourceOrOp::Op(op) => return Some(op),
+        ValOrOp::Resource(r) => r,
+        ValOrOp::Op(op) => return Some(op),
     };
 
     if replicaset.metadata.deletion_timestamp.is_none() {
@@ -81,10 +81,7 @@ fn reconcile(replicaset: &ReplicaSetResource, all_pods: &[&PodResource]) -> Opti
     None
 }
 
-fn claim_pods<'a>(
-    replicaset: &ReplicaSetResource,
-    filtered_pods: &[&'a PodResource],
-) -> ResourceOrOp<Vec<&'a PodResource>> {
+fn claim_pods<'a>(replicaset: &ReplicaSet, filtered_pods: &[&'a Pod]) -> ValOrOp<Vec<&'a Pod>> {
     for pod in filtered_pods {
         if replicaset.spec.selector.matches(&pod.metadata.labels) {
             continue;
@@ -102,7 +99,7 @@ fn claim_pods<'a>(
             pod.metadata
                 .owner_references
                 .retain(|or| or.uid != replicaset.metadata.uid);
-            return ResourceOrOp::Op(Operation::UpdatePod(pod));
+            return ValOrOp::Op(Operation::UpdatePod(pod));
         }
     }
 
@@ -131,7 +128,7 @@ fn claim_pods<'a>(
                     .owner_references
                     .push(new_controller_ref(&replicaset.metadata, &CONTROLLER_KIND));
             }
-            return ResourceOrOp::Op(Operation::UpdatePod(pod));
+            return ValOrOp::Op(Operation::UpdatePod(pod));
         }
 
         // collect the ones that we actually own
@@ -144,16 +141,16 @@ fn claim_pods<'a>(
             pods.push(*pod)
         }
     }
-    ResourceOrOp::Resource(pods)
+    ValOrOp::Resource(pods)
 }
 
-fn filter_active_pods<'a>(pods: &[&'a PodResource]) -> Vec<&'a PodResource> {
+fn filter_active_pods<'a>(pods: &[&'a Pod]) -> Vec<&'a Pod> {
     pods.iter()
         .filter_map(|pod| if is_pod_active(pod) { Some(*pod) } else { None })
         .collect()
 }
 
-fn calculate_status(replicaset: &ReplicaSetResource, pods: &[&PodResource]) -> ReplicaSetStatus {
+fn calculate_status(replicaset: &ReplicaSet, pods: &[&Pod]) -> ReplicaSetStatus {
     let mut new_status = replicaset.status.clone();
 
     // Count the number of pods that have labels matching the labels of the pod
@@ -243,7 +240,7 @@ fn new_replicaset_condition(
     }
 }
 
-fn is_pod_ready(pod: &PodResource) -> bool {
+fn is_pod_ready(pod: &Pod) -> bool {
     pod.status
         .conditions
         .iter()
@@ -251,7 +248,7 @@ fn is_pod_ready(pod: &PodResource) -> bool {
         .map_or(false, |c| c.status == ConditionStatus::True)
 }
 
-fn is_pod_available(pod: &PodResource, min_ready_seconds: u32, now: Time) -> bool {
+fn is_pod_available(pod: &Pod, min_ready_seconds: u32, now: Time) -> bool {
     if let Some(c) = pod
         .status
         .conditions
@@ -269,7 +266,7 @@ fn is_pod_available(pod: &PodResource, min_ready_seconds: u32, now: Time) -> boo
     false
 }
 
-fn is_pod_active(pod: &PodResource) -> bool {
+fn is_pod_active(pod: &Pod) -> bool {
     pod.status.phase != PodPhase::Succeeded
         && pod.status.phase != PodPhase::Failed
         && pod.metadata.deletion_timestamp.is_none()
@@ -277,7 +274,7 @@ fn is_pod_active(pod: &PodResource) -> bool {
 
 // updateReplicaSetStatus attempts to update the Status.Replicas of the given ReplicaSet, with a single GET/PUT retry.
 fn update_replicaset_status(
-    rs: &ReplicaSetResource,
+    rs: &ReplicaSet,
     mut new_status: ReplicaSetStatus,
 ) -> Option<Operation> {
     if rs.status.replicas == new_status.replicas
@@ -300,10 +297,7 @@ fn update_replicaset_status(
 // manageReplicas checks and updates replicas for the given ReplicaSet.
 // Does NOT modify <filteredPods>.
 // It will requeue the replica set in case of an error while creating/deleting pods.
-fn manage_replicas(
-    filtered_pods: &[&PodResource],
-    replicaset: &ReplicaSetResource,
-) -> Option<Operation> {
+fn manage_replicas(filtered_pods: &[&Pod], replicaset: &ReplicaSet) -> Option<Operation> {
     match filtered_pods
         .len()
         .cmp(&(replicaset.spec.replicas.unwrap_or_default() as usize))
@@ -349,10 +343,10 @@ fn manage_replicas(
 }
 
 fn get_pods_to_delete<'a>(
-    filtered_pods: &[&'a PodResource],
-    related_pods: &[&PodResource],
+    filtered_pods: &[&'a Pod],
+    related_pods: &[&Pod],
     diff: u32,
-) -> Vec<&'a PodResource> {
+) -> Vec<&'a Pod> {
     if diff < filtered_pods.len() as u32 {
         let mut pods_with_ranks =
             get_pods_ranked_by_related_pods_on_same_node(filtered_pods, related_pods);
@@ -435,9 +429,9 @@ fn get_pods_to_delete<'a>(
 }
 
 fn get_pods_ranked_by_related_pods_on_same_node<'a>(
-    filtered_pods: &[&'a PodResource],
-    related_pods: &[&PodResource],
-) -> Vec<(usize, &'a PodResource)> {
+    filtered_pods: &[&'a Pod],
+    related_pods: &[&Pod],
+) -> Vec<(usize, &'a Pod)> {
     let mut pods_on_node = BTreeMap::new();
     for pod in related_pods {
         if is_pod_active(pod) {
@@ -459,10 +453,7 @@ fn get_pods_ranked_by_related_pods_on_same_node<'a>(
 
 // getIndirectlyRelatedPods returns all pods that are owned by any ReplicaSet
 // that is owned by the given ReplicaSet's owner.
-fn get_indirectly_related_pods<'a>(
-    replicaset: &ReplicaSetResource,
-    pods: &[&'a PodResource],
-) -> Vec<&'a PodResource> {
+fn get_indirectly_related_pods<'a>(replicaset: &ReplicaSet, pods: &[&'a Pod]) -> Vec<&'a Pod> {
     let mut seen = BTreeSet::new();
     let mut related_pods = Vec::new();
     for rs in get_replicasets_with_same_controller(replicaset, &[]) {
@@ -484,9 +475,9 @@ fn get_indirectly_related_pods<'a>(
 // getReplicaSetsWithSameController returns a list of ReplicaSets with the same
 // owner as the given ReplicaSet.
 fn get_replicasets_with_same_controller<'a>(
-    replicaset: &ReplicaSetResource,
-    replicasets: &[&'a ReplicaSetResource],
-) -> Vec<&'a ReplicaSetResource> {
+    replicaset: &ReplicaSet,
+    replicasets: &[&'a ReplicaSet],
+) -> Vec<&'a ReplicaSet> {
     let mut matched = Vec::new();
     for rs in replicasets {
         if replicaset.metadata.owner_references.iter().any(|or| {
@@ -508,7 +499,7 @@ fn get_deletion_cost_from_pod_annotations(annotations: &BTreeMap<String, String>
         .unwrap_or_default()
 }
 
-fn max_container_restarts(pod: &PodResource) -> u32 {
+fn max_container_restarts(pod: &Pod) -> u32 {
     pod.status
         .container_statuses
         .iter()

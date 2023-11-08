@@ -5,8 +5,8 @@ use stateright::{Model, Property};
 
 use crate::controller::{Controller, ControllerStates, Controllers};
 use crate::resources::{
-    ControllerRevision, DeploymentResource, PersistentVolumeClaim, PodResource, ReplicaSetResource,
-    ResourceQuantities, StatefulSetResource,
+    ControllerRevision, Deployment, PersistentVolumeClaim, Pod, ReplicaSet, ResourceQuantities,
+    StatefulSet,
 };
 use crate::state::{ConsistencySetup, Revision, State, StateView};
 
@@ -34,23 +34,23 @@ pub enum Operation {
     NodeJoin(usize, ResourceQuantities),
     ControllerJoin(usize),
     NewPod(String),
-    CreatePod(PodResource),
-    DeletePod(PodResource),
+    CreatePod(Pod),
+    DeletePod(Pod),
     SchedulePod(String, String),
     RunPod(String, usize),
-    UpdatePod(PodResource),
-    UpdateDeployment(DeploymentResource),
-    RequeueDeployment(DeploymentResource),
+    UpdatePod(Pod),
+    UpdateDeployment(Deployment),
+    RequeueDeployment(Deployment),
     // Update just the status part of the resource, not triggering more reconciliations (I think)
-    UpdateDeploymentStatus(DeploymentResource),
-    CreateReplicaSet(ReplicaSetResource),
-    UpdateReplicaSet(ReplicaSetResource),
-    UpdateReplicaSetStatus(ReplicaSetResource),
+    UpdateDeploymentStatus(Deployment),
+    CreateReplicaSet(ReplicaSet),
+    UpdateReplicaSet(ReplicaSet),
+    UpdateReplicaSetStatus(ReplicaSet),
     // a batch update of multiple replicasets that should cause a new reconciliation if it fails to
     // have this
-    UpdateReplicaSets(Vec<ReplicaSetResource>),
-    DeleteReplicaSet(ReplicaSetResource),
-    UpdateStatefulSetStatus(StatefulSetResource),
+    UpdateReplicaSets(Vec<ReplicaSet>),
+    DeleteReplicaSet(ReplicaSet),
+    UpdateStatefulSetStatus(StatefulSet),
     CreateControllerRevision(ControllerRevision),
     UpdateControllerRevision(ControllerRevision),
     DeleteControllerRevision(ControllerRevision),

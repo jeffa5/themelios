@@ -3,17 +3,17 @@ use std::hash::Hash;
 use crate::abstract_model::Operation;
 use crate::state::StateView;
 
-pub use deployment::Deployment;
-pub use node::Node;
-pub use replicaset::ReplicaSet;
-pub use scheduler::Scheduler;
-pub use statefulset::StatefulSet;
+pub use deployment::DeploymentController;
+pub use node::NodeController;
+pub use replicaset::ReplicaSetController;
+pub use scheduler::SchedulerController;
+pub use statefulset::StatefulSetController;
 
-pub use self::deployment::DeploymentState;
-pub use self::node::NodeState;
-pub use self::replicaset::ReplicaSetState;
-pub use self::scheduler::SchedulerState;
-pub use self::statefulset::StatefulSetState;
+pub use self::deployment::DeploymentControllerState;
+pub use self::node::NodeControllerState;
+pub use self::replicaset::ReplicaSetControllerState;
+pub use self::scheduler::SchedulerControllerState;
+pub use self::statefulset::StatefulSetControllerState;
 
 mod deployment;
 mod node;
@@ -39,25 +39,25 @@ pub trait Controller {
 
 #[derive(Clone, Debug)]
 pub enum Controllers {
-    Node(Node),
-    Scheduler(Scheduler),
-    ReplicaSet(ReplicaSet),
-    Deployment(Deployment),
-    StatefulSet(StatefulSet),
+    Node(NodeController),
+    Scheduler(SchedulerController),
+    ReplicaSet(ReplicaSetController),
+    Deployment(DeploymentController),
+    StatefulSet(StatefulSetController),
 }
 
 #[derive(Debug, Hash, Clone, PartialEq, Eq)]
 pub enum ControllerStates {
-    Node(NodeState),
-    Scheduler(SchedulerState),
-    ReplicaSet(ReplicaSetState),
-    Deployment(DeploymentState),
-    StatefulSet(StatefulSetState),
+    Node(NodeControllerState),
+    Scheduler(SchedulerControllerState),
+    ReplicaSet(ReplicaSetControllerState),
+    Deployment(DeploymentControllerState),
+    StatefulSet(StatefulSetControllerState),
 }
 
 impl Default for ControllerStates {
     fn default() -> Self {
-        Self::Node(NodeState::default())
+        Self::Node(NodeControllerState::default())
     }
 }
 
@@ -102,11 +102,13 @@ impl Controller for Controllers {
 impl Controllers {
     pub fn new_state(&self) -> ControllerStates {
         match self {
-            Controllers::Node(_) => ControllerStates::Node(NodeState::default()),
-            Controllers::Scheduler(_) => ControllerStates::Scheduler(SchedulerState),
-            Controllers::ReplicaSet(_) => ControllerStates::ReplicaSet(ReplicaSetState),
-            Controllers::Deployment(_) => ControllerStates::Deployment(DeploymentState),
-            Controllers::StatefulSet(_) => ControllerStates::StatefulSet(StatefulSetState),
+            Controllers::Node(_) => ControllerStates::Node(NodeControllerState::default()),
+            Controllers::Scheduler(_) => ControllerStates::Scheduler(SchedulerControllerState),
+            Controllers::ReplicaSet(_) => ControllerStates::ReplicaSet(ReplicaSetControllerState),
+            Controllers::Deployment(_) => ControllerStates::Deployment(DeploymentControllerState),
+            Controllers::StatefulSet(_) => {
+                ControllerStates::StatefulSet(StatefulSetControllerState)
+            }
         }
     }
 }
