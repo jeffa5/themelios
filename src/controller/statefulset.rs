@@ -3,7 +3,7 @@ use std::{collections::BTreeMap, time::Duration};
 use tracing::debug;
 
 use super::{
-    util::{get_pod_from_template, new_controller_ref, ValOrOp},
+    util::{get_pod_from_template, new_controller_ref},
     Controller,
 };
 use crate::{
@@ -30,17 +30,68 @@ pub struct StatefulSetController;
 #[derive(Debug, Default, Hash, Clone, PartialEq, Eq)]
 pub struct StatefulSetControllerState;
 
+#[derive(Debug)]
+pub enum StatefulSetControllerAction {
+    ControllerJoin(usize),
+
+    UpdateStatefulSetStatus(StatefulSet),
+
+    CreatePod(Pod),
+    UpdatePod(Pod),
+    DeletePod(Pod),
+
+    CreatePersistentVolumeClaim(PersistentVolumeClaim),
+    UpdatePersistentVolumeClaim(PersistentVolumeClaim),
+
+    CreateControllerRevision(ControllerRevision),
+    UpdateControllerRevision(ControllerRevision),
+    DeleteControllerRevision(ControllerRevision),
+}
+
+impl From<StatefulSetControllerAction> for ControllerAction {
+    fn from(val: StatefulSetControllerAction) -> Self {
+        match val {
+            StatefulSetControllerAction::ControllerJoin(id) => ControllerAction::ControllerJoin(id),
+            StatefulSetControllerAction::UpdateStatefulSetStatus(sts) => {
+                ControllerAction::UpdateStatefulSetStatus(sts)
+            }
+            StatefulSetControllerAction::CreatePod(p) => ControllerAction::CreatePod(p),
+            StatefulSetControllerAction::UpdatePod(p) => ControllerAction::UpdatePod(p),
+            StatefulSetControllerAction::DeletePod(p) => ControllerAction::DeletePod(p),
+            StatefulSetControllerAction::CreatePersistentVolumeClaim(pvc) => {
+                ControllerAction::CreatePersistentVolumeClaim(pvc)
+            }
+            StatefulSetControllerAction::UpdatePersistentVolumeClaim(pvc) => {
+                ControllerAction::UpdatePersistentVolumeClaim(pvc)
+            }
+            StatefulSetControllerAction::CreateControllerRevision(cr) => {
+                ControllerAction::CreateControllerRevision(cr)
+            }
+            StatefulSetControllerAction::UpdateControllerRevision(cr) => {
+                ControllerAction::UpdateControllerRevision(cr)
+            }
+            StatefulSetControllerAction::DeleteControllerRevision(cr) => {
+                ControllerAction::DeleteControllerRevision(cr)
+            }
+        }
+    }
+}
+
+type ValOrOp<V> = super::util::ValOrOp<V, StatefulSetControllerAction>;
+
 impl Controller for StatefulSetController {
     type State = StatefulSetControllerState;
+
+    type Action = StatefulSetControllerAction;
 
     fn step(
         &self,
         id: usize,
         global_state: &StateView,
         _local_state: &mut Self::State,
-    ) -> Option<ControllerAction> {
+    ) -> Option<StatefulSetControllerAction> {
         if !global_state.controllers.contains(&id) {
-            return Some(ControllerAction::ControllerJoin(id));
+            return Some(StatefulSetControllerAction::ControllerJoin(id));
         } else {
             for statefulset in global_state.statefulsets.values() {
                 let pods = global_state.pods.values().collect::<Vec<_>>();
@@ -70,7 +121,7 @@ fn reconcile(
     all_pods: &[&Pod],
     all_revisions: &[&ControllerRevision],
     all_pvcs: &[&PersistentVolumeClaim],
-) -> Option<ControllerAction> {
+) -> Option<StatefulSetControllerAction> {
     // TODO: claim things
 
     let pods = all_pods
@@ -95,7 +146,7 @@ fn sync(
     pods: &[&Pod],
     revisions: &[&ControllerRevision],
     pvcs: &[&PersistentVolumeClaim],
-) -> Option<ControllerAction> {
+) -> Option<StatefulSetControllerAction> {
     if let Some(op) = update_statefulset(statefulset, pods, revisions, pvcs) {
         return Some(op);
     }
@@ -107,7 +158,7 @@ fn update_statefulset(
     pods: &[&Pod],
     revisions: &[&ControllerRevision],
     pvcs: &[&PersistentVolumeClaim],
-) -> Option<ControllerAction> {
+) -> Option<StatefulSetControllerAction> {
     // list all revisions and sort them
     let mut revisions = revisions.to_vec();
     sort_controller_revisions(&mut revisions);
@@ -218,7 +269,7 @@ fn do_update_statefulset(
     if status != sts.status {
         let mut sts = sts.clone();
         sts.status = status;
-        return ValOrOp::Op(ControllerAction::UpdateStatefulSetStatus(sts));
+        return ValOrOp::Op(StatefulSetControllerAction::UpdateStatefulSetStatus(sts));
     }
 
     let replica_count = sts.spec.replicas;
@@ -425,7 +476,7 @@ fn do_update_statefulset(
         if get_pod_revision(replica.as_ref().unwrap()) != update_revision.metadata.name
             && is_terminating(replica.as_ref().unwrap())
         {
-            return ValOrOp::Op(ControllerAction::DeletePod(
+            return ValOrOp::Op(StatefulSetControllerAction::DeletePod(
                 replica.as_ref().unwrap().clone(),
             ));
         }
@@ -506,7 +557,7 @@ fn truncate_history(
     revisions: &[&ControllerRevision],
     current_revision: &ControllerRevision,
     update_revision: &ControllerRevision,
-) -> Option<ControllerAction> {
+) -> Option<StatefulSetControllerAction> {
     debug!("truncate_history");
     let mut history = Vec::new();
     let mut live = BTreeMap::new();
@@ -533,7 +584,9 @@ fn truncate_history(
     let history = &history[..(history_len - history_limit)];
     // for rev in history {
     if let Some(rev) = history.first() {
-        return Some(ControllerAction::DeleteControllerRevision((**rev).clone()));
+        return Some(StatefulSetControllerAction::DeleteControllerRevision(
+            (**rev).clone(),
+        ));
     }
     None
 }
@@ -745,7 +798,7 @@ fn process_replica(
             name = replica.metadata.name,
             "Replica has failed, deleting it"
         );
-        return ValOrOp::Op(ControllerAction::DeletePod(replica.clone()));
+        return ValOrOp::Op(StatefulSetControllerAction::DeletePod(replica.clone()));
     }
 
     // If we find a Pod that has not been created we create the Pod
@@ -760,7 +813,7 @@ fn process_replica(
             name = replica.metadata.name,
             "Replica hasn't been created, creating it"
         );
-        return ValOrOp::Op(ControllerAction::CreatePod(replica.clone()));
+        return ValOrOp::Op(StatefulSetControllerAction::CreatePod(replica.clone()));
     }
 
     // If the Pod is in pending state then trigger PVC creation to create missing PVCs
@@ -814,7 +867,7 @@ fn update_stateful_pod(
     sts: &StatefulSet,
     pod: &mut Pod,
     claims: &[&PersistentVolumeClaim],
-) -> Option<ControllerAction> {
+) -> Option<StatefulSetControllerAction> {
     let mut consistent = true;
     if !identity_matches(sts, pod) {
         update_identity(sts, pod);
@@ -837,7 +890,7 @@ fn update_stateful_pod(
     if consistent {
         None
     } else {
-        Some(ControllerAction::UpdatePod(pod.clone()))
+        Some(StatefulSetControllerAction::UpdatePod(pod.clone()))
     }
 }
 
@@ -900,7 +953,7 @@ fn process_condemned(
         return ValOrOp::Resource(true);
     }
 
-    ValOrOp::Op(ControllerAction::DeletePod(condemned.clone()))
+    ValOrOp::Op(StatefulSetControllerAction::DeletePod(condemned.clone()))
 }
 
 fn identity_matches(sts: &StatefulSet, pod: &Pod) -> bool {
@@ -959,13 +1012,15 @@ fn create_missing_persistent_volume_claims(
     sts: &StatefulSet,
     pod: &Pod,
     claims: &[&PersistentVolumeClaim],
-) -> Option<ControllerAction> {
+) -> Option<StatefulSetControllerAction> {
     if let Some(op) = create_persistent_volume_claims(sts, pod, claims) {
-        let ControllerAction::CreatePersistentVolumeClaim(mut claim) =  op else {
+        let StatefulSetControllerAction::CreatePersistentVolumeClaim(mut claim) =  op else {
             unreachable!()
         };
         update_claim_owner_ref_for_set_and_pod(&mut claim, sts, pod);
-        Some(ControllerAction::CreatePersistentVolumeClaim(claim))
+        Some(StatefulSetControllerAction::CreatePersistentVolumeClaim(
+            claim,
+        ))
     } else {
         None
     }
@@ -975,7 +1030,7 @@ fn create_persistent_volume_claims(
     sts: &StatefulSet,
     pod: &Pod,
     claims: &[&PersistentVolumeClaim],
-) -> Option<ControllerAction> {
+) -> Option<StatefulSetControllerAction> {
     debug!(pod = pod.metadata.name, "Creating persistent volume claims");
     for (_, claim) in get_persistent_volume_claims(sts, pod) {
         if !claims
@@ -987,7 +1042,9 @@ fn create_persistent_volume_claims(
                 claim = claim.metadata.name,
                 "Creating persistent volume claim"
             );
-            return Some(ControllerAction::CreatePersistentVolumeClaim(claim));
+            return Some(StatefulSetControllerAction::CreatePersistentVolumeClaim(
+                claim,
+            ));
         }
     }
 
@@ -1158,28 +1215,28 @@ fn equal_revision(_lhs: &ControllerRevision, _rhs: &ControllerRevision) -> bool 
 fn update_controller_revision(
     revision: &ControllerRevision,
     new_revision: u64,
-) -> Option<ControllerAction> {
+) -> Option<StatefulSetControllerAction> {
     let mut clone = revision.clone();
     if revision.revision == new_revision {
         return None;
     }
 
     clone.revision = new_revision;
-    Some(ControllerAction::UpdateControllerRevision(clone))
+    Some(StatefulSetControllerAction::UpdateControllerRevision(clone))
 }
 
 fn create_controller_revision(
     parent: &StatefulSet,
     revision: &ControllerRevision,
     collision_count: u32,
-) -> ControllerAction {
+) -> StatefulSetControllerAction {
     let mut revision = revision.clone();
     revision.metadata.namespace = parent.metadata.namespace.clone();
 
     let hash = hash_controller_revision(&revision, collision_count);
     revision.metadata.name = controller_revision_name(&parent.metadata.name, &hash);
 
-    ControllerAction::CreateControllerRevision(revision)
+    StatefulSetControllerAction::CreateControllerRevision(revision)
 }
 
 fn hash_controller_revision(cr: &ControllerRevision, collision_count: u32) -> String {
@@ -1225,7 +1282,7 @@ fn new_controller_revision(
 fn update_statefulset_status(
     sts: &StatefulSet,
     status: &mut StatefulSetStatus,
-) -> Option<ControllerAction> {
+) -> Option<StatefulSetControllerAction> {
     complete_rolling_update(sts, status);
 
     if !inconsistent_status(sts, status) {
@@ -1234,7 +1291,7 @@ fn update_statefulset_status(
 
     let mut sts = sts.clone();
     sts.status = status.clone();
-    Some(ControllerAction::UpdateStatefulSetStatus(sts))
+    Some(StatefulSetControllerAction::UpdateStatefulSetStatus(sts))
 }
 
 fn complete_rolling_update(sts: &StatefulSet, status: &mut StatefulSetStatus) {
@@ -1280,7 +1337,7 @@ fn update_pod_claim_for_retention_policy(
     sts: &StatefulSet,
     pod: &Pod,
     claims: &[&PersistentVolumeClaim],
-) -> Option<ControllerAction> {
+) -> Option<StatefulSetControllerAction> {
     if let Some(ordinal) = get_ordinal(pod) {
         for template in &sts.spec.volume_claim_templates {
             let claim_name = get_persistent_volume_claim_name(sts, template, ordinal);
@@ -1290,7 +1347,9 @@ fn update_pod_claim_for_retention_policy(
                     let mut updated_claim = (*claim).clone();
                     update_claim_owner_ref_for_set_and_pod(&mut updated_claim, sts, pod);
                     if &updated_claim != *claim {
-                        return Some(ControllerAction::UpdatePersistentVolumeClaim(updated_claim));
+                        return Some(StatefulSetControllerAction::UpdatePersistentVolumeClaim(
+                            updated_claim,
+                        ));
                     }
                 }
             }

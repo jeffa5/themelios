@@ -36,7 +36,7 @@ where
             .into_iter()
             .map(|o| Change {
                 revision: view.revision.clone(),
-                operation: o,
+                operation: o.into(),
             })
             .collect();
         o.send(Id::from(0), Message::Changes(changes));
@@ -59,7 +59,7 @@ where
                     .into_iter()
                     .map(|o| Change {
                         revision: s.revision.clone(),
-                        operation: o,
+                        operation: o.into(),
                     })
                     .collect();
                 o.send(src, Message::Changes(changes));

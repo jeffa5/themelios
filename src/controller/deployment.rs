@@ -1,4 +1,3 @@
-use super::util::ValOrOp;
 use std::{collections::BTreeMap, hash::Hash};
 
 use crate::{
@@ -84,17 +83,64 @@ pub struct DeploymentController;
 #[derive(Debug, Default, Hash, Clone, PartialEq, Eq)]
 pub struct DeploymentControllerState;
 
+#[derive(Debug)]
+pub enum DeploymentControllerAction {
+    ControllerJoin(usize),
+
+    RequeueDeployment(Deployment),
+    UpdateDeployment(Deployment),
+    UpdateDeploymentStatus(Deployment),
+
+    CreateReplicaSet(ReplicaSet),
+    UpdateReplicaSet(ReplicaSet),
+    DeleteReplicaSet(ReplicaSet),
+    UpdateReplicaSets(Vec<ReplicaSet>),
+}
+
+impl From<DeploymentControllerAction> for ControllerAction {
+    fn from(value: DeploymentControllerAction) -> Self {
+        match value {
+            DeploymentControllerAction::ControllerJoin(id) => ControllerAction::ControllerJoin(id),
+            DeploymentControllerAction::RequeueDeployment(d) => {
+                ControllerAction::RequeueDeployment(d)
+            }
+            DeploymentControllerAction::UpdateDeployment(d) => {
+                ControllerAction::UpdateDeployment(d)
+            }
+            DeploymentControllerAction::UpdateDeploymentStatus(d) => {
+                ControllerAction::UpdateDeploymentStatus(d)
+            }
+            DeploymentControllerAction::CreateReplicaSet(rs) => {
+                ControllerAction::CreateReplicaSet(rs)
+            }
+            DeploymentControllerAction::UpdateReplicaSet(rs) => {
+                ControllerAction::UpdateReplicaSet(rs)
+            }
+            DeploymentControllerAction::DeleteReplicaSet(rs) => {
+                ControllerAction::DeleteReplicaSet(rs)
+            }
+            DeploymentControllerAction::UpdateReplicaSets(rss) => {
+                ControllerAction::UpdateReplicaSets(rss)
+            }
+        }
+    }
+}
+
+type ValOrOp<V> = super::util::ValOrOp<V, DeploymentControllerAction>;
+
 impl Controller for DeploymentController {
     type State = DeploymentControllerState;
+
+    type Action = DeploymentControllerAction;
 
     fn step(
         &self,
         id: usize,
         global_state: &StateView,
         _local_state: &mut Self::State,
-    ) -> Option<ControllerAction> {
+    ) -> Option<DeploymentControllerAction> {
         if !global_state.controllers.contains(&id) {
-            return Some(ControllerAction::ControllerJoin(id));
+            return Some(DeploymentControllerAction::ControllerJoin(id));
         } else {
             for deployment in global_state.deployments.values() {
                 let replicasets = global_state.replica_sets.values().collect::<Vec<_>>();
@@ -122,14 +168,16 @@ fn reconcile(
     deployment: &Deployment,
     all_replicasets: &[&ReplicaSet],
     pod_map: &BTreeMap<String, Vec<Pod>>,
-) -> Option<ControllerAction> {
+) -> Option<DeploymentControllerAction> {
     let everything = LabelSelector::default();
     if deployment.spec.selector == everything {
         debug!("Found selector matching everything");
         if deployment.status.observed_generation < deployment.metadata.generation {
             let mut deployment = deployment.clone();
             deployment.status.observed_generation = deployment.metadata.generation;
-            return Some(ControllerAction::UpdateDeploymentStatus(deployment));
+            return Some(DeploymentControllerAction::UpdateDeploymentStatus(
+                deployment,
+            ));
         }
         return None;
     }
@@ -215,7 +263,7 @@ fn claim_replicasets<'a>(
             rs.metadata
                 .owner_references
                 .retain(|or| or.uid != deployment.metadata.uid);
-            return ValOrOp::Op(ControllerAction::UpdateReplicaSet(rs));
+            return ValOrOp::Op(DeploymentControllerAction::UpdateReplicaSet(rs));
         }
     }
 
@@ -241,7 +289,7 @@ fn claim_replicasets<'a>(
                     .owner_references
                     .push(new_controller_ref(&deployment.metadata, &Deployment::GVK));
             }
-            return ValOrOp::Op(ControllerAction::UpdateReplicaSet(rs));
+            return ValOrOp::Op(DeploymentControllerAction::UpdateReplicaSet(rs));
         }
 
         // collect the ones that we actually own
@@ -261,7 +309,7 @@ fn sync_status_only(
     deployment: &mut Deployment,
     replicasets: &[&ReplicaSet],
     replicasets_in_ns: &[&ReplicaSet],
-) -> Option<ControllerAction> {
+) -> Option<DeploymentControllerAction> {
     let (new_replicaset, old_replicasets) =
         get_all_replicasets_and_sync_revision(deployment, replicasets, replicasets_in_ns, false);
     let new_replicaset = match new_replicaset {
@@ -279,7 +327,7 @@ fn sync_status_only(
 // checkPausedConditions checks if the given deployment is paused or not and adds an appropriate condition.
 // These conditions are needed so that we won't accidentally report lack of progress for resumed deployments
 // that were paused for longer than progressDeadlineSeconds.
-fn check_paused_conditions(deployment: &mut Deployment) -> Option<ControllerAction> {
+fn check_paused_conditions(deployment: &mut Deployment) -> Option<DeploymentControllerAction> {
     debug!("Checking paused conditions");
     if has_progress_deadline(deployment) {
         return None;
@@ -301,7 +349,9 @@ fn check_paused_conditions(deployment: &mut Deployment) -> Option<ControllerActi
             "Deployment is paused".to_owned(),
         );
         set_deployment_condition(&mut deployment.status, cond);
-        Some(ControllerAction::UpdateDeploymentStatus(deployment.clone()))
+        Some(DeploymentControllerAction::UpdateDeploymentStatus(
+            deployment.clone(),
+        ))
     } else if !deployment.spec.paused && paused_cond_exists {
         let cond = new_deployment_condition(
             DeploymentConditionType::Progressing,
@@ -310,7 +360,9 @@ fn check_paused_conditions(deployment: &mut Deployment) -> Option<ControllerActi
             "Deployment is resumed".to_owned(),
         );
         set_deployment_condition(&mut deployment.status, cond);
-        Some(ControllerAction::UpdateDeploymentStatus(deployment.clone()))
+        Some(DeploymentControllerAction::UpdateDeploymentStatus(
+            deployment.clone(),
+        ))
     } else {
         None
     }
@@ -321,7 +373,7 @@ fn sync(
     deployment: &mut Deployment,
     replicasets: &[&ReplicaSet],
     replicasets_in_ns: &[&ReplicaSet],
-) -> Option<ControllerAction> {
+) -> Option<DeploymentControllerAction> {
     debug!("Syncing deployment");
     let (new_replicaset, old_replicasets) =
         get_all_replicasets_and_sync_revision(deployment, replicasets, replicasets_in_ns, false);
@@ -464,7 +516,9 @@ fn get_new_replicaset(
             rs_copy.spec.min_ready_seconds != deployment.spec.min_ready_seconds;
         if annotations_updated || min_ready_seconds_need_update {
             rs_copy.spec.min_ready_seconds = deployment.spec.min_ready_seconds;
-            return Some(ValOrOp::Op(ControllerAction::UpdateReplicaSet(rs_copy)));
+            return Some(ValOrOp::Op(DeploymentControllerAction::UpdateReplicaSet(
+                rs_copy,
+            )));
         }
 
         let mut needs_update = set_deployment_revision(
@@ -493,9 +547,9 @@ fn get_new_replicaset(
 
         if needs_update {
             debug!("Existing replicaset needs update");
-            return Some(ValOrOp::Op(ControllerAction::UpdateDeploymentStatus(
-                deployment.clone(),
-            )));
+            return Some(ValOrOp::Op(
+                DeploymentControllerAction::UpdateDeploymentStatus(deployment.clone()),
+            ));
         }
         return Some(ValOrOp::Resource(rs_copy));
     }
@@ -570,11 +624,13 @@ fn get_new_replicaset(
             deployment.status.collision_count,
             "Found hash collision with new replicaset, bumping collision count"
         );
-        Some(ValOrOp::Op(ControllerAction::UpdateDeploymentStatus(
-            deployment.clone(),
-        )))
+        Some(ValOrOp::Op(
+            DeploymentControllerAction::UpdateDeploymentStatus(deployment.clone()),
+        ))
     } else {
-        Some(ValOrOp::Op(ControllerAction::CreateReplicaSet(new_rs)))
+        Some(ValOrOp::Op(DeploymentControllerAction::CreateReplicaSet(
+            new_rs,
+        )))
     }
 
     // TODO: work out handling errors of creating the replicaset here.
@@ -587,7 +643,7 @@ fn sync_deployment_status(
     all_replicasets: &[&ReplicaSet],
     new_replicaset: &Option<ReplicaSet>,
     deployment: &Deployment,
-) -> Option<ControllerAction> {
+) -> Option<DeploymentControllerAction> {
     debug!("Syncing deployment status");
     let new_status = calculate_status(all_replicasets, new_replicaset, deployment);
     if deployment.status != new_status {
@@ -597,7 +653,9 @@ fn sync_deployment_status(
         );
         let mut new_deployment = deployment.clone();
         new_deployment.status = new_status;
-        Some(ControllerAction::UpdateDeploymentStatus(new_deployment))
+        Some(DeploymentControllerAction::UpdateDeploymentStatus(
+            new_deployment,
+        ))
     } else {
         None
     }
@@ -666,7 +724,7 @@ fn scale(
     deployment: &Deployment,
     new_replicaset: &Option<ReplicaSet>,
     old_replicasets: &[&ReplicaSet],
-) -> Option<ControllerAction> {
+) -> Option<DeploymentControllerAction> {
     debug!("Scaling");
 
     // If there is only one active replica set then we should scale that up to the full count of the
@@ -787,7 +845,7 @@ fn scale(
             }
 
             // TODO: Use transactions when we have them.
-            if let Some(ControllerAction::UpdateReplicaSet(rs)) = scale_replicaset(
+            if let Some(DeploymentControllerAction::UpdateReplicaSet(rs)) = scale_replicaset(
                 rs,
                 name_to_size.get(&rs.metadata.name).copied().unwrap_or(0),
                 deployment,
@@ -796,7 +854,7 @@ fn scale(
             }
         }
         if !updated_rss.is_empty() {
-            return Some(ControllerAction::UpdateReplicaSets(updated_rss));
+            return Some(DeploymentControllerAction::UpdateReplicaSets(updated_rss));
         }
     }
     None
@@ -892,7 +950,7 @@ fn scale_replicaset_and_record_event(
     replicaset: &ReplicaSet,
     new_scale: u32,
     deployment: &Deployment,
-) -> Option<ControllerAction> {
+) -> Option<DeploymentControllerAction> {
     if replicaset.spec.replicas == Some(new_scale) {
         debug!("already scaled");
         None
@@ -906,7 +964,7 @@ fn scale_replicaset(
     replicaset: &ReplicaSet,
     new_scale: u32,
     deployment: &Deployment,
-) -> Option<ControllerAction> {
+) -> Option<DeploymentControllerAction> {
     let size_needs_update = replicaset.spec.replicas != Some(new_scale);
 
     let annotations_need_update = replicas_annotations_need_update(
@@ -927,7 +985,7 @@ fn scale_replicaset(
             deployment.spec.replicas,
             deployment.spec.replicas + max_surge(deployment),
         );
-        Some(ControllerAction::UpdateReplicaSet(new_rs))
+        Some(DeploymentControllerAction::UpdateReplicaSet(new_rs))
     } else {
         debug!("Not scaling replicaset");
         None
@@ -1017,7 +1075,7 @@ fn set_deployment_revision(deployment: &mut Deployment, new_revision: String) ->
 fn cleanup_deployment(
     old_replicasets: &[&ReplicaSet],
     deployment: &Deployment,
-) -> Option<ControllerAction> {
+) -> Option<DeploymentControllerAction> {
     debug!("Cleaning up deployment");
     if has_revision_history_limit(deployment) {
         return None;
@@ -1052,7 +1110,7 @@ fn cleanup_deployment(
             continue;
         }
         debug!("Trying to cleanup replica set for deployment");
-        return Some(ControllerAction::DeleteReplicaSet((**rs).clone()));
+        return Some(DeploymentControllerAction::DeleteReplicaSet((**rs).clone()));
     }
     None
 }
@@ -1422,7 +1480,7 @@ fn rollback(
     deployment: &mut Deployment,
     replicasets: &[&ReplicaSet],
     replicasets_in_ns: &[&ReplicaSet],
-) -> Option<ControllerAction> {
+) -> Option<DeploymentControllerAction> {
     let (new_rs, all_old_rss) =
         get_all_replicasets_and_sync_revision(deployment, replicasets, replicasets_in_ns, true);
 
@@ -1577,10 +1635,10 @@ fn is_scaling_event(
 // updateDeploymentAndClearRollbackTo sets .spec.rollbackTo to nil and update the input deployment
 // It is assumed that the caller will have updated the deployment template appropriately (in case
 // we want to rollback).
-fn update_deployment_and_clear_rollback_to(deployment: &Deployment) -> ControllerAction {
+fn update_deployment_and_clear_rollback_to(deployment: &Deployment) -> DeploymentControllerAction {
     let mut d = deployment.clone();
     set_rollback_to(&mut d, None);
-    ControllerAction::UpdateDeployment(d)
+    DeploymentControllerAction::UpdateDeployment(d)
 }
 
 fn set_rollback_to(deployment: &mut Deployment, rollback_to: Option<RollbackConfig>) {
@@ -1600,7 +1658,10 @@ fn set_rollback_to(deployment: &mut Deployment, rollback_to: Option<RollbackConf
 // rollbackToTemplate compares the templates of the provided deployment and replica set and
 // updates the deployment with the replica set template in case they are different. It also
 // cleans up the rollback spec so subsequent requeues of the deployment won't end up in here.
-fn rollback_to_template(deployment: &mut Deployment, replicaset: &ReplicaSet) -> ControllerAction {
+fn rollback_to_template(
+    deployment: &mut Deployment,
+    replicaset: &ReplicaSet,
+) -> DeploymentControllerAction {
     if equal_ignore_hash(&deployment.spec.template, &replicaset.spec.template) {
         set_from_replicaset_template(deployment, &replicaset.spec.template);
         // set RS (the old RS we'll rolling back to) annotations back to the deployment;
@@ -1678,7 +1739,7 @@ fn rollout_rolling(
     deployment: &mut Deployment,
     replicasets: &[&ReplicaSet],
     replicasets_in_ns: &[&ReplicaSet],
-) -> Option<ControllerAction> {
+) -> Option<DeploymentControllerAction> {
     let (new_replicaset, old_replicasets) =
         get_all_replicasets_and_sync_revision(deployment, replicasets, replicasets_in_ns, true);
     let new_replicaset = match new_replicaset {
@@ -1728,7 +1789,7 @@ fn sync_rollout_status(
     all_rss: &[&ReplicaSet],
     new_rs: &Option<ReplicaSet>,
     deployment: &Deployment,
-) -> Option<ControllerAction> {
+) -> Option<DeploymentControllerAction> {
     let mut new_status = calculate_status(all_rss, new_rs, deployment);
     debug!(status_diff = ?deployment.status.diff(&new_status), "Checking new status");
 
@@ -1799,7 +1860,9 @@ fn sync_rollout_status(
     debug!("Deployment status was different at the end, updating");
     let mut new_deployment = deployment.clone();
     new_deployment.status = new_status;
-    Some(ControllerAction::UpdateDeploymentStatus(new_deployment))
+    Some(DeploymentControllerAction::UpdateDeploymentStatus(
+        new_deployment,
+    ))
 }
 
 #[tracing::instrument(skip_all)]
@@ -1807,7 +1870,7 @@ fn reconcile_new_replicaset(
     all_replicasets: &[&ReplicaSet],
     new_rs: &ReplicaSet,
     deployment: &Deployment,
-) -> Option<ControllerAction> {
+) -> Option<DeploymentControllerAction> {
     if new_rs.spec.replicas == Some(deployment.spec.replicas) {
         debug!("New replicaset already at correct size");
         // scaling not required
@@ -1832,7 +1895,7 @@ fn reconcile_old_replicasets(
     old_replicasets: &[&ReplicaSet],
     new_rs: &ReplicaSet,
     deployment: &Deployment,
-) -> Option<ControllerAction> {
+) -> Option<DeploymentControllerAction> {
     let old_pods_count = get_replica_count_for_replicasets(old_replicasets);
     if old_pods_count == 0 {
         return None;
@@ -1911,7 +1974,7 @@ fn cleanup_unhealthy_replicas<'a>(
             return None;
         }
         match scale_replicaset_and_record_event(target_rs, new_replicas_count, deployment) {
-            Some(ControllerAction::UpdateReplicaSet(rs)) => {
+            Some(DeploymentControllerAction::UpdateReplicaSet(rs)) => {
                 updated_rss.push(rs);
             }
             Some(_) => {
@@ -1924,7 +1987,7 @@ fn cleanup_unhealthy_replicas<'a>(
         total_scaled_down += scaled_down_count;
     }
     if !updated_rss.is_empty() {
-        Some(ValOrOp::Op(ControllerAction::UpdateReplicaSets(
+        Some(ValOrOp::Op(DeploymentControllerAction::UpdateReplicaSets(
             updated_rss,
         )))
     } else {
@@ -1937,7 +2000,7 @@ fn scale_down_old_replicasets_for_rolling_update(
     all_replicasets: &[&ReplicaSet],
     old_replicasets: &[&ReplicaSet],
     deployment: &Deployment,
-) -> Option<ControllerAction> {
+) -> Option<DeploymentControllerAction> {
     let max_unavailable = max_unavailable(deployment);
     let min_available = deployment.spec.replicas - max_unavailable;
     let available_pod_count = get_available_replica_count_for_replicasets(all_replicasets);
@@ -1982,7 +2045,7 @@ fn scale_down_old_replicasets_for_rolling_update(
         if new_replicas_count > target_rs.spec.replicas.unwrap() {
             return None;
         }
-        if let Some(ControllerAction::UpdateReplicaSet(rs)) =
+        if let Some(DeploymentControllerAction::UpdateReplicaSet(rs)) =
             scale_replicaset_and_record_event(target_rs, new_replicas_count, deployment)
         {
             updated_rss.push(rs);
@@ -1990,7 +2053,7 @@ fn scale_down_old_replicasets_for_rolling_update(
         total_scaled_down += scaled_down_count
     }
     if !updated_rss.is_empty() {
-        Some(ControllerAction::UpdateReplicaSets(updated_rss))
+        Some(DeploymentControllerAction::UpdateReplicaSets(updated_rss))
     } else {
         None
     }
@@ -2002,7 +2065,7 @@ fn rollout_recreate(
     replicasets: &[&ReplicaSet],
     replicasets_in_ns: &[&ReplicaSet],
     pod_map: &BTreeMap<String, Vec<Pod>>,
-) -> Option<ControllerAction> {
+) -> Option<DeploymentControllerAction> {
     // Don't create a new RS if not already existed, so that we avoid scaling up before scaling down.
     let (new_replicaset, old_replicasets) =
         get_all_replicasets_and_sync_revision(deployment, replicasets, replicasets_in_ns, false);
@@ -2066,14 +2129,14 @@ fn rollout_recreate(
 fn scale_down_old_replicasets_for_recreate(
     old_replicasets: &[&ReplicaSet],
     deployment: &Deployment,
-) -> Option<ControllerAction> {
+) -> Option<DeploymentControllerAction> {
     let mut updated_rss = Vec::new();
     for rs in old_replicasets {
         if rs.spec.replicas.unwrap() == 0 {
             continue;
         }
 
-        if let Some(ControllerAction::UpdateReplicaSet(rs)) =
+        if let Some(DeploymentControllerAction::UpdateReplicaSet(rs)) =
             scale_replicaset_and_record_event(rs, 0, deployment)
         {
             updated_rss.push(rs);
@@ -2082,7 +2145,7 @@ fn scale_down_old_replicasets_for_recreate(
     if updated_rss.is_empty() {
         None
     } else {
-        Some(ControllerAction::UpdateReplicaSets(updated_rss))
+        Some(DeploymentControllerAction::UpdateReplicaSets(updated_rss))
     }
 }
 
@@ -2187,7 +2250,7 @@ fn replicaset_to_deployment_condition(cond: ReplicaSetCondition) -> DeploymentCo
 fn requeue_stuck_deployment(
     deployment: &Deployment,
     new_status: DeploymentStatus,
-) -> Option<ControllerAction> {
+) -> Option<DeploymentControllerAction> {
     let current_cond =
         get_deployment_condition(&deployment.status, DeploymentConditionType::Progressing);
 
@@ -2227,7 +2290,9 @@ fn requeue_stuck_deployment(
     //
     // lastUpdated + progressDeadlineSeconds - now => 00:00:00 + 00:10:00 - 00:03:00 => 07:00
     // TODO: could delay requeue but just do it for now, the rate limiting can handle that
-    Some(ControllerAction::RequeueDeployment(deployment.clone()))
+    Some(DeploymentControllerAction::RequeueDeployment(
+        deployment.clone(),
+    ))
 }
 
 fn old_pods_running(
@@ -2274,6 +2339,6 @@ fn old_pods_running(
 fn scale_up_new_replicaset_for_recreate(
     new_replicaset: &ReplicaSet,
     deployment: &Deployment,
-) -> Option<ControllerAction> {
+) -> Option<DeploymentControllerAction> {
     scale_replicaset_and_record_event(new_replicaset, deployment.spec.replicas, deployment)
 }

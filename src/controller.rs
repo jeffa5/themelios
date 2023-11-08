@@ -15,15 +15,17 @@ pub use self::replicaset::ReplicaSetControllerState;
 pub use self::scheduler::SchedulerControllerState;
 pub use self::statefulset::StatefulSetControllerState;
 
-mod deployment;
-mod node;
-mod replicaset;
-mod scheduler;
+pub mod deployment;
+pub mod node;
+pub mod replicaset;
+pub mod scheduler;
 pub mod statefulset;
 pub mod util;
 
 pub trait Controller {
     type State: Clone + Hash + PartialEq + std::fmt::Debug + Default;
+
+    type Action: Into<ControllerAction>;
 
     /// Take a step, generating changes, based on the current view of the state.
     fn step(
@@ -31,7 +33,7 @@ pub trait Controller {
         id: usize,
         global_state: &StateView,
         local_state: &mut Self::State,
-    ) -> Option<ControllerAction>;
+    ) -> Option<Self::Action>;
 
     /// Name of this controller.
     fn name(&self) -> String;
@@ -64,6 +66,8 @@ impl Default for ControllerStates {
 impl Controller for Controllers {
     type State = ControllerStates;
 
+    type Action = ControllerAction;
+
     fn step(
         &self,
         id: usize,
@@ -71,18 +75,20 @@ impl Controller for Controllers {
         local_state: &mut Self::State,
     ) -> Option<ControllerAction> {
         match (self, local_state) {
-            (Controllers::Node(c), ControllerStates::Node(s)) => c.step(id, global_state, s),
+            (Controllers::Node(c), ControllerStates::Node(s)) => {
+                c.step(id, global_state, s).map(|a| a.into())
+            }
             (Controllers::Scheduler(c), ControllerStates::Scheduler(s)) => {
-                c.step(id, global_state, s)
+                c.step(id, global_state, s).map(|a| a.into())
             }
             (Controllers::ReplicaSet(c), ControllerStates::ReplicaSet(s)) => {
-                c.step(id, global_state, s)
+                c.step(id, global_state, s).map(|a| a.into())
             }
             (Controllers::Deployment(c), ControllerStates::Deployment(s)) => {
-                c.step(id, global_state, s)
+                c.step(id, global_state, s).map(|a| a.into())
             }
             (Controllers::StatefulSet(c), ControllerStates::StatefulSet(s)) => {
-                c.step(id, global_state, s)
+                c.step(id, global_state, s).map(|a| a.into())
             }
             _ => unreachable!(),
         }

@@ -15,15 +15,30 @@ pub struct NodeControllerState {
     pub running: Vec<String>,
 }
 
+#[derive(Debug)]
+pub enum NodeControllerAction {
+    NodeJoin(usize, ResourceQuantities),
+}
+
+impl From<NodeControllerAction> for ControllerAction {
+    fn from(val: NodeControllerAction) -> Self {
+        match val {
+            NodeControllerAction::NodeJoin(id, q) => ControllerAction::NodeJoin(id, q),
+        }
+    }
+}
+
 impl Controller for NodeController {
     type State = NodeControllerState;
+
+    type Action = NodeControllerAction;
 
     fn step(
         &self,
         id: usize,
         global_state: &StateView,
         local_state: &mut Self::State,
-    ) -> Option<ControllerAction> {
+    ) -> Option<NodeControllerAction> {
         if let Some(_node) = global_state.nodes.get(&id) {
             for pod in global_state
                 .pods
@@ -35,7 +50,7 @@ impl Controller for NodeController {
                 }
             }
         } else {
-            return Some(ControllerAction::NodeJoin(
+            return Some(NodeControllerAction::NodeJoin(
                 id,
                 ResourceQuantities {
                     others: BTreeMap::new(),

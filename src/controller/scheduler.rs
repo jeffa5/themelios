@@ -11,17 +11,35 @@ pub struct SchedulerController;
 #[derive(Debug, Default, Hash, Clone, PartialEq, Eq)]
 pub struct SchedulerControllerState;
 
+#[derive(Debug)]
+pub enum SchedulerControllerAction {
+    ControllerJoin(usize),
+
+    SchedulePod(String, String),
+}
+
+impl From<SchedulerControllerAction> for ControllerAction {
+    fn from(value: SchedulerControllerAction) -> Self {
+        match value {
+            SchedulerControllerAction::ControllerJoin(id) => ControllerAction::ControllerJoin(id),
+            SchedulerControllerAction::SchedulePod(p, n) => ControllerAction::SchedulePod(p, n),
+        }
+    }
+}
+
 impl Controller for SchedulerController {
     type State = SchedulerControllerState;
+
+    type Action = SchedulerControllerAction;
 
     fn step(
         &self,
         id: usize,
         global_state: &StateView,
         _local_state: &mut Self::State,
-    ) -> Option<ControllerAction> {
+    ) -> Option<SchedulerControllerAction> {
         if !global_state.controllers.contains(&id) {
-            return Some(ControllerAction::ControllerJoin(id));
+            return Some(SchedulerControllerAction::ControllerJoin(id));
         } else {
             let mut nodes = global_state
                 .nodes
@@ -59,7 +77,7 @@ fn schedule(
     pod: &Pod,
     nodes: &[(&Node, Vec<&Pod>)],
     pvcs: &[&PersistentVolumeClaim],
-) -> Option<ControllerAction> {
+) -> Option<SchedulerControllerAction> {
     // try to find a node suitable
     for (node, pods) in nodes {
         debug!(node = node.metadata.name, "Seeing if node fits");
@@ -84,7 +102,7 @@ fn schedule(
             continue;
         }
 
-        return Some(ControllerAction::SchedulePod(
+        return Some(SchedulerControllerAction::SchedulePod(
             pod.metadata.name.clone(),
             node.metadata.name.clone(),
         ));

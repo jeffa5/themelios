@@ -6,9 +6,12 @@ use maplit::btreemap;
 use maplit::btreeset;
 use serde_json::json;
 use tracing::debug;
-use tracing::warn;
 
 use crate::abstract_model::ControllerAction;
+use crate::controller::deployment::DeploymentControllerAction;
+use crate::controller::replicaset::ReplicaSetControllerAction;
+use crate::controller::scheduler::SchedulerControllerAction;
+use crate::controller::statefulset::StatefulSetControllerAction;
 use crate::controller::{
     Controller, DeploymentController, DeploymentControllerState, ReplicaSetController,
     ReplicaSetControllerState, SchedulerController, SchedulerControllerState,
@@ -59,6 +62,7 @@ enum DeploymentResponse {
     UpdateDeploymentStatus { deployment: Deployment },
     CreateReplicaSet { replicaset: ReplicaSet },
     UpdateReplicaSet { replicaset: ReplicaSet },
+    DeleteReplicaSet { replicaset: ReplicaSet },
     UpdateReplicaSets { replicasets: Vec<ReplicaSet> },
 }
 
@@ -107,6 +111,10 @@ enum StatefulSetResponse {
         controller_revision: ControllerRevision,
     },
     UpdateControllerRevision {
+        #[serde(rename = "controllerRevision")]
+        controller_revision: ControllerRevision,
+    },
+    DeleteControllerRevision {
         #[serde(rename = "controllerRevision")]
         controller_revision: ControllerRevision,
     },
@@ -187,10 +195,12 @@ async fn scheduler(
     let operation = s.step(controller_id, &state_view, &mut local_state);
     debug!(?operation, "Got operation");
     match operation {
-        Some(ControllerAction::SchedulePod(_, node)) => {
+        Some(SchedulerControllerAction::SchedulePod(_, node)) => {
             Ok(Json(SchedulerResponse::SchedulePod { node_name: node }))
         }
-        Some(op) => Err(ErrorResponse::InvalidOperationReturned(op)),
+        Some(SchedulerControllerAction::ControllerJoin(_)) => {
+            panic!("got controller join whilst serving")
+        }
         None => Err(ErrorResponse::NoOperation),
     }
 }
@@ -218,37 +228,44 @@ async fn deployment(
     let operation = s.step(controller_id, &state_view, &mut local_state);
     debug!(?operation, "Got operation");
     match operation {
-        Some(ControllerAction::UpdateDeployment(dep)) => {
+        Some(DeploymentControllerAction::UpdateDeployment(dep)) => {
             Ok(Json(DeploymentResponse::UpdateDeployment {
                 deployment: dep,
             }))
         }
-        Some(ControllerAction::RequeueDeployment(dep)) => {
+        Some(DeploymentControllerAction::RequeueDeployment(dep)) => {
             Ok(Json(DeploymentResponse::RequeueDeployment {
                 deployment: dep,
             }))
         }
-        Some(ControllerAction::UpdateDeploymentStatus(dep)) => {
+        Some(DeploymentControllerAction::UpdateDeploymentStatus(dep)) => {
             Ok(Json(DeploymentResponse::UpdateDeploymentStatus {
                 deployment: dep,
             }))
         }
-        Some(ControllerAction::CreateReplicaSet(rs)) => {
+        Some(DeploymentControllerAction::CreateReplicaSet(rs)) => {
             Ok(Json(DeploymentResponse::CreateReplicaSet {
                 replicaset: rs,
             }))
         }
-        Some(ControllerAction::UpdateReplicaSet(rs)) => {
+        Some(DeploymentControllerAction::UpdateReplicaSet(rs)) => {
             Ok(Json(DeploymentResponse::UpdateReplicaSet {
                 replicaset: rs,
             }))
         }
-        Some(ControllerAction::UpdateReplicaSets(rss)) => {
+        Some(DeploymentControllerAction::DeleteReplicaSet(rs)) => {
+            Ok(Json(DeploymentResponse::DeleteReplicaSet {
+                replicaset: rs,
+            }))
+        }
+        Some(DeploymentControllerAction::UpdateReplicaSets(rss)) => {
             Ok(Json(DeploymentResponse::UpdateReplicaSets {
                 replicasets: rss,
             }))
         }
-        Some(op) => Err(ErrorResponse::InvalidOperationReturned(op)),
+        Some(DeploymentControllerAction::ControllerJoin(_)) => {
+            panic!("got controller join whilst serving")
+        }
         None => Err(ErrorResponse::NoOperation),
     }
 }
@@ -286,17 +303,22 @@ async fn replicaset(
     let operation = s.step(controller_id, &state_view, &mut local_state);
     debug!(?operation, "Got operation");
     match operation {
-        Some(ControllerAction::UpdatePod(pod)) => Ok(Json(ReplicasetResponse::UpdatePod { pod })),
-        Some(ControllerAction::UpdateReplicaSetStatus(rs)) => {
+        Some(ReplicaSetControllerAction::UpdatePod(pod)) => {
+            Ok(Json(ReplicasetResponse::UpdatePod { pod }))
+        }
+        Some(ReplicaSetControllerAction::UpdateReplicaSetStatus(rs)) => {
             Ok(Json(ReplicasetResponse::UpdateReplicaSetStatus {
                 replicaset: rs,
             }))
         }
-        Some(ControllerAction::CreatePod(pod)) => Ok(Json(ReplicasetResponse::CreatePod { pod })),
-        Some(ControllerAction::DeletePod(pod)) => Ok(Json(ReplicasetResponse::DeletePod { pod })),
-        Some(op) => {
-            warn!(?op, "Got invalid operation");
-            Err(ErrorResponse::InvalidOperationReturned(op))
+        Some(ReplicaSetControllerAction::CreatePod(pod)) => {
+            Ok(Json(ReplicasetResponse::CreatePod { pod }))
+        }
+        Some(ReplicaSetControllerAction::DeletePod(pod)) => {
+            Ok(Json(ReplicasetResponse::DeletePod { pod }))
+        }
+        Some(ReplicaSetControllerAction::ControllerJoin(_)) => {
+            panic!("got controller join whilst serving")
         }
         None => Err(ErrorResponse::NoOperation),
     }
@@ -335,37 +357,47 @@ async fn statefulset(
     let operation = s.step(controller_id, &state_view, &mut local_state);
     debug!(?operation, "Got operation");
     match operation {
-        Some(ControllerAction::UpdateStatefulSetStatus(sts)) => {
+        Some(StatefulSetControllerAction::UpdateStatefulSetStatus(sts)) => {
             Ok(Json(StatefulSetResponse::UpdateStatefulSetStatus {
                 statefulset: sts,
             }))
         }
-        Some(ControllerAction::UpdatePod(pod)) => Ok(Json(StatefulSetResponse::UpdatePod { pod })),
-        Some(ControllerAction::CreatePod(pod)) => Ok(Json(StatefulSetResponse::CreatePod { pod })),
-        Some(ControllerAction::DeletePod(pod)) => Ok(Json(StatefulSetResponse::DeletePod { pod })),
-        Some(ControllerAction::CreateControllerRevision(cr)) => {
+        Some(StatefulSetControllerAction::UpdatePod(pod)) => {
+            Ok(Json(StatefulSetResponse::UpdatePod { pod }))
+        }
+        Some(StatefulSetControllerAction::CreatePod(pod)) => {
+            Ok(Json(StatefulSetResponse::CreatePod { pod }))
+        }
+        Some(StatefulSetControllerAction::DeletePod(pod)) => {
+            Ok(Json(StatefulSetResponse::DeletePod { pod }))
+        }
+        Some(StatefulSetControllerAction::CreateControllerRevision(cr)) => {
             Ok(Json(StatefulSetResponse::CreateControllerRevision {
                 controller_revision: cr,
             }))
         }
-        Some(ControllerAction::UpdateControllerRevision(cr)) => {
+        Some(StatefulSetControllerAction::UpdateControllerRevision(cr)) => {
             Ok(Json(StatefulSetResponse::UpdateControllerRevision {
                 controller_revision: cr,
             }))
         }
-        Some(ControllerAction::CreatePersistentVolumeClaim(pvc)) => {
+        Some(StatefulSetControllerAction::DeleteControllerRevision(cr)) => {
+            Ok(Json(StatefulSetResponse::DeleteControllerRevision {
+                controller_revision: cr,
+            }))
+        }
+        Some(StatefulSetControllerAction::CreatePersistentVolumeClaim(pvc)) => {
             Ok(Json(StatefulSetResponse::CreatePersistentVolumeClaim {
                 persistent_volume_claim: pvc,
             }))
         }
-        Some(ControllerAction::UpdatePersistentVolumeClaim(pvc)) => {
+        Some(StatefulSetControllerAction::UpdatePersistentVolumeClaim(pvc)) => {
             Ok(Json(StatefulSetResponse::UpdatePersistentVolumeClaim {
                 persistent_volume_claim: pvc,
             }))
         }
-        Some(op) => {
-            warn!(?op, "Got invalid operation");
-            Err(ErrorResponse::InvalidOperationReturned(op))
+        Some(StatefulSetControllerAction::ControllerJoin(_)) => {
+            panic!("got controller join whilst serving")
         }
         None => Err(ErrorResponse::NoOperation),
     }
