@@ -4,7 +4,7 @@ use std::collections::BTreeSet;
 use stateright::{Model, Property};
 
 use crate::controller::util::get_node_condition;
-use crate::controller::{Controller, ControllerStates, Controllers};
+use crate::controller::{Controller, ControllerStates, Controllers, NodeControllerState};
 use crate::resources::{
     ConditionStatus, ControllerRevision, Deployment, NodeConditionType, PersistentVolumeClaim, Pod,
     ReplicaSet, ResourceQuantities, StatefulSet,
@@ -140,6 +140,11 @@ impl Model for AbstractModelCfg {
                         operation: ControllerAction::NodeCrash(node),
                     },
                     node,
+                );
+                // reset the node's local state
+                state.update_controller(
+                    node,
+                    ControllerStates::Node(NodeControllerState::default()),
                 );
                 Some(state)
             }

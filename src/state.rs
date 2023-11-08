@@ -657,7 +657,6 @@ impl StateView {
                 }
             }
             ControllerAction::NodeCrash(node) => {
-                // TODO: reset local state for the node
                 if let Some(node) = self.nodes.remove(node) {
                     self.pods.retain(|_, pod| {
                         pod.spec
