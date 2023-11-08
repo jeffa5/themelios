@@ -170,6 +170,7 @@ impl IntoResponse for ErrorResponse {
     }
 }
 
+#[tracing::instrument(skip_all)]
 async fn scheduler(
     Json(payload): Json<SchedulerRequest>,
 ) -> Result<Json<SchedulerResponse>, ErrorResponse> {
@@ -206,6 +207,7 @@ async fn scheduler(
     }
 }
 
+#[tracing::instrument(skip_all)]
 async fn deployment(
     Json(payload): Json<DeploymentRequest>,
 ) -> Result<Json<DeploymentResponse>, ErrorResponse> {
@@ -257,6 +259,7 @@ async fn deployment(
     }
 }
 
+#[tracing::instrument(skip_all)]
 async fn replicaset(
     Json(payload): Json<ReplicasetRequest>,
 ) -> Result<Json<ReplicasetResponse>, ErrorResponse> {
@@ -305,6 +308,7 @@ async fn replicaset(
     }
 }
 
+#[tracing::instrument(skip_all)]
 async fn statefulset(
     Json(payload): Json<StatefulSetRequest>,
 ) -> Result<Json<StatefulSetResponse>, ErrorResponse> {
