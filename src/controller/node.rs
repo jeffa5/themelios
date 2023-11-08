@@ -38,9 +38,6 @@ impl Controller for Node {
             return Some(Operation::NodeJoin(
                 id,
                 ResourceQuantities {
-                    cpu_cores: Some(4.into()),
-                    memory_mb: Some(4000.into()),
-                    pods: Some(32.into()),
                     others: BTreeMap::new(),
                 },
             ));

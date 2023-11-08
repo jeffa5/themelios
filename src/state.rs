@@ -651,7 +651,7 @@ impl StateView {
                         },
                         status: crate::resources::NodeStatus {
                             capacity: capacity.clone(),
-                            allocatable: capacity.clone(),
+                            allocatable: Some(capacity.clone()),
                         },
                     },
                 );
@@ -667,7 +667,6 @@ impl StateView {
                         spec: PodSpec {
                             scheduler_name: None,
                             node_name: None,
-                            resources: None,
                             containers: Vec::new(),
                             active_deadline_seconds: None,
                             termination_grace_period_seconds: None,

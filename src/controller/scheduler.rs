@@ -2,7 +2,7 @@ use tracing::debug;
 
 use crate::abstract_model::Operation;
 use crate::controller::Controller;
-use crate::resources::{NodeResource, PersistentVolumeClaim, PodResource};
+use crate::resources::{NodeResource, PersistentVolumeClaim, PodResource, ResourceQuantities};
 use crate::state::StateView;
 
 #[derive(Clone, Debug)]
@@ -114,37 +114,45 @@ fn volumes_exist(pod: &PodResource, pvcs: &[&PersistentVolumeClaim]) -> bool {
 }
 
 fn fits_resources(pod: &PodResource, node: &NodeResource, pods_for_node: &[&PodResource]) -> bool {
-    match pod
+    let requests = pod
         .spec
-        .resources
+        .containers
+        .iter()
+        .filter_map(|c| c.resources.requests.as_ref())
+        .sum();
+
+    // use allocatable from node status, or capacity if it is missing
+    let mut remaining_allocatable = node
+        .status
+        .allocatable
         .as_ref()
-        .and_then(|r| r.requests.as_ref())
-    {
-        None => {
-            // if the pod being scheduled doesn't request any resources then it can go anywhere
-            true
-        }
-        Some(requests) => {
-            let mut remaining_capacity = node.status.capacity.clone();
-            for running_pod in pods_for_node {
-                if let Some(resources) = &running_pod.spec.resources {
-                    if let Some(requests) = &resources.requests {
-                        remaining_capacity -= requests.clone();
-                    }
-                }
-            }
-            debug!(?remaining_capacity, ?requests, "Checking if node has space");
-            if &remaining_capacity >= requests {
-                debug!(
-                    pod = pod.metadata.name,
-                    node = node.metadata.name,
-                    "Did have space, scheduling pod"
-                );
-                true
-            } else {
-                debug!(node = node.metadata.name, "Node does not have space");
-                false
-            }
-        }
+        .unwrap_or(&node.status.capacity)
+        .clone();
+
+    for running_pod in pods_for_node {
+        let requests: ResourceQuantities = running_pod
+            .spec
+            .containers
+            .iter()
+            .filter_map(|c| c.resources.requests.as_ref())
+            .sum();
+        remaining_allocatable -= requests.clone();
+    }
+
+    debug!(
+        ?remaining_allocatable,
+        ?requests,
+        "Checking if node has space"
+    );
+    if remaining_allocatable >= requests {
+        debug!(
+            pod = pod.metadata.name,
+            node = node.metadata.name,
+            "Did have space, scheduling pod"
+        );
+        true
+    } else {
+        debug!(node = node.metadata.name, "Node does not have space");
+        false
     }
 }

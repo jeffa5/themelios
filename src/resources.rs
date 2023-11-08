@@ -3,7 +3,8 @@ use serde::{Deserialize, Serialize};
 use std::{
     collections::BTreeMap,
     fmt::Display,
-    ops::{Sub, SubAssign},
+    iter::Sum,
+    ops::{Add, AddAssign, Sub, SubAssign},
 };
 
 #[derive(
@@ -162,10 +163,6 @@ impl PodResource {
 pub struct PodSpec {
     pub node_name: Option<String>,
     pub scheduler_name: Option<String>,
-    /// The resources that the pod will use
-    /// This is a simplification, really this should be per container in the pod, but that doesn't
-    /// impact things really.
-    pub resources: Option<ResourceRequirements>,
 
     pub containers: Vec<Container>,
 
@@ -258,6 +255,8 @@ pub struct PersistentVolumeClaimVolumeSource {
 pub struct Container {
     pub name: String,
     pub image: String,
+    #[serde(default)]
+    pub resources: ResourceRequirements,
 }
 
 #[derive(
@@ -435,16 +434,27 @@ pub struct ResourceRequirements {
     #[derive(Debug, PartialEq)]
 ))]
 pub struct ResourceQuantities {
-    /// Number of cpu cores.
-    pub cpu_cores: Option<Quantity>,
-    /// Amount of memory (in megabytes).
-    pub memory_mb: Option<Quantity>,
-    /// Number of pods.
-    pub pods: Option<Quantity>,
-
     // catch other resource types that we haven't included here yet
     #[serde(flatten)]
     pub others: BTreeMap<String, Quantity>,
+}
+
+impl Add<ResourceQuantities> for ResourceQuantities {
+    type Output = ResourceQuantities;
+
+    fn add(self, rhs: ResourceQuantities) -> Self::Output {
+        let mut others = self.others;
+        for (res, q) in rhs.others {
+            *others.entry(res).or_default() += q;
+        }
+        Self { others }
+    }
+}
+
+impl<'a> Sum<&'a ResourceQuantities> for ResourceQuantities {
+    fn sum<I: Iterator<Item = &'a Self>>(iter: I) -> Self {
+        iter.fold(ResourceQuantities::default(), |acc, v| acc + v.clone())
+    }
 }
 
 #[derive(
@@ -461,28 +471,11 @@ impl Sub for ResourceQuantities {
     type Output = Self;
 
     fn sub(self, rhs: Self) -> Self::Output {
+        let mut others = self.others;
+        for (res, q) in rhs.others {
+            *others.entry(res).or_default() -= q;
+        }
         Self {
-            cpu_cores: Some(
-                self.cpu_cores
-                    .unwrap_or_default()
-                    .to_int()
-                    .saturating_sub(rhs.cpu_cores.unwrap_or_default().to_int())
-                    .into(),
-            ),
-            memory_mb: Some(
-                self.memory_mb
-                    .unwrap_or_default()
-                    .to_int()
-                    .saturating_sub(rhs.memory_mb.unwrap_or_default().to_int())
-                    .into(),
-            ),
-            pods: Some(
-                self.pods
-                    .unwrap_or_default()
-                    .to_int()
-                    .saturating_sub(rhs.pods.unwrap_or_default().to_int())
-                    .into(),
-            ),
             others: BTreeMap::new(),
         }
     }
@@ -1070,8 +1063,7 @@ pub struct NodeStatus {
     pub capacity: ResourceQuantities,
 
     /// The total resources of the node.
-    #[serde(default)]
-    pub allocatable: ResourceQuantities,
+    pub allocatable: Option<ResourceQuantities>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff)]
@@ -1109,6 +1101,32 @@ impl Quantity {
 impl From<u32> for Quantity {
     fn from(value: u32) -> Self {
         Quantity::Int(value)
+    }
+}
+
+impl Add<Quantity> for Quantity {
+    type Output = Quantity;
+    fn add(self, rhs: Quantity) -> Self::Output {
+        Quantity::Int(self.to_int() + rhs.to_int())
+    }
+}
+
+impl AddAssign<Quantity> for Quantity {
+    fn add_assign(&mut self, rhs: Quantity) {
+        *self = Quantity::Int(self.to_int() + rhs.to_int())
+    }
+}
+
+impl Sub<Quantity> for Quantity {
+    type Output = Quantity;
+    fn sub(self, rhs: Quantity) -> Self::Output {
+        Quantity::Int(self.to_int() + rhs.to_int())
+    }
+}
+
+impl SubAssign<Quantity> for Quantity {
+    fn sub_assign(&mut self, rhs: Quantity) {
+        *self = Quantity::Int(self.to_int() + rhs.to_int())
     }
 }
 

@@ -14,8 +14,6 @@ use model_checked_orchestration::resources::PodTemplateSpec;
 use model_checked_orchestration::resources::ReplicaSetResource;
 use model_checked_orchestration::resources::ReplicaSetSpec;
 use model_checked_orchestration::resources::ReplicaSetStatus;
-use model_checked_orchestration::resources::ResourceQuantities;
-use model_checked_orchestration::resources::ResourceRequirements;
 use model_checked_orchestration::resources::StatefulSetResource;
 use model_checked_orchestration::resources::StatefulSetSpec;
 use model_checked_orchestration::resources::StatefulSetStatus;
@@ -56,16 +54,6 @@ fn main() {
             spec: PodSpec {
                 node_name: None,
                 scheduler_name: None,
-                resources: Some(ResourceRequirements {
-                    requests: Some(ResourceQuantities {
-                        cpu_cores: Some(2.into()),
-                        memory_mb: Some(3000.into()),
-                        pods: Some(32.into()),
-                        others: BTreeMap::new(),
-                    }),
-                    limits: None,
-                    claims: Vec::new(),
-                }),
                 containers: Vec::new(),
                 active_deadline_seconds: None,
                 termination_grace_period_seconds: None,
@@ -86,7 +74,6 @@ fn main() {
                     spec: PodSpec {
                         node_name: None,
                         scheduler_name: None,
-                        resources: None,
                         containers: Vec::new(),
                         active_deadline_seconds: None,
                         termination_grace_period_seconds: None,
@@ -113,7 +100,6 @@ fn main() {
                     spec: PodSpec {
                         node_name: None,
                         scheduler_name: None,
-                        resources: None,
                         containers: Vec::new(),
                         active_deadline_seconds: None,
                         termination_grace_period_seconds: None,
