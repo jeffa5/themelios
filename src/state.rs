@@ -634,6 +634,7 @@ impl StateView {
                         status: crate::resources::NodeStatus {
                             capacity: capacity.clone(),
                             allocatable: Some(capacity.clone()),
+                            conditions: Vec::new(),
                         },
                     },
                 );

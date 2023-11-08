@@ -1076,6 +1076,37 @@ pub struct NodeStatus {
 
     /// The total resources of the node.
     pub allocatable: Option<ResourceQuantities>,
+
+    #[serde(default)]
+    pub conditions: Vec<NodeCondition>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff)]
+#[diff(attr(
+    #[derive(Debug, PartialEq)]
+))]
+#[serde(rename_all = "camelCase")]
+pub struct NodeCondition {
+    pub r#type: NodeConditionType,
+    pub status: ConditionStatus,
+    #[serde(default)]
+    pub reason: String,
+    #[serde(default)]
+    pub message: String,
+    pub last_heartbeat_time: Option<Time>,
+    pub last_transition_time: Option<Time>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff)]
+#[diff(attr(
+    #[derive(Debug, PartialEq)]
+))]
+pub enum NodeConditionType {
+    Ready,
+    DiskPressure,
+    MemoryPressure,
+    PIDPressure,
+    NetworkUnavailable,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff)]

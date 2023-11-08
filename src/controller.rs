@@ -20,7 +20,7 @@ mod node;
 mod replicaset;
 mod scheduler;
 pub mod statefulset;
-mod util;
+pub mod util;
 
 pub trait Controller {
     type State: Clone + Hash + PartialEq + std::fmt::Debug + Default;

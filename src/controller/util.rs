@@ -1,6 +1,9 @@
 use crate::{
     abstract_model::ControllerAction,
-    resources::{GroupVersionKind, Metadata, OwnerReference, Pod, PodStatus, PodTemplateSpec},
+    resources::{
+        GroupVersionKind, Metadata, NodeCondition, NodeConditionType, OwnerReference, Pod,
+        PodStatus, PodTemplateSpec,
+    },
 };
 
 pub enum ValOrOp<V> {
@@ -51,4 +54,11 @@ fn get_pods_prefix(controller_name: &str) -> String {
     let prefix = format!("{}-", controller_name);
     // TODO: validate pod name and maybe remove dash
     prefix
+}
+
+pub fn get_node_condition(
+    conditions: &[NodeCondition],
+    cond_type: NodeConditionType,
+) -> Option<&NodeCondition> {
+    conditions.iter().find(|c| c.r#type == cond_type)
 }

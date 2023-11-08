@@ -3,10 +3,11 @@ use std::collections::BTreeSet;
 
 use stateright::{Model, Property};
 
+use crate::controller::util::get_node_condition;
 use crate::controller::{Controller, ControllerStates, Controllers};
 use crate::resources::{
-    ControllerRevision, Deployment, PersistentVolumeClaim, Pod, ReplicaSet, ResourceQuantities,
-    StatefulSet,
+    ConditionStatus, ControllerRevision, Deployment, NodeConditionType, PersistentVolumeClaim, Pod,
+    ReplicaSet, ResourceQuantities, StatefulSet,
 };
 use crate::state::{ConsistencySetup, Revision, State, StateView};
 
@@ -111,11 +112,15 @@ impl Model for AbstractModelCfg {
             }
         }
         // at max revision as this isn't a controller event
-        // for (node_id, node) in &state.view_at(state.max_revision()).nodes {
-        //     if node.ready {
-        //         actions.push(Action::NodeCrash(*node_id));
-        //     }
-        // }
+        for (node_id, node) in &state.view_at(state.max_revision()).nodes {
+            if let Some(cond) =
+                get_node_condition(&node.status.conditions, NodeConditionType::Ready)
+            {
+                if cond.status == ConditionStatus::True {
+                    actions.push(Action::NodeCrash(*node_id));
+                }
+            }
+        }
         // TODO: re-enable node crashes
     }
 
