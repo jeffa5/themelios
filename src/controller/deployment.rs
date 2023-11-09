@@ -1316,14 +1316,13 @@ fn set_new_replicaset_annotations(
                 .map(|s| s.to_owned())
                 .collect::<Vec<String>>();
             if old_revisions[0].is_empty() {
-                new_replicaset.metadata.annotations.insert(
-                    REVISION_HISTORY_ANNOTATION.to_owned(),
-                    old_revision.clone(),
-                );
+                new_replicaset
+                    .metadata
+                    .annotations
+                    .insert(REVISION_HISTORY_ANNOTATION.to_owned(), old_revision.clone());
             } else {
-                let mut total_len = revision_history_annotation.map_or(0, |a| a.len())
-                    + old_revision.len()
-                    + 1;
+                let mut total_len =
+                    revision_history_annotation.map_or(0, |a| a.len()) + old_revision.len() + 1;
                 // index for the starting position in oldRevisions
                 let mut start = 0;
                 while total_len > rev_history_limit_in_chars && start < old_revisions.len() {

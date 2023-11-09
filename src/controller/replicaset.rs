@@ -9,13 +9,16 @@ use crate::abstract_model::ControllerAction;
 use crate::controller::util::new_controller_ref;
 use crate::controller::Controller;
 use crate::resources::{
-    ConditionStatus, LabelSelector, Pod, PodConditionType, PodPhase, ReplicaSet,
-    ReplicaSetCondition, ReplicaSetConditionType, ReplicaSetStatus, Time,
+    LabelSelector, Pod, PodConditionType, ReplicaSet, ReplicaSetCondition, ReplicaSetConditionType,
+    ReplicaSetStatus, Time,
 };
 use crate::state::StateView;
 use crate::utils::now;
 
+use super::util;
 use super::util::get_pod_from_template;
+use super::util::is_pod_active;
+use super::util::is_pod_ready;
 use super::util::ValOrOp;
 
 const POD_DELETION_COST: &str = "controller.kubernetes.io/pod-deletion-cost";
@@ -79,7 +82,7 @@ impl Controller for ReplicaSetController {
 }
 
 fn reconcile(replicaset: &ReplicaSet, all_pods: &[&Pod]) -> Option<ReplicaSetControllerAction> {
-    let filtered_pods = filter_active_pods(all_pods);
+    let filtered_pods = util::filter_active_pods(all_pods);
     let filtered_pods = claim_pods(replicaset, &filtered_pods);
 
     let filtered_pods = match filtered_pods {
@@ -167,12 +170,6 @@ fn claim_pods<'a>(
     ValOrOp::Resource(pods)
 }
 
-fn filter_active_pods<'a>(pods: &[&'a Pod]) -> Vec<&'a Pod> {
-    pods.iter()
-        .filter_map(|pod| if is_pod_active(pod) { Some(*pod) } else { None })
-        .collect()
-}
-
 fn calculate_status(replicaset: &ReplicaSet, pods: &[&Pod]) -> ReplicaSetStatus {
     let mut new_status = replicaset.status.clone();
 
@@ -238,14 +235,6 @@ fn remove_condition(status: &mut ReplicaSetStatus, cond_type: ReplicaSetConditio
     status.conditions.retain(|c| c.r#type != cond_type)
 }
 
-fn is_pod_ready(pod: &Pod) -> bool {
-    pod.status
-        .conditions
-        .iter()
-        .find(|c| c.r#type == PodConditionType::Ready)
-        .map_or(false, |c| c.status == ConditionStatus::True)
-}
-
 fn is_pod_available(pod: &Pod, min_ready_seconds: u32, now: Time) -> bool {
     if let Some(c) = pod
         .status
@@ -262,12 +251,6 @@ fn is_pod_available(pod: &Pod, min_ready_seconds: u32, now: Time) -> bool {
         }
     }
     false
-}
-
-fn is_pod_active(pod: &Pod) -> bool {
-    pod.status.phase != PodPhase::Succeeded
-        && pod.status.phase != PodPhase::Failed
-        && pod.metadata.deletion_timestamp.is_none()
 }
 
 // updateReplicaSetStatus attempts to update the Status.Replicas of the given ReplicaSet, with a single GET/PUT retry.

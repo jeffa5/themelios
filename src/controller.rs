@@ -10,12 +10,14 @@ pub use scheduler::SchedulerController;
 pub use statefulset::StatefulSetController;
 
 pub use self::deployment::DeploymentControllerState;
+use self::job::{JobController, JobControllerState};
 pub use self::node::NodeControllerState;
 pub use self::replicaset::ReplicaSetControllerState;
 pub use self::scheduler::SchedulerControllerState;
 pub use self::statefulset::StatefulSetControllerState;
 
 pub mod deployment;
+pub mod job;
 pub mod node;
 pub mod replicaset;
 pub mod scheduler;
@@ -46,6 +48,7 @@ pub enum Controllers {
     ReplicaSet(ReplicaSetController),
     Deployment(DeploymentController),
     StatefulSet(StatefulSetController),
+    Job(JobController),
 }
 
 #[derive(Debug, Hash, Clone, PartialEq, Eq)]
@@ -55,6 +58,7 @@ pub enum ControllerStates {
     ReplicaSet(ReplicaSetControllerState),
     Deployment(DeploymentControllerState),
     StatefulSet(StatefulSetControllerState),
+    Job(JobControllerState),
 }
 
 impl Default for ControllerStates {
@@ -90,6 +94,9 @@ impl Controller for Controllers {
             (Controllers::StatefulSet(c), ControllerStates::StatefulSet(s)) => {
                 c.step(id, global_state, s).map(|a| a.into())
             }
+            (Controllers::Job(c), ControllerStates::Job(s)) => {
+                c.step(id, global_state, s).map(|a| a.into())
+            }
             _ => unreachable!(),
         }
     }
@@ -101,6 +108,7 @@ impl Controller for Controllers {
             Controllers::ReplicaSet(c) => c.name(),
             Controllers::Deployment(c) => c.name(),
             Controllers::StatefulSet(c) => c.name(),
+            Controllers::Job(c) => c.name(),
         }
     }
 }
@@ -115,6 +123,7 @@ impl Controllers {
             Controllers::StatefulSet(_) => {
                 ControllerStates::StatefulSet(StatefulSetControllerState)
             }
+            Controllers::Job(_) => ControllerStates::Job(JobControllerState),
         }
     }
 }

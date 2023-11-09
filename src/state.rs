@@ -1,7 +1,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use crate::controller::ControllerStates;
-use crate::resources::{ControllerRevision, PersistentVolumeClaim};
+use crate::resources::{ControllerRevision, Job, PersistentVolumeClaim};
 use crate::utils;
 use crate::{
     abstract_model::{Change, ControllerAction},
@@ -563,6 +563,7 @@ pub struct StateView {
     pub statefulsets: BTreeMap<String, StatefulSet>,
     pub controller_revisions: BTreeMap<String, ControllerRevision>,
     pub persistent_volume_claims: BTreeMap<String, PersistentVolumeClaim>,
+    pub jobs: BTreeMap<String, Job>,
 }
 
 impl StateView {
@@ -724,6 +725,9 @@ impl StateView {
             ControllerAction::UpdatePersistentVolumeClaim(pvc) => {
                 self.persistent_volume_claims
                     .insert(pvc.metadata.name.clone(), pvc.clone());
+            }
+            ControllerAction::UpdateJobStatus(job) => {
+                self.jobs.insert(job.metadata.name.clone(), job.clone());
             }
         }
         self.revision = new_revision;

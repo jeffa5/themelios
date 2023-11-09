@@ -1,6 +1,6 @@
 use crate::resources::{
-    GroupVersionKind, Metadata, NodeCondition, NodeConditionType, OwnerReference, Pod, PodStatus,
-    PodTemplateSpec,
+    ConditionStatus, GroupVersionKind, Metadata, NodeCondition, NodeConditionType, OwnerReference,
+    Pod, PodConditionType, PodPhase, PodStatus, PodTemplateSpec,
 };
 
 pub enum ValOrOp<V, O> {
@@ -58,4 +58,24 @@ pub fn get_node_condition(
     cond_type: NodeConditionType,
 ) -> Option<&NodeCondition> {
     conditions.iter().find(|c| c.r#type == cond_type)
+}
+
+pub fn filter_active_pods<'a>(pods: &[&'a Pod]) -> Vec<&'a Pod> {
+    pods.iter()
+        .filter_map(|pod| if is_pod_active(pod) { Some(*pod) } else { None })
+        .collect()
+}
+
+pub fn is_pod_ready(pod: &Pod) -> bool {
+    pod.status
+        .conditions
+        .iter()
+        .find(|c| c.r#type == PodConditionType::Ready)
+        .map_or(false, |c| c.status == ConditionStatus::True)
+}
+
+pub fn is_pod_active(pod: &Pod) -> bool {
+    pod.status.phase != PodPhase::Succeeded
+        && pod.status.phase != PodPhase::Failed
+        && pod.metadata.deletion_timestamp.is_none()
 }

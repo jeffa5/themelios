@@ -9,6 +9,7 @@ use tracing::debug;
 
 use crate::abstract_model::ControllerAction;
 use crate::controller::deployment::DeploymentControllerAction;
+use crate::controller::job::{JobController, JobControllerAction, JobControllerState};
 use crate::controller::replicaset::ReplicaSetControllerAction;
 use crate::controller::scheduler::SchedulerControllerAction;
 use crate::controller::statefulset::StatefulSetControllerAction;
@@ -18,7 +19,7 @@ use crate::controller::{
     StatefulSetController, StatefulSetControllerState,
 };
 use crate::resources::{
-    ControllerRevision, Deployment, Node, PersistentVolumeClaim, Pod, ReplicaSet, StatefulSet,
+    ControllerRevision, Deployment, Job, Node, PersistentVolumeClaim, Pod, ReplicaSet, StatefulSet,
 };
 use crate::state::{Revision, StateView};
 
@@ -28,6 +29,7 @@ pub fn app() -> Router {
         .route("/deployment", post(deployment))
         .route("/replicaset", post(replicaset))
         .route("/statefulset", post(statefulset))
+        .route("/job", post(job))
 }
 
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
@@ -126,6 +128,20 @@ enum StatefulSetResponse {
         #[serde(rename = "persistentVolumeClaim")]
         persistent_volume_claim: PersistentVolumeClaim,
     },
+}
+
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct JobRequest {
+    job: Job,
+    pods: Vec<Pod>,
+}
+
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+#[serde(tag = "action", rename_all = "camelCase")]
+enum JobResponse {
+    UpdateJobStatus { job: Job },
+    DeletePod { pod: Pod },
 }
 
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
@@ -397,6 +413,38 @@ async fn statefulset(
             }))
         }
         Some(StatefulSetControllerAction::ControllerJoin(_)) => {
+            panic!("got controller join whilst serving")
+        }
+        None => Err(ErrorResponse::NoOperation),
+    }
+}
+
+#[tracing::instrument(skip_all)]
+async fn job(Json(payload): Json<JobRequest>) -> Result<Json<JobResponse>, ErrorResponse> {
+    let s = JobController;
+    debug!("Got job controller request");
+    println!("{}", serde_yaml::to_string(&payload).unwrap());
+    let controller_id = 0;
+    let state_view = StateView {
+        revision: Revision::default(),
+        jobs: btreemap! {payload.job.metadata.name.clone() => payload.job},
+        pods: payload
+            .pods
+            .into_iter()
+            .map(|p| (p.metadata.name.clone(), p))
+            .collect(),
+        controllers: btreeset![controller_id],
+        ..Default::default()
+    };
+    let mut local_state = JobControllerState;
+    let operation = s.step(controller_id, &state_view, &mut local_state);
+    debug!(?operation, "Got operation");
+    match operation {
+        Some(JobControllerAction::UpdateJobStatus(job)) => {
+            Ok(Json(JobResponse::UpdateJobStatus { job }))
+        }
+        Some(JobControllerAction::DeletePod(pod)) => Ok(Json(JobResponse::DeletePod { pod })),
+        Some(JobControllerAction::ControllerJoin(_)) => {
             panic!("got controller join whilst serving")
         }
         None => Err(ErrorResponse::NoOperation),

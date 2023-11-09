@@ -6,8 +6,8 @@ use stateright::{Model, Property};
 use crate::controller::util::get_node_condition;
 use crate::controller::{Controller, ControllerStates, Controllers, NodeControllerState};
 use crate::resources::{
-    ConditionStatus, ControllerRevision, Deployment, NodeConditionType, PersistentVolumeClaim, Pod,
-    ReplicaSet, ResourceQuantities, StatefulSet,
+    ConditionStatus, ControllerRevision, Deployment, Job, NodeConditionType, PersistentVolumeClaim,
+    Pod, ReplicaSet, ResourceQuantities, StatefulSet,
 };
 use crate::state::{ConsistencySetup, Revision, State, StateView};
 
@@ -67,6 +67,9 @@ pub enum ControllerAction {
     // PersistentVolumeClaims
     CreatePersistentVolumeClaim(PersistentVolumeClaim),
     UpdatePersistentVolumeClaim(PersistentVolumeClaim),
+
+    // Jobs
+    UpdateJobStatus(Job),
 
     // Environmental
     NodeCrash(usize),

@@ -168,7 +168,7 @@ pub struct PodSpec {
 
     pub termination_grace_period_seconds: Option<u64>,
 
-    pub restart_policy: Option<String>,
+    pub restart_policy: Option<PodRestartPolicy>,
 
     pub active_deadline_seconds: Option<u64>,
 
@@ -182,6 +182,17 @@ pub struct PodSpec {
 
     #[serde(default)]
     pub tolerations: Vec<Toleration>,
+}
+
+#[derive(
+    Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff,
+)]
+#[diff(attr(
+    #[derive(Debug, PartialEq)]
+))]
+pub enum PodRestartPolicy {
+    Never,
+    OnFailure,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff)]
@@ -277,6 +288,9 @@ pub struct PodStatus {
     // Status for any ephemeral containers that have run in this pod.
     #[serde(default)]
     pub container_statuses: Vec<ContainerStatus>,
+
+    #[serde(default)]
+    pub init_container_statuses: Vec<ContainerStatus>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff)]
@@ -367,9 +381,9 @@ pub struct ContainerStatus {
 ))]
 #[serde(rename_all = "camelCase")]
 pub struct ContainerState {
-    waiting: Option<ContainerStateWaiting>,
-    running: Option<ContainerStateRunning>,
-    terminated: Option<ContainerStateTerminated>,
+    pub waiting: Option<ContainerStateWaiting>,
+    pub running: Option<ContainerStateRunning>,
+    pub terminated: Option<ContainerStateTerminated>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff)]
@@ -399,17 +413,17 @@ pub struct ContainerStateRunning {
 ))]
 #[serde(rename_all = "camelCase")]
 pub struct ContainerStateTerminated {
-    exit_code: u32,
+    pub exit_code: u32,
     #[serde(default)]
-    signal: u32,
+    pub signal: u32,
     #[serde(default)]
-    reason: String,
+    pub reason: String,
     #[serde(default)]
-    message: String,
-    started_at: Option<Time>,
-    finished_at: Option<Time>,
+    pub message: String,
+    pub started_at: Option<Time>,
+    pub finished_at: Option<Time>,
     #[serde(default)]
-    container_id: String,
+    pub container_id: String,
 }
 
 #[derive(
@@ -485,6 +499,183 @@ impl SubAssign for ResourceQuantities {
     fn sub_assign(&mut self, rhs: Self) {
         *self = self.clone() - rhs;
     }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff)]
+#[diff(attr(
+    #[derive(Debug, PartialEq)]
+))]
+#[serde(rename_all = "camelCase")]
+pub struct Job {
+    pub metadata: Metadata,
+    pub spec: JobSpec,
+    pub status: JobStatus,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff)]
+#[diff(attr(
+    #[derive(Debug, PartialEq)]
+))]
+#[serde(rename_all = "camelCase")]
+pub struct JobSpec {
+    pub template: PodTemplateSpec,
+    pub parallelism: Option<u32>,
+    pub completions: Option<u32>,
+    #[serde(default)]
+    pub completion_mode: JobCompletionMode,
+    pub backoff_limit: Option<u32>,
+    pub active_deadline_seconds: Option<u64>,
+    pub ttl_seconds_after_finished: Option<u64>,
+    #[serde(default)]
+    pub suspend: bool,
+    pub selector: LabelSelector,
+
+    pub pod_failure_policy: Option<JobPodFailurePolicy>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff)]
+#[diff(attr(
+    #[derive(Debug, PartialEq)]
+))]
+#[serde(rename_all = "camelCase")]
+pub struct JobPodFailurePolicy {
+    pub rules: Vec<JobPodFailurePolicyRule>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff)]
+#[diff(attr(
+    #[derive(Debug, PartialEq)]
+))]
+#[serde(rename_all = "camelCase")]
+pub struct JobPodFailurePolicyRule {
+    pub action: JobPodFailurePolicyRuleAction,
+    pub on_pod_conditions: Option<Vec<JobPodFailurePolicyRuleOnPodConditionsPattern>>,
+    pub on_exit_codes: Option<JobPodFailurePolicyRuleOnExitCodesRequirement>,
+}
+
+#[derive(
+    Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff,
+)]
+#[diff(attr(
+    #[derive(Debug, PartialEq)]
+))]
+pub enum JobPodFailurePolicyRuleAction {
+    Ignore,
+    FailIndex,
+    Count,
+    FailJob,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff)]
+#[diff(attr(
+    #[derive(Debug, PartialEq)]
+))]
+#[serde(rename_all = "camelCase")]
+pub struct JobPodFailurePolicyRuleOnPodConditionsPattern {
+    pub status: ConditionStatus,
+    pub r#type: PodConditionType,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff)]
+#[diff(attr(
+    #[derive(Debug, PartialEq)]
+))]
+#[serde(rename_all = "camelCase")]
+pub struct JobPodFailurePolicyRuleOnExitCodesRequirement {
+    pub operator: JobPodFailurePolicyRuleOnExitCodesRequirementOperator,
+    pub values: Vec<u32>,
+    pub container_name: Option<String>,
+}
+
+#[derive(
+    Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff,
+)]
+#[diff(attr(
+    #[derive(Debug, PartialEq)]
+))]
+pub enum JobPodFailurePolicyRuleOnExitCodesRequirementOperator {
+    In,
+    NotIn,
+}
+
+#[derive(
+    Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff,
+)]
+#[diff(attr(
+    #[derive(Debug, PartialEq)]
+))]
+pub enum JobCompletionMode {
+    #[default]
+    NonIndexed,
+    Indexed,
+}
+
+#[derive(
+    Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff,
+)]
+#[diff(attr(
+    #[derive(Debug, PartialEq)]
+))]
+#[serde(rename_all = "camelCase")]
+pub struct JobStatus {
+    pub start_time: Option<Time>,
+    pub completion_time: Option<Time>,
+    #[serde(default)]
+    pub active: u32,
+    pub failed: Option<u32>,
+    pub succeeded: Option<u32>,
+    #[serde(default)]
+    pub completed_indexes: String,
+    #[serde(default)]
+    pub conditions: Vec<JobCondition>,
+    #[serde(default)]
+    pub uncounted_terminated_pods: UncountedTerminatedPods,
+    // The number of pods which have a Ready condition.
+    #[serde(default)]
+    pub ready: u32,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff)]
+#[diff(attr(
+    #[derive(Debug, PartialEq)]
+))]
+#[serde(rename_all = "camelCase")]
+pub struct JobCondition {
+    pub status: ConditionStatus,
+    pub r#type: JobConditionType,
+    pub last_probe_time: Option<Time>,
+    pub last_transition_time: Option<Time>,
+    #[serde(default)]
+    pub message: String,
+    #[serde(default)]
+    pub reason: String,
+}
+
+#[derive(
+    Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff,
+)]
+#[diff(attr(
+    #[derive(Debug, PartialEq)]
+))]
+pub enum JobConditionType {
+    Suspended,
+    Complete,
+    Failed,
+    FailureTarget,
+}
+
+#[derive(
+    Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff,
+)]
+#[diff(attr(
+    #[derive(Debug, PartialEq)]
+))]
+#[serde(rename_all = "camelCase")]
+pub struct UncountedTerminatedPods {
+    #[serde(default)]
+    pub failed: Vec<String>,
+    #[serde(default)]
+    pub succeeded: Vec<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff)]
