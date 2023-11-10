@@ -165,6 +165,8 @@ pub struct PodSpec {
     pub scheduler_name: Option<String>,
 
     pub containers: Vec<Container>,
+    #[serde(default)]
+    pub init_containers: Vec<Container>,
 
     pub termination_grace_period_seconds: Option<u64>,
 
@@ -268,6 +270,41 @@ pub struct Container {
     pub image: String,
     #[serde(default)]
     pub resources: ResourceRequirements,
+    #[serde(default)]
+    pub env: Vec<EnvVar>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff)]
+#[diff(attr(
+    #[derive(Debug, PartialEq)]
+))]
+#[serde(rename_all = "camelCase")]
+pub struct EnvVar {
+    pub name: String,
+    pub value: Option<String>,
+    pub value_from: Option<EnvVarSource>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff)]
+#[diff(attr(
+    #[derive(Debug, PartialEq)]
+))]
+#[serde(rename_all = "camelCase")]
+pub struct EnvVarSource {
+    // pub config_map_key_ref: Option<ConfigMapKeySelector>,
+    pub field_ref: Option<ObjectFieldSelector>,
+    // pub resource_field_ref: Option<ResourceFieldSelector>,
+    // pub secret_key_ref: Option<SecretKeySelector>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff)]
+#[diff(attr(
+    #[derive(Debug, PartialEq)]
+))]
+#[serde(rename_all = "camelCase")]
+pub struct ObjectFieldSelector {
+    pub field_path: String,
+    pub api_version: Option<String>,
 }
 
 #[derive(
@@ -336,15 +373,15 @@ pub enum PodConditionType {
 pub enum PodPhase {
     // Pending: The pod has been accepted by the Kubernetes system, but one or more of the container images has not been created. This includes time before being scheduled as well as time spent downloading images over the network, which could take a while.
     Pending,
+    // Unknown: For some reason the state of the pod could not be obtained, typically due to an error in communicating with the host of the pod.
+    #[default]
+    Unknown,
     // Running: The pod has been bound to a node, and all of the containers have been created. At least one container is still running, or is in the process of starting or restarting.
     Running,
     // Succeeded: All containers in the pod have terminated in success, and will not be restarted.
     Succeeded,
     // Failed: All containers in the pod have terminated, and at least one container has terminated in failure. The container either exited with non-zero status or was terminated by the system.
     Failed,
-    // Unknown: For some reason the state of the pod could not be obtained, typically due to an error in communicating with the host of the pod.
-    #[default]
-    Unknown,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff)]
@@ -510,6 +547,14 @@ pub struct Job {
     pub metadata: Metadata,
     pub spec: JobSpec,
     pub status: JobStatus,
+}
+
+impl Job {
+    pub const GVK: GroupVersionKind = GroupVersionKind {
+        group: "batch",
+        version: "v1",
+        kind: "Job",
+    };
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff)]

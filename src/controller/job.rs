@@ -1,24 +1,31 @@
 use std::{
+    cmp::Ordering,
     collections::{BTreeMap, BTreeSet},
     time::Duration,
 };
 
+use tracing::debug;
+
 use crate::{
     abstract_model::ControllerAction,
-    resources::Job,
+    controller::util::new_controller_ref,
     resources::{
-        ConditionStatus, ContainerStatus, JobCompletionMode, JobCondition, JobConditionType,
-        JobPodFailurePolicy, JobPodFailurePolicyRuleAction,
+        ConditionStatus, Container, ContainerStatus, EnvVar, EnvVarSource, JobCompletionMode,
+        JobCondition, JobConditionType, JobPodFailurePolicy, JobPodFailurePolicyRuleAction,
         JobPodFailurePolicyRuleOnExitCodesRequirement,
         JobPodFailurePolicyRuleOnExitCodesRequirementOperator,
-        JobPodFailurePolicyRuleOnPodConditionsPattern, Pod, PodCondition, PodPhase,
-        PodRestartPolicy, PodStatus, Time, UncountedTerminatedPods,
+        JobPodFailurePolicyRuleOnPodConditionsPattern, ObjectFieldSelector, OwnerReference, Pod,
+        PodCondition, PodPhase, PodRestartPolicy, PodStatus, PodTemplateSpec, Time,
+        UncountedTerminatedPods,
     },
+    resources::{Job, PodConditionType},
     utils::now,
 };
 
 use super::{
-    util::{self, is_pod_ready},
+    util::{
+        self, filter_terminating_pods, get_pod_from_template, is_pod_ready, is_pod_terminating,
+    },
     Controller,
 };
 
@@ -30,9 +37,12 @@ const JOB_INDEX_FAILURE_COUNT_ANNOTATION: &str = "batch.kubernetes.io/job-index-
 const JOB_INDEX_IGNORED_FAILURE_COUNT_ANNOTATION: &str =
     "batch.kubernetes.io/job-index-ignored-failure-count";
 
+const JOB_COMPLETION_INDEX_ENV_NAME: &str = "JOB_COMPLETION_INDEX";
+
 const JOB_REASON_POD_FAILURE_POLICY: &str = "PodFailurePolicy";
 const JOB_REASON_BACKOFF_LIMIT_EXCEEDED: &str = "BackoffLimitExceeded";
 const JOB_REASON_DEADLINE_EXCEEDED: &str = "DeadlineExceeded";
+const MAX_POD_CREATE_DELETE_PER_SYNC: usize = 500;
 
 #[derive(Clone, Debug)]
 pub struct JobController;
@@ -46,6 +56,8 @@ pub enum JobControllerAction {
 
     UpdateJobStatus(Job),
 
+    CreatePod(Pod),
+    UpdatePod(Pod),
     DeletePod(Pod),
 }
 
@@ -54,6 +66,8 @@ impl From<JobControllerAction> for ControllerAction {
         match value {
             JobControllerAction::ControllerJoin(id) => ControllerAction::ControllerJoin(id),
             JobControllerAction::UpdateJobStatus(j) => ControllerAction::UpdateJobStatus(j),
+            JobControllerAction::CreatePod(pod) => ControllerAction::CreatePod(pod),
+            JobControllerAction::UpdatePod(pod) => ControllerAction::UpdatePod(pod),
             JobControllerAction::DeletePod(pod) => ControllerAction::DeletePod(pod),
         }
     }
@@ -192,7 +206,7 @@ fn reconcile(job: &Job, pods: &[&Pod]) -> Option<JobControllerAction> {
     } else {
         let mut manage_job_called = false;
         if job.metadata.deletion_timestamp.is_none() {
-            manage_job(job);
+            manage_job(job, &pods, &active_pods, succeeded, succeeded_indexes);
             manage_job_called = true;
         }
         let mut complete = false;
@@ -313,9 +327,7 @@ fn get_valid_pods_with_filter<'a>(
 
             if job.spec.completion_mode == JobCompletionMode::Indexed {
                 let index = get_completion_index(&p.metadata.annotations);
-                if index.map_or(true, |i| {
-                    i >= job.spec.completions.unwrap_or_default() as usize
-                }) {
+                if index.map_or(true, |i| i >= job.spec.completions.unwrap_or_default()) {
                     return false;
                 }
             }
@@ -333,7 +345,7 @@ fn has_job_tracking_finalizer(pod: &Pod) -> bool {
         .any(|f| f == JOB_TRACKING_FINALIZER)
 }
 
-fn get_completion_index(annotations: &BTreeMap<String, String>) -> Option<usize> {
+fn get_completion_index(annotations: &BTreeMap<String, String>) -> Option<u32> {
     annotations
         .get(JOB_COMPLETION_INDEX_ANNOTATION)
         .and_then(|v| v.parse().ok())
@@ -597,7 +609,7 @@ fn calculate_succeeded_indexes(job: &Job, pods: &[&Pod]) -> (Vec<(u32, u32)>, Ve
             // Succeeded Pod with valid index and, if tracking with finalizers,
             // has a finalizer (meaning that it is not counted yet).
             if pod.status.phase == PodPhase::Succeeded
-                && index < job.spec.completions.unwrap() as usize
+                && index < job.spec.completions.unwrap()
                 && has_job_tracking_finalizer(pod)
             {
                 new_succeeded.insert(index);
@@ -742,6 +754,458 @@ fn track_job_status_and_remove_finalizers(needs_update: bool) {
     todo!()
 }
 
-fn manage_job(job: &Job) {
-    todo!()
+// manageJob is the core method responsible for managing the number of running
+// pods according to what is specified in the job.Spec.
+// Respects back-off; does not create new pods if the back-off time has not passed
+// Does NOT modify <activePods>.
+fn manage_job(
+    job: &Job,
+    pods: &[&Pod],
+    active_pods: &[&Pod],
+    succeeded: usize,
+    succeeded_indexes: Vec<(u32, u32)>,
+) -> Option<JobControllerAction> {
+    let active = active_pods.len();
+    let parallelism = job.spec.parallelism.unwrap_or_default() as usize;
+
+    if job.spec.suspend {
+        debug!("Deleting all active pods in suspended job");
+        let pods_to_delete = active_pods_for_removal(job, active_pods, active);
+        return delete_job_pods(job, &pods_to_delete);
+    }
+
+    let mut terminating = 0;
+    if only_replace_failed_pods(job) {
+        // For PodFailurePolicy specified but PodReplacementPolicy disabled
+        // we still need to count terminating pods for replica counts
+        // But we will not allow updates to status.
+        terminating = count_terminating_pods(pods);
+    }
+
+    let mut want_active = 0;
+    if let Some(completions) = job.spec.completions {
+        // Job specifies a specific number of completions.  Therefore, number
+        // active should not ever exceed number of remaining completions.
+        want_active = (completions as usize).saturating_sub(succeeded);
+        if want_active > parallelism {
+            want_active = parallelism;
+        }
+    } else {
+        // Job does not specify a number of completions.  Therefore, number active
+        // should be equal to parallelism, unless the job has seen at least
+        // once success, in which leave whatever is running, running.
+        if succeeded > 0 {
+            want_active = active
+        } else {
+            want_active = parallelism
+        }
+    }
+
+    let rm_at_least = (active + terminating).saturating_sub(want_active);
+
+    let mut pods_to_delete = active_pods_for_removal(job, active_pods, rm_at_least);
+    if pods_to_delete.len() > MAX_POD_CREATE_DELETE_PER_SYNC {
+        pods_to_delete = pods_to_delete[..MAX_POD_CREATE_DELETE_PER_SYNC].to_vec();
+    }
+
+    if pods_to_delete.len() > 0 {
+        debug!(
+            job = job.metadata.name,
+            deleted = pods_to_delete.len(),
+            target = want_active,
+            "Too many pods running for job"
+        );
+        return delete_job_pods(job, &pods_to_delete);
+    }
+
+    let mut diff = want_active
+        .saturating_sub(terminating)
+        .saturating_sub(active);
+    if diff > 0 {
+        if diff > MAX_POD_CREATE_DELETE_PER_SYNC {
+            diff = MAX_POD_CREATE_DELETE_PER_SYNC
+        }
+
+        let mut indexes_to_add = Vec::new();
+        if job.spec.completion_mode == JobCompletionMode::Indexed {
+            indexes_to_add = first_pending_indexes(
+                diff,
+                job.spec.completions.unwrap(),
+                pods,
+                active_pods,
+                job,
+                succeeded_indexes,
+            );
+            diff = indexes_to_add.len();
+        }
+
+        debug!(
+            job = job.metadata.name,
+            need = want_active,
+            creating = diff,
+            "Too few pods running"
+        );
+
+        let mut pod_template = job.spec.template.clone();
+        if job.spec.completion_mode == JobCompletionMode::Indexed {
+            add_completion_index_env_variables(&mut pod_template);
+        }
+
+        append_job_completion_finalizer_if_not_found(&mut pod_template.metadata.finalizers);
+        let mut completion_index = None;
+        if !indexes_to_add.is_empty() {
+            completion_index = indexes_to_add.first().copied();
+            indexes_to_add.remove(0);
+        }
+
+        let generate_name = if let Some(completion_index) = completion_index {
+            add_completion_index_annotation(&mut pod_template, completion_index);
+            pod_template.spec.hostname = format!("{}-{}", job.metadata.name, completion_index);
+            pod_generate_name_with_index(job.metadata.name.clone(), completion_index)
+        } else {
+            String::new()
+        };
+
+        return Some(create_pod_with_generate_name(
+            job,
+            pod_template,
+            new_controller_ref(&job.metadata, &Job::GVK),
+            generate_name,
+        ));
+    }
+
+    None
+}
+
+fn active_pods_for_removal<'a>(job: &Job, pods: &[&'a Pod], rm_at_least: usize) -> Vec<&'a Pod> {
+    let mut rm = Vec::new();
+    let mut left = Vec::new();
+    if job.spec.completion_mode == JobCompletionMode::Indexed {
+        append_duplicated_index_pods_for_removal(
+            &mut rm,
+            &mut left,
+            pods,
+            job.spec.completions.unwrap(),
+        );
+    } else {
+        left = pods.to_vec();
+    }
+
+    if rm.len() < rm_at_least {
+        // sort left by active
+        left.truncate(rm_at_least - rm.len());
+        rm.append(&mut left);
+    }
+    rm
+}
+
+// appendDuplicatedIndexPodsForRemoval scans active `pods` for duplicated
+// completion indexes. For each index, it selects n-1 pods for removal, where n
+// is the number of repetitions. The pods to be removed are appended to `rm`,
+// while the remaining pods are appended to `left`.
+// All pods that don't have a completion index are appended to `rm`.
+// All pods with index not in valid range are appended to `rm`.
+fn append_duplicated_index_pods_for_removal<'a>(
+    rm: &mut Vec<&'a Pod>,
+    left: &mut Vec<&'a Pod>,
+    pods: &[&'a Pod],
+    completions: u32,
+) {
+    let mut pods = pods.to_vec();
+
+    pods.sort_by_key(|p| get_completion_index(&p.metadata.annotations));
+
+    let mut last_index = None;
+    let mut first_repeat_pos = 0;
+    let mut count_looped = 0;
+
+    for i in 0..pods.len() {
+        let p = &pods[i];
+        let ix = get_completion_index(&p.metadata.annotations);
+        if ix.map_or(false, |i| i >= completions) {
+            rm.extend(pods.iter().skip(i));
+            break;
+        }
+        if ix != last_index {
+            append_pods_with_same_index_for_removal_and_remaining(
+                rm,
+                left,
+                &mut pods[first_repeat_pos..i],
+                last_index,
+            );
+            first_repeat_pos = i;
+            last_index = ix;
+        }
+        count_looped += 1;
+    }
+    append_pods_with_same_index_for_removal_and_remaining(
+        rm,
+        left,
+        &mut pods[first_repeat_pos..count_looped],
+        last_index,
+    )
+}
+
+fn append_pods_with_same_index_for_removal_and_remaining<'a>(
+    rm: &mut Vec<&'a Pod>,
+    left: &mut Vec<&'a Pod>,
+    pods: &mut [&'a Pod],
+    ix: Option<u32>,
+) {
+    if ix.is_none() {
+        rm.extend(pods.iter().copied());
+        return;
+    }
+    if pods.len() == 1 {
+        left.push(pods[0]);
+        return;
+    }
+
+    sort_active_pods(pods);
+
+    rm.extend(pods[..pods.len() - 1].into_iter());
+    left.push(pods[pods.len() - 1]);
+}
+
+fn sort_active_pods(pods: &mut [&Pod]) {
+    pods.sort_by(|p1, p2| {
+        // 1. Unassigned < assigned
+        // If only one of the pods is unassigned, the unassigned one is smaller
+        if p1.spec.node_name != p2.spec.node_name
+            && (p1.spec.node_name.as_ref().map_or(0, |n| n.len()) == 0
+                || p2.spec.node_name.as_ref().map_or(0, |n| n.len()) == 0)
+        {
+            return if p1.spec.node_name.as_ref().map_or(0, |n| n.len()) == 0 {
+                Ordering::Less
+            } else {
+                Ordering::Equal
+            };
+        }
+
+        // 2. PodPending < PodUnknown < PodRunning
+        if p1.status.phase as u8 != p2.status.phase as u8 {
+            return (p1.status.phase as u8).cmp(&(p2.status.phase as u8));
+        }
+
+        // 3. Not ready < ready
+        // If only one of the pods is not ready, the not ready one is smaller
+        if is_pod_ready(p1) != is_pod_ready(p2) {
+            return if is_pod_ready(p1) {
+                Ordering::Equal
+            } else {
+                Ordering::Less
+            };
+        }
+
+        // TODO: take availability into account when we push minReadySeconds information from deployment into pods,
+        //       see https://github.com/kubernetes/kubernetes/issues/22065
+        // 4. Been ready for empty time < less time < more time
+        // If both pods are ready, the latest ready one is smaller
+        if is_pod_ready(p1) && is_pod_ready(p2) {
+            let ready_time_1 = pod_ready_time(p1);
+            let ready_time_2 = pod_ready_time(p2);
+            if ready_time_1 != ready_time_2 {
+                return after_or_zero(&ready_time_1, &ready_time_2);
+            }
+        }
+
+        // 5. Pods with containers with higher restart counts < lower restart counts
+        if max_container_restarts(p1) != max_container_restarts(p2) {
+            return max_container_restarts(p1)
+                .cmp(&max_container_restarts(p2))
+                .reverse();
+        }
+
+        // 6. Empty creation time pods < newer pods < older pods
+        if p1.metadata.creation_timestamp != p2.metadata.creation_timestamp {
+            return after_or_zero(
+                &p1.metadata.creation_timestamp,
+                &p2.metadata.creation_timestamp,
+            );
+        }
+
+        Ordering::Equal
+    });
+}
+
+fn after_or_zero(t1: &Option<Time>, t2: &Option<Time>) -> Ordering {
+    if t1.is_none() || t2.is_none() {
+        if t1.is_none() {
+            Ordering::Less
+        } else {
+            Ordering::Equal
+        }
+    } else {
+        t1.cmp(t2).reverse()
+    }
+}
+
+fn pod_ready_time(pod: &Pod) -> Option<Time> {
+    if is_pod_ready(pod) {
+        pod.status.conditions.iter().find_map(|c| {
+            if c.r#type == PodConditionType::Ready && c.status == ConditionStatus::True {
+                c.last_transition_time
+            } else {
+                None
+            }
+        })
+    } else {
+        None
+    }
+}
+
+fn max_container_restarts(pod: &Pod) -> u32 {
+    pod.status
+        .container_statuses
+        .iter()
+        .map(|cs| cs.restart_count)
+        .max()
+        .unwrap_or_default()
+}
+
+fn delete_job_pods(job: &Job, pods: &[&Pod]) -> Option<JobControllerAction> {
+    if let Some(pod) = pods.first() {
+        if let Some(op) = remove_tracking_finalizer_patch(pod) {
+            return Some(op);
+        }
+        Some(JobControllerAction::DeletePod((*pod).clone()))
+    } else {
+        None
+    }
+}
+
+fn remove_tracking_finalizer_patch(pod: &Pod) -> Option<JobControllerAction> {
+    if !has_job_tracking_finalizer(pod) {
+        return None;
+    }
+
+    let mut pod = pod.clone();
+    pod.metadata
+        .finalizers
+        .retain(|f| f != JOB_TRACKING_FINALIZER);
+
+    // TODO: this should be a patch operation
+    Some(JobControllerAction::UpdatePod(pod))
+}
+
+fn create_pod_with_generate_name(
+    job: &Job,
+    template: PodTemplateSpec,
+    controller_ref: OwnerReference,
+    generate_name: String,
+) -> JobControllerAction {
+    let mut pod = get_pod_from_template(&job.metadata, &template, &Job::GVK);
+    if !generate_name.is_empty() {
+        pod.metadata.generate_name = generate_name;
+    }
+    JobControllerAction::CreatePod(pod)
+}
+
+fn pod_generate_name_with_index(job_name: String, index: u32) -> String {
+    const MAX_GENERATED_NAME_LENGTH: usize = 58;
+    let append_index = format!("-{}-", index);
+    let mut generate_name_prefix = job_name + &append_index;
+    if generate_name_prefix.len() > MAX_GENERATED_NAME_LENGTH {
+        generate_name_prefix =
+            generate_name_prefix[..MAX_GENERATED_NAME_LENGTH - append_index.len()].to_string()
+                + &append_index;
+    }
+    generate_name_prefix
+}
+
+fn add_completion_index_annotation(template: &mut PodTemplateSpec, index: u32) {
+    template.metadata.annotations.insert(
+        JOB_COMPLETION_INDEX_ANNOTATION.to_owned(),
+        index.to_string(),
+    );
+}
+
+fn append_job_completion_finalizer_if_not_found(finalizers: &mut Vec<String>) {
+    if !finalizers.iter().any(|f| f == JOB_TRACKING_FINALIZER) {
+        finalizers.push(JOB_TRACKING_FINALIZER.to_owned());
+    }
+}
+
+fn add_completion_index_env_variables(template: &mut PodTemplateSpec) {
+    for c in &mut template.spec.init_containers {
+        add_completion_index_env_variable(c)
+    }
+    for c in &mut template.spec.containers {
+        add_completion_index_env_variable(c)
+    }
+}
+
+fn add_completion_index_env_variable(container: &mut Container) {
+    if container
+        .env
+        .iter()
+        .any(|e| e.name == JOB_COMPLETION_INDEX_ENV_NAME)
+    {
+        return;
+    }
+    let field_path = format!("metadata.labels['{}']", JOB_COMPLETION_INDEX_ANNOTATION);
+    container.env.push(EnvVar {
+        name: JOB_COMPLETION_INDEX_ENV_NAME.to_owned(),
+        value: None,
+        value_from: Some(EnvVarSource {
+            field_ref: Some(ObjectFieldSelector {
+                field_path,
+                api_version: None,
+            }),
+        }),
+    })
+}
+
+fn first_pending_indexes(
+    count: usize,
+    completions: u32,
+    pods: &[&Pod],
+    active_pods: &[&Pod],
+    job: &Job,
+    succeeded_indexes: Vec<(u32, u32)>,
+) -> Vec<u32> {
+    if count == 0 {
+        return Vec::new();
+    }
+
+    let active = get_indexes(active_pods);
+
+    let mut non_pending = with_ordered_indexes(succeeded_indexes, active);
+
+    if only_replace_failed_pods(job) {
+        let terminating = get_indexes(&filter_terminating_pods(pods));
+        non_pending = with_ordered_indexes(non_pending, terminating);
+    }
+
+    // if !failed_indexes.is_empty() {
+    //     non_pending = merge(non_pending, failed_indexes);
+    // }
+
+    let mut result = Vec::new();
+    // The following algorithm is bounded by len(nonPending) and count.
+    let mut candidate = 0;
+    for s_interval in non_pending {
+        while candidate < completions && result.len() < count && candidate < s_interval.0 {
+            result.push(candidate);
+            candidate += 1;
+        }
+        if candidate < s_interval.1 + 1 {
+            candidate = s_interval.1 + 1;
+        }
+    }
+    while candidate < completions && result.len() < count {
+        result.push(candidate);
+        candidate += 1;
+    }
+    result
+}
+
+fn get_indexes(pods: &[&Pod]) -> Vec<u32> {
+    pods.iter()
+        .filter_map(|p| get_completion_index(&p.metadata.annotations))
+        .collect()
+}
+
+fn count_terminating_pods(pods: &[&Pod]) -> usize {
+    pods.iter().filter(|p| is_pod_terminating(p)).count()
 }

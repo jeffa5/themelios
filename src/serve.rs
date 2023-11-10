@@ -141,6 +141,8 @@ struct JobRequest {
 #[serde(tag = "action", rename_all = "camelCase")]
 enum JobResponse {
     UpdateJobStatus { job: Job },
+    CreatePod { pod: Pod },
+    UpdatePod { pod: Pod },
     DeletePod { pod: Pod },
 }
 
@@ -443,6 +445,8 @@ async fn job(Json(payload): Json<JobRequest>) -> Result<Json<JobResponse>, Error
         Some(JobControllerAction::UpdateJobStatus(job)) => {
             Ok(Json(JobResponse::UpdateJobStatus { job }))
         }
+        Some(JobControllerAction::CreatePod(pod)) => Ok(Json(JobResponse::CreatePod { pod })),
+        Some(JobControllerAction::UpdatePod(pod)) => Ok(Json(JobResponse::UpdatePod { pod })),
         Some(JobControllerAction::DeletePod(pod)) => Ok(Json(JobResponse::DeletePod { pod })),
         Some(JobControllerAction::ControllerJoin(_)) => {
             panic!("got controller join whilst serving")

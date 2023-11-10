@@ -79,3 +79,15 @@ pub fn is_pod_active(pod: &Pod) -> bool {
         && pod.status.phase != PodPhase::Failed
         && pod.metadata.deletion_timestamp.is_none()
 }
+
+pub fn filter_terminating_pods<'a>(pods: &[&'a Pod]) -> Vec<&'a Pod> {
+    pods.iter()
+        .filter(|p| is_pod_terminating(p))
+        .copied()
+        .collect()
+}
+
+pub fn is_pod_terminating(pod: &Pod) -> bool {
+    !(pod.status.phase == PodPhase::Failed || pod.status.phase == PodPhase::Succeeded)
+        && pod.metadata.deletion_timestamp.is_some()
+}
