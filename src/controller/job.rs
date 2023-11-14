@@ -189,7 +189,8 @@ fn reconcile(job: &mut Job, pods: &mut [&Pod]) -> OptionalJobControllerAction {
         == JobCompletionMode::Indexed
     {
         let (prev_succeeded_indexes, succeeded_indexes) = calculate_succeeded_indexes(job, pods);
-        succeeded = succeeded_indexes.0.len();
+        succeeded = succeeded_indexes.total() as usize;
+        debug!(?succeeded_indexes, "succeeded_indexes");
         (prev_succeeded_indexes, succeeded_indexes)
     } else {
         (OrderedIntervals::default(), OrderedIntervals::default())
@@ -653,6 +654,7 @@ fn calculate_succeeded_indexes(job: &Job, pods: &[&Pod]) -> (OrderedIntervals, O
 }
 
 fn with_ordered_indexes(oi: &OrderedIntervals, new_indexes: Vec<u32>) -> OrderedIntervals {
+    debug!(original=?oi, new=?new_indexes, "with_ordered_indexes");
     let mut new_index_intervals = OrderedIntervals::default();
     for new_index in new_indexes {
         new_index_intervals.0.push(Interval {
@@ -959,6 +961,7 @@ fn manage_job(
         debug!(
             job = job.metadata.name,
             deleted = pods_to_delete.len(),
+            active = active_pods.len(),
             target = want_active,
             "Too many pods running for job"
         );
@@ -1320,10 +1323,16 @@ fn first_pending_indexes(
     if count == 0 {
         return Vec::new();
     }
+    debug!(
+        active = active_pods.len(),
+        "finding first pod index to create"
+    );
 
     let active = get_indexes(active_pods);
 
+    println!("active {:?}", active);
     let mut non_pending = with_ordered_indexes(succeeded_indexes, active);
+    println!("non_pending {:?}", non_pending);
 
     if only_replace_failed_pods(job) {
         let terminating = get_indexes(&filter_terminating_pods(pods));
@@ -1475,13 +1484,13 @@ fn new_failed_condition_for_failure_target(condition: &JobCondition, now: Time) 
     )
 }
 
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 struct Interval {
     pub first: u32,
     pub last: u32,
 }
 
-#[derive(Default, Clone)]
+#[derive(Debug, Default, Clone)]
 struct OrderedIntervals(Vec<Interval>);
 
 impl std::fmt::Display for OrderedIntervals {
@@ -1518,7 +1527,8 @@ impl OrderedIntervals {
                 result.0.push(i);
                 last_interval = Some(i);
             } else if last_interval.unwrap().last < i.last {
-                last_interval.unwrap().last = i.last
+                result.0.last_mut().unwrap().last = i.last;
+                last_interval.as_mut().unwrap().last = i.last;
             }
         };
 
