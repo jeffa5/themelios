@@ -63,6 +63,7 @@ fn main() {
                 hostname: String::new(),
                 subdomain: String::new(),
                 tolerations: Vec::new(),
+                node_selector: BTreeMap::new(),
             },
             status: PodStatus::default(),
         }))
@@ -84,6 +85,7 @@ fn main() {
                         hostname: String::new(),
                         subdomain: String::new(),
                         tolerations: Vec::new(),
+                        node_selector: BTreeMap::new(),
                     },
                 },
                 min_ready_seconds: 0,
@@ -111,6 +113,7 @@ fn main() {
                         hostname: String::new(),
                         subdomain: String::new(),
                         tolerations: Vec::new(),
+                        node_selector: BTreeMap::new(),
                     },
                 },
                 min_ready_seconds: 0,

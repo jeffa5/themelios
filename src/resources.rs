@@ -184,6 +184,9 @@ pub struct PodSpec {
 
     #[serde(default)]
     pub tolerations: Vec<Toleration>,
+
+    #[serde(default)]
+    pub node_selector: BTreeMap<String, String>,
 }
 
 #[derive(
