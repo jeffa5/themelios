@@ -357,6 +357,7 @@ pub struct PodCondition {
     #[derive(Debug, PartialEq)]
 ))]
 pub enum PodConditionType {
+    DisruptionTarget,
     PodScheduled,
     PodReadyToStartContainers,
     ContainersReady,
@@ -667,8 +668,10 @@ pub struct JobStatus {
     pub completion_time: Option<Time>,
     #[serde(default)]
     pub active: u32,
-    pub failed: Option<u32>,
-    pub succeeded: Option<u32>,
+    #[serde(default)]
+    pub failed: u32,
+    #[serde(default)]
+    pub succeeded: u32,
     #[serde(default)]
     pub completed_indexes: String,
     #[serde(default)]
