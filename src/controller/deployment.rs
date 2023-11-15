@@ -1972,8 +1972,14 @@ fn cleanup_unhealthy_replicas<'a>(
             continue;
         }
 
-        let scaled_down_count = (max_cleanup_count - total_scaled_down)
-            .min(target_rs.spec.replicas.unwrap() - target_rs.status.available_replicas);
+        debug!(max_cleanup_count, total_scaled_down, ?target_rs.spec.replicas, ?target_rs.status.available_replicas, "calculating scaled_down_count");
+        let scaled_down_count = (max_cleanup_count.saturating_sub(total_scaled_down)).min(
+            target_rs
+                .spec
+                .replicas
+                .unwrap()
+                .saturating_sub(target_rs.status.available_replicas),
+        );
         let new_replicas_count = target_rs.spec.replicas.unwrap() - scaled_down_count;
         if new_replicas_count > target_rs.spec.replicas.unwrap() {
             return None;
