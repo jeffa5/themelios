@@ -66,8 +66,8 @@ impl Controller for ReplicaSetController {
         if !global_state.controllers.contains(&id) {
             return Some(Self::Action::ControllerJoin(id));
         } else {
-            for replicaset in global_state.replica_sets.values() {
-                let pods = global_state.pods.values().collect::<Vec<_>>();
+            for replicaset in global_state.replica_sets.iter() {
+                let pods = global_state.pods.iter().collect::<Vec<_>>();
                 if let Some(op) = reconcile(replicaset, &pods) {
                     return Some(op);
                 }

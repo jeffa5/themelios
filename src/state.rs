@@ -1,7 +1,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use crate::controller::ControllerStates;
-use crate::resources::{ControllerRevision, Job, PersistentVolumeClaim};
+use crate::resources::{ControllerRevision, Job, Meta, PersistentVolumeClaim};
 use crate::utils;
 use crate::{
     abstract_model::{Change, ControllerAction},
@@ -557,13 +557,13 @@ pub struct StateView {
     pub nodes: BTreeMap<usize, Node>,
     /// Set of the controllers that have joined the cluster.
     pub controllers: BTreeSet<usize>,
-    pub pods: BTreeMap<String, Pod>,
-    pub replica_sets: BTreeMap<String, ReplicaSet>,
-    pub deployments: BTreeMap<String, Deployment>,
-    pub statefulsets: BTreeMap<String, StatefulSet>,
-    pub controller_revisions: BTreeMap<String, ControllerRevision>,
-    pub persistent_volume_claims: BTreeMap<String, PersistentVolumeClaim>,
-    pub jobs: BTreeMap<String, Job>,
+    pub pods: Resources<Pod>,
+    pub replica_sets: Resources<ReplicaSet>,
+    pub deployments: Resources<Deployment>,
+    pub statefulsets: Resources<StatefulSet>,
+    pub controller_revisions: Resources<ControllerRevision>,
+    pub persistent_volume_claims: Resources<PersistentVolumeClaim>,
+    pub jobs: Resources<Job>,
 }
 
 impl StateView {
@@ -574,7 +574,7 @@ impl StateView {
 
     pub fn set_pods(&mut self, pods: impl Iterator<Item = Pod>) -> &mut Self {
         for pod in pods {
-            self.pods.insert(pod.metadata.name.clone(), pod);
+            self.pods.insert(pod);
         }
         self
     }
@@ -586,8 +586,7 @@ impl StateView {
 
     pub fn set_replicasets(&mut self, replicasets: impl Iterator<Item = ReplicaSet>) -> &mut Self {
         for replicaset in replicasets {
-            self.replica_sets
-                .insert(replicaset.metadata.name.clone(), replicaset);
+            self.replica_sets.insert(replicaset);
         }
         self
     }
@@ -599,8 +598,7 @@ impl StateView {
 
     pub fn set_deployments(&mut self, deployments: impl Iterator<Item = Deployment>) -> &mut Self {
         for deployment in deployments {
-            self.deployments
-                .insert(deployment.metadata.name.clone(), deployment);
+            self.deployments.insert(deployment);
         }
         self
     }
@@ -615,8 +613,7 @@ impl StateView {
         statefulsets: impl Iterator<Item = StatefulSet>,
     ) -> &mut Self {
         for statefulset in statefulsets {
-            self.statefulsets
-                .insert(statefulset.metadata.name.clone(), statefulset);
+            self.statefulsets.insert(statefulset);
         }
         self
     }
@@ -644,10 +641,10 @@ impl StateView {
                 self.controllers.insert(*i);
             }
             ControllerAction::CreatePod(pod) => {
-                self.pods.insert(pod.metadata.name.clone(), pod.clone());
+                self.pods.insert(pod.clone());
             }
             ControllerAction::UpdatePod(pod) => {
-                self.pods.insert(pod.metadata.name.clone(), pod.clone());
+                self.pods.insert(pod.clone());
             }
             ControllerAction::DeletePod(pod) => {
                 self.pods.remove(&pod.metadata.name);
@@ -659,7 +656,7 @@ impl StateView {
             }
             ControllerAction::NodeCrash(node) => {
                 if let Some(node) = self.nodes.remove(node) {
-                    self.pods.retain(|_, pod| {
+                    self.pods.retain(|pod| {
                         pod.spec
                             .node_name
                             .as_ref()
@@ -668,8 +665,7 @@ impl StateView {
                 }
             }
             ControllerAction::UpdateDeployment(dep) => {
-                self.deployments
-                    .insert(dep.metadata.name.clone(), dep.clone());
+                self.deployments.insert(dep.clone());
             }
             ControllerAction::RequeueDeployment(_dep) => {
                 // skip
@@ -677,40 +673,34 @@ impl StateView {
             ControllerAction::UpdateDeploymentStatus(dep) => {
                 if let Some(mut dp) = self.deployments.remove(&dep.metadata.name) {
                     dp.status = dep.status.clone();
-                    self.deployments.insert(dp.metadata.name.clone(), dp);
+                    self.deployments.insert(dp);
                 }
             }
             ControllerAction::CreateReplicaSet(rs) => {
-                self.replica_sets
-                    .insert(rs.metadata.name.clone(), rs.clone());
+                self.replica_sets.insert(rs.clone());
             }
             ControllerAction::UpdateReplicaSet(rs) => {
-                self.replica_sets
-                    .insert(rs.metadata.name.clone(), rs.clone());
+                self.replica_sets.insert(rs.clone());
             }
             ControllerAction::UpdateReplicaSetStatus(rs) => {
                 if let Some(mut r) = self.replica_sets.remove(&rs.metadata.name) {
                     r.status = rs.status.clone();
-                    self.replica_sets.insert(r.metadata.name.clone(), r);
+                    self.replica_sets.insert(r);
                 }
             }
             ControllerAction::UpdateReplicaSets(rss) => {
                 for rs in rss {
-                    self.replica_sets
-                        .insert(rs.metadata.name.clone(), rs.clone());
+                    self.replica_sets.insert(rs.clone());
                 }
             }
             ControllerAction::UpdateStatefulSetStatus(sts) => {
-                self.statefulsets
-                    .insert(sts.metadata.name.clone(), sts.clone());
+                self.statefulsets.insert(sts.clone());
             }
             ControllerAction::CreateControllerRevision(cr) => {
-                self.controller_revisions
-                    .insert(cr.metadata.name.clone(), cr.clone());
+                self.controller_revisions.insert(cr.clone());
             }
             ControllerAction::UpdateControllerRevision(cr) => {
-                self.controller_revisions
-                    .insert(cr.metadata.name.clone(), cr.clone());
+                self.controller_revisions.insert(cr.clone());
             }
             ControllerAction::DeleteControllerRevision(cr) => {
                 self.controller_revisions.remove(&cr.metadata.name);
@@ -719,15 +709,13 @@ impl StateView {
                 self.replica_sets.remove(&rs.metadata.name);
             }
             ControllerAction::CreatePersistentVolumeClaim(pvc) => {
-                self.persistent_volume_claims
-                    .insert(pvc.metadata.name.clone(), pvc.clone());
+                self.persistent_volume_claims.insert(pvc.clone());
             }
             ControllerAction::UpdatePersistentVolumeClaim(pvc) => {
-                self.persistent_volume_claims
-                    .insert(pvc.metadata.name.clone(), pvc.clone());
+                self.persistent_volume_claims.insert(pvc.clone());
             }
             ControllerAction::UpdateJobStatus(job) => {
-                self.jobs.insert(job.metadata.name.clone(), job.clone());
+                self.jobs.insert(job.clone());
             }
         }
         self.revision = new_revision;
@@ -735,8 +723,81 @@ impl StateView {
 
     pub fn pods_for_node(&self, node: &str) -> Vec<&Pod> {
         self.pods
-            .values()
+            .iter()
             .filter(|p| p.spec.node_name.as_ref().map_or(false, |n| n == node))
             .collect()
+    }
+}
+
+/// A data structure that ensures the resources are unique by name, and kept in sorted order for
+/// efficient lookup and deterministic ordering.
+#[derive(derivative::Derivative)]
+#[derivative(PartialEq, Hash)]
+#[derive(Clone, Debug, Eq, PartialOrd, Ord)]
+pub struct Resources<T>(Vec<T>);
+
+impl<T> Default for Resources<T> {
+    fn default() -> Self {
+        Self(Default::default())
+    }
+}
+
+impl<T: Meta> Resources<T> {
+    pub fn insert(&mut self, res: T) {
+        if let Some(existing) = self.get_mut(&res.metadata().name) {
+            *existing = res;
+        } else {
+            let pos = self.get_insertion_pos(&res.metadata().name);
+            self.0.insert(pos, res);
+        }
+    }
+
+    fn get_insertion_pos(&self, k: &str) -> usize {
+        match self.0.binary_search_by_key(&k, |t| &t.metadata().name) {
+            Ok(p) => p,
+            Err(p) => p,
+        }
+    }
+
+    fn get_pos(&self, k: &str) -> Option<usize> {
+        self.0.binary_search_by_key(&k, |t| &t.metadata().name).ok()
+    }
+
+    pub fn has(&self, name: &str) -> bool {
+        self.get(name).is_some()
+    }
+
+    pub fn get(&self, name: &str) -> Option<&T> {
+        self.get_pos(name).map(|p| &self.0[p])
+    }
+
+    pub fn get_mut(&mut self, name: &str) -> Option<&mut T> {
+        self.get_pos(name).map(|p| &mut self.0[p])
+    }
+
+    pub fn iter(&self) -> std::slice::Iter<T> {
+        self.0.iter()
+    }
+
+    pub fn remove(&mut self, name: &str) -> Option<T> {
+        self.get_pos(name).map(|p| self.0.remove(p))
+    }
+
+    pub fn retain(&mut self, f: impl Fn(&T) -> bool) {
+        self.0.retain(f)
+    }
+
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+}
+
+impl<T: Meta> From<Vec<T>> for Resources<T> {
+    fn from(value: Vec<T>) -> Self {
+        let mut rv = Resources::default();
+        for v in value {
+            rv.insert(v);
+        }
+        rv
     }
 }

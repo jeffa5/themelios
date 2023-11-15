@@ -7,6 +7,28 @@ use std::{
     ops::{Add, AddAssign, Sub, SubAssign},
 };
 
+pub trait Meta {
+    fn metadata(&self) -> &Metadata;
+}
+
+macro_rules! impl_meta {
+    ($r:ident) => {
+        impl Meta for $r {
+            fn metadata(&self) -> &Metadata {
+                &self.metadata
+            }
+        }
+    };
+}
+
+impl_meta!(Pod);
+impl_meta!(Job);
+impl_meta!(Deployment);
+impl_meta!(ReplicaSet);
+impl_meta!(StatefulSet);
+impl_meta!(ControllerRevision);
+impl_meta!(PersistentVolumeClaim);
+
 #[derive(
     Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff,
 )]

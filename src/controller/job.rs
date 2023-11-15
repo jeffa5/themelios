@@ -99,10 +99,10 @@ impl Controller for JobController {
         if !global_state.controllers.contains(&id) {
             return Some(JobControllerAction::ControllerJoin(id));
         } else {
-            for job in global_state.jobs.values() {
+            for job in global_state.jobs.iter() {
                 let mut pods = global_state
                     .pods
-                    .values()
+                    .iter()
                     .filter(|p| job.spec.selector.matches(&p.metadata.labels))
                     .collect::<Vec<_>>();
                 let mut job = job.clone();

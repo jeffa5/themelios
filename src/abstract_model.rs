@@ -161,32 +161,32 @@ impl Model for AbstractModelCfg {
                 if !all_unique(state.nodes.values().map(|n| &n.metadata.name)) {
                     return false;
                 }
-                if !all_unique(state.pods.values().map(|n| &n.metadata.name)) {
+                if !all_unique(state.pods.iter().map(|n| &n.metadata.name)) {
                     return false;
                 }
-                if !all_unique(state.replica_sets.values().map(|n| &n.metadata.name)) {
+                if !all_unique(state.replica_sets.iter().map(|n| &n.metadata.name)) {
                     return false;
                 }
-                if !all_unique(state.deployments.values().map(|n| &n.metadata.name)) {
+                if !all_unique(state.deployments.iter().map(|n| &n.metadata.name)) {
                     return false;
                 }
-                if !all_unique(state.statefulsets.values().map(|n| &n.metadata.name)) {
+                if !all_unique(state.statefulsets.iter().map(|n| &n.metadata.name)) {
                     return false;
                 }
                 true
             }),
             Property::<Self>::eventually("every pod gets scheduled", |_model, state| {
                 let state = state.view_at(state.max_revision());
-                state.pods.values().all(|pod| pod.spec.node_name.is_some())
+                state.pods.iter().all(|pod| pod.spec.node_name.is_some())
             }),
             Property::<Self>::always(
                 "statefulsets always have consecutive pods",
                 |_model, state| {
                     // point one and two from https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/#deployment-and-scaling-guarantees
                     let state = state.view_at(state.max_revision());
-                    for sts in state.statefulsets.values() {
+                    for sts in state.statefulsets.iter() {
                         let mut ordinals = Vec::new();
-                        for pod in state.pods.values() {
+                        for pod in state.pods.iter() {
                             if sts.spec.selector.matches(&pod.metadata.labels) {
                                 ordinals.push(
                                     crate::controller::statefulset::get_ordinal(pod).unwrap(),

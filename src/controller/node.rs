@@ -42,7 +42,7 @@ impl Controller for NodeController {
         if let Some(_node) = global_state.nodes.get(&id) {
             for pod in global_state
                 .pods
-                .values()
+                .iter()
                 .filter(|p| p.spec.node_name.as_ref().map_or(false, |n| n == &self.name))
             {
                 if !local_state.running.contains(&pod.metadata.name) {

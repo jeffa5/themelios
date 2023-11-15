@@ -142,8 +142,8 @@ impl Controller for DeploymentController {
         if !global_state.controllers.contains(&id) {
             return Some(DeploymentControllerAction::ControllerJoin(id));
         } else {
-            for deployment in global_state.deployments.values() {
-                let replicasets = global_state.replica_sets.values().collect::<Vec<_>>();
+            for deployment in global_state.deployments.iter() {
+                let replicasets = global_state.replica_sets.iter().collect::<Vec<_>>();
                 let pod_map = BTreeMap::new();
                 if let Some(op) = reconcile(deployment, &replicasets, &pod_map) {
                     return Some(op);

@@ -51,12 +51,12 @@ impl Controller for SchedulerController {
 
             let pods_to_schedule = global_state
                 .pods
-                .values()
+                .iter()
                 .filter(|p| p.spec.node_name.is_none());
 
             let pvcs = global_state
                 .persistent_volume_claims
-                .values()
+                .iter()
                 .collect::<Vec<_>>();
 
             for pod in pods_to_schedule {

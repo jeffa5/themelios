@@ -2,7 +2,6 @@ use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use axum::routing::post;
 use axum::{Json, Router};
-use maplit::btreemap;
 use maplit::btreeset;
 use serde_json::json;
 use tracing::debug;
@@ -197,15 +196,8 @@ async fn scheduler(
     let state_view = StateView {
         revision: Revision::default(),
         nodes: payload.nodes.into_iter().enumerate().collect(),
-        pods: pods
-            .into_iter()
-            .map(|p| (p.metadata.name.clone(), p))
-            .collect(),
-        persistent_volume_claims: payload
-            .persistent_volume_claims
-            .into_iter()
-            .map(|p| (p.metadata.name.clone(), p))
-            .collect(),
+        pods: pods.into(),
+        persistent_volume_claims: payload.persistent_volume_claims.into(),
         controllers: btreeset![controller_id],
         ..Default::default()
     };
@@ -233,12 +225,8 @@ async fn deployment(
     let controller_id = 0;
     let state_view = StateView {
         revision: Revision::default(),
-        deployments: btreemap!(payload.deployment.metadata.name.clone() => payload.deployment),
-        replica_sets: payload
-            .replicasets
-            .into_iter()
-            .map(|rs| (rs.metadata.name.clone(), rs))
-            .collect(),
+        deployments: vec![payload.deployment].into(),
+        replica_sets: payload.replicasets.into(),
         controllers: btreeset![controller_id],
         ..Default::default()
     };
@@ -305,15 +293,8 @@ async fn replicaset(
     }
     let state_view = StateView {
         revision: Revision::default(),
-        replica_sets: replicasets
-            .into_iter()
-            .map(|rs| (rs.metadata.name.clone(), rs))
-            .collect(),
-        pods: payload
-            .pods
-            .into_iter()
-            .map(|p| (p.metadata.name.clone(), p))
-            .collect(),
+        replica_sets: replicasets.into(),
+        pods: payload.pods.into(),
         controllers: btreeset![controller_id],
         ..Default::default()
     };
@@ -352,22 +333,10 @@ async fn statefulset(
     let controller_id = 0;
     let state_view = StateView {
         revision: Revision::default(),
-        statefulsets: btreemap! {payload.statefulset.metadata.name.clone() => payload.statefulset},
-        controller_revisions: payload
-            .controller_revisions
-            .into_iter()
-            .map(|cr| (cr.metadata.name.clone(), cr))
-            .collect(),
-        pods: payload
-            .pods
-            .into_iter()
-            .map(|p| (p.metadata.name.clone(), p))
-            .collect(),
-        persistent_volume_claims: payload
-            .persistent_volume_claims
-            .into_iter()
-            .map(|p| (p.metadata.name.clone(), p))
-            .collect(),
+        statefulsets: vec![payload.statefulset].into(),
+        controller_revisions: payload.controller_revisions.into(),
+        pods: payload.pods.into(),
+        persistent_volume_claims: payload.persistent_volume_claims.into(),
         controllers: btreeset![controller_id],
         ..Default::default()
     };
@@ -429,12 +398,8 @@ async fn job(Json(payload): Json<JobRequest>) -> Result<Json<JobResponse>, Error
     let controller_id = 0;
     let state_view = StateView {
         revision: Revision::default(),
-        jobs: btreemap! {payload.job.metadata.name.clone() => payload.job},
-        pods: payload
-            .pods
-            .into_iter()
-            .map(|p| (p.metadata.name.clone(), p))
-            .collect(),
+        jobs: vec![payload.job].into(),
+        pods: payload.pods.into(),
         controllers: btreeset![controller_id],
         ..Default::default()
     };

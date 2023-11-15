@@ -93,15 +93,12 @@ impl Controller for StatefulSetController {
         if !global_state.controllers.contains(&id) {
             return Some(StatefulSetControllerAction::ControllerJoin(id));
         } else {
-            for statefulset in global_state.statefulsets.values() {
-                let pods = global_state.pods.values().collect::<Vec<_>>();
-                let revisions = global_state
-                    .controller_revisions
-                    .values()
-                    .collect::<Vec<_>>();
+            for statefulset in global_state.statefulsets.iter() {
+                let pods = global_state.pods.iter().collect::<Vec<_>>();
+                let revisions = global_state.controller_revisions.iter().collect::<Vec<_>>();
                 let pvcs = global_state
                     .persistent_volume_claims
-                    .values()
+                    .iter()
                     .collect::<Vec<_>>();
                 if let Some(op) = reconcile(statefulset, &pods, &revisions, &pvcs) {
                     return Some(op);
