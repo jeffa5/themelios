@@ -198,6 +198,7 @@ pub struct PodSpec {
 pub enum PodRestartPolicy {
     Never,
     OnFailure,
+    Always,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff)]
