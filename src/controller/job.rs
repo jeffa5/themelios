@@ -29,11 +29,6 @@ use super::{
 
 const JOB_COMPLETION_INDEX_ANNOTATION: &str = "batch.kubernetes.io/job-completion-index";
 const JOB_TRACKING_FINALIZER: &str = "batch.kubernetes.io/job-tracking";
-const JOB_NAME_LABEL: &str = "batch.kubernetes.io/job-name";
-const CONTROLLER_UID_LABEL: &str = "batch.kubernetes.io/controller-uid";
-const JOB_INDEX_FAILURE_COUNT_ANNOTATION: &str = "batch.kubernetes.io/job-index-failure-count";
-const JOB_INDEX_IGNORED_FAILURE_COUNT_ANNOTATION: &str =
-    "batch.kubernetes.io/job-index-ignored-failure-count";
 
 const JOB_COMPLETION_INDEX_ENV_NAME: &str = "JOB_COMPLETION_INDEX";
 
@@ -199,7 +194,7 @@ fn reconcile(job: &mut Job, pods: &mut [&Pod]) -> OptionalJobControllerAction {
     let mut suspend_cond_changed = false;
     // Remove active pods if Job failed.
     if finished_condition.is_some() {
-        if let Some(delete_op) = delete_active_pods(job, &active_pods).0 {
+        if let Some(delete_op) = delete_active_pods(&active_pods).0 {
             return Some(delete_op).into();
         }
         // if deleted != active {
@@ -670,7 +665,7 @@ fn with_ordered_indexes(oi: &OrderedIntervals, new_indexes: Vec<u32>) -> Ordered
 // The method trackJobStatusAndRemoveFinalizers removes the finalizers, after
 // which the objects can actually be deleted.
 // Returns number of successfully deletions issued.
-fn delete_active_pods(job: &Job, pods: &[&Pod]) -> OptionalJobControllerAction {
+fn delete_active_pods(pods: &[&Pod]) -> OptionalJobControllerAction {
     pods.first()
         .map(|p| JobControllerAction::DeletePod((*p).clone()))
         .into()
@@ -742,12 +737,10 @@ fn track_job_status_and_remove_finalizers(
         }
     }
 
-    let mut old_counters = job.status.clone();
     if clean_uncounted_pods_without_finalizers(&mut job.status, &uids_with_finalizer) {
         needs_flush = true;
     }
 
-    let mut pod_failure_count_by_policy_action = BTreeMap::new();
     let mut reached_max_uncounted_pods = false;
     for pod in pods {
         debug!(pod = pod.metadata.name, "Processing pod");
@@ -803,12 +796,7 @@ fn track_job_status_and_remove_finalizers(
                     || (ix.map_or(false, |i| i < job.spec.completions.unwrap_or_default())))
             {
                 if let Some(pfp) = &job.spec.pod_failure_policy {
-                    let (_, count_failed, action) = match_pod_failure_policy(&pfp, pod);
-                    if let Some(action) = action {
-                        *pod_failure_count_by_policy_action
-                            .entry(action)
-                            .or_default() += 1;
-                    }
+                    let (_, count_failed, _) = match_pod_failure_policy(&pfp, pod);
                     if count_failed {
                         debug!("needs flush count failed");
                         needs_flush = true;
@@ -879,8 +867,6 @@ fn track_job_status_and_remove_finalizers(
         job,
         &pods_to_remove_finalizer,
         &uids_with_finalizer,
-        &old_counters,
-        &pod_failure_count_by_policy_action,
         needs_flush,
     )
     .0
@@ -920,7 +906,7 @@ fn manage_job(
     if job.spec.suspend {
         debug!("Deleting all active pods in suspended job");
         let pods_to_delete = active_pods_for_removal(job, active_pods, active);
-        return delete_job_pods(job, &pods_to_delete);
+        return delete_job_pods(&pods_to_delete);
     }
 
     let mut terminating = 0;
@@ -931,7 +917,7 @@ fn manage_job(
         terminating = count_terminating_pods(pods);
     }
 
-    let mut want_active = 0;
+    let mut want_active ;
     if let Some(completions) = job.spec.completions {
         // Job specifies a specific number of completions.  Therefore, number
         // active should not ever exceed number of remaining completions.
@@ -965,7 +951,7 @@ fn manage_job(
             target = want_active,
             "Too many pods running for job"
         );
-        return delete_job_pods(job, &pods_to_delete);
+        return delete_job_pods(&pods_to_delete);
     }
 
     let mut diff = want_active
@@ -1213,7 +1199,7 @@ fn max_container_restarts(pod: &Pod) -> u32 {
         .unwrap_or_default()
 }
 
-fn delete_job_pods(job: &Job, pods: &[&Pod]) -> OptionalJobControllerAction {
+fn delete_job_pods( pods: &[&Pod]) -> OptionalJobControllerAction {
     if let Some(pod) = pods.first() {
         if let Some(op) = remove_tracking_finalizer_patch(pod).0 {
             return Some(op).into();
@@ -1400,8 +1386,6 @@ fn flush_uncounted_and_remove_finalizers(
     job: &mut Job,
     pods_to_remove_finalizer: &[&Pod],
     uids_with_finalizer: &[&str],
-    old_counters: &JobStatus,
-    pod_failure_count_by_policy_action: &BTreeMap<JobPodFailurePolicyRuleAction, u32>,
     needs_flush: bool,
 ) -> OptionalJobControllerAction {
     if needs_flush {
