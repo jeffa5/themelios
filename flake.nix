@@ -6,7 +6,6 @@
     flake-utils = {
       url = "github:numtide/flake-utils";
     };
-    rust-overlay.url = "github:oxalica/rust-overlay";
     crane = {
       url = "github:ipetkov/crane";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -17,16 +16,11 @@
     self,
     nixpkgs,
     flake-utils,
-    rust-overlay,
     crane,
   }:
     flake-utils.lib.eachDefaultSystem
     (system: let
-      pkgs = import nixpkgs {
-        overlays = [rust-overlay.overlays.default];
-        inherit system;
-      };
-      rust = pkgs.rust-bin.stable.latest.default;
+      pkgs = import nixpkgs {inherit system;};
       craneLib = crane.lib.${system};
       src = craneLib.cleanCargoSource (craneLib.path ./.);
 
@@ -43,9 +37,10 @@
 
       devShells.default = pkgs.mkShell {
         packages = [
-          (rust.override {
-            extensions = ["rust-src"];
-          })
+          pkgs.rustc
+          pkgs.cargo
+          pkgs.rustfmt
+
           pkgs.cargo-flamegraph
         ];
       };
