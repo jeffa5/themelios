@@ -44,12 +44,12 @@ const DEPRECATED_ROLLBACK_TO: &str = "deprecated.deployment.rollback.to";
 
 // const KUBE_CTL_PREFIX: &str = "kubectl.kubernetes.io/";
 // TODO: should use a const format thing with KUBE_CTL_PREFIX
-const LAST_APPLIED_CONFIG_ANNOTATION: &str = "kubectl.kubernetes.io/last-applied-configuration";
+pub const LAST_APPLIED_CONFIG_ANNOTATION: &str = "kubectl.kubernetes.io/last-applied-configuration";
 
 // DefaultDeploymentUniqueLabelKey is the default key of the selector that is added
 // to existing ReplicaSets (and label key that is added to its pods) to prevent the existing ReplicaSets
 // to select new pods (and old pods being select by new ReplicaSet).
-const DEFAULT_DEPLOYMENT_UNIQUE_LABEL_KEY: &str = "pod-template-hash";
+pub const DEFAULT_DEPLOYMENT_UNIQUE_LABEL_KEY: &str = "pod-template-hash";
 
 // RevisionAnnotation is the revision annotation of a deployment's replica sets which records its rollout sequence
 const REVISION_ANNOTATION: &str = "deployment.kubernetes.io/revision";
@@ -145,6 +145,7 @@ impl Controller for DeploymentController {
             for deployment in global_state.deployments.iter() {
                 let replicasets = global_state.replica_sets.iter().collect::<Vec<_>>();
                 let pod_map = BTreeMap::new();
+                debug!(rev = ?global_state.revision, "Reconciling state");
                 if let Some(op) = reconcile(deployment, &replicasets, &pod_map) {
                     return Some(op);
                 }
@@ -932,14 +933,15 @@ fn filter_active_replicasets<'a>(replicasets: &[&'a ReplicaSet]) -> Vec<&'a Repl
 // replicas in the deployment and the annotation helps in achieving that. All pods of the ReplicaSet
 // need to be available.
 fn is_saturated(deployment: &Deployment, replicaset: &Option<ReplicaSet>) -> bool {
-    let Some(rs) = replicaset else {
-        return false
-    };
+    let Some(rs) = replicaset else { return false };
     let Some(desired_string) = rs
         .metadata
         .annotations
         .get(DESIRED_REPLICAS_ANNOTATION)
-        .and_then(|ds| ds.parse::<u32>().ok()) else{ return false};
+        .and_then(|ds| ds.parse::<u32>().ok())
+    else {
+        return false;
+    };
     rs.spec.replicas == Some(deployment.spec.replicas)
         && desired_string == deployment.spec.replicas
         && rs.status.available_replicas == deployment.spec.replicas
@@ -1155,9 +1157,10 @@ fn max_unavailable(deployment: &Deployment) -> u32 {
         .strategy
         .as_ref()
         .and_then(|s| {
-            s.rolling_update.as_ref().map(|r| {
+            s.rolling_update.as_ref().and_then(|r| {
                 r.max_unavailable
-                    .scaled_value(deployment.spec.replicas, true)
+                    .as_ref()
+                    .map(|mu| mu.scaled_value(deployment.spec.replicas, true))
             })
         })
         .unwrap_or(0);
@@ -1220,8 +1223,9 @@ fn get_deployment_condition(
     status: &DeploymentStatus,
     cond_type: DeploymentConditionType,
 ) -> Option<&DeploymentCondition> {
-    debug!(?cond_type, ?status.conditions, "Finding condition");
-    status.conditions.iter().find(|c| c.r#type == cond_type)
+    let o = status.conditions.iter().find(|c| c.r#type == cond_type);
+    debug!(found=o.is_some(), ?cond_type, ?status.conditions,  "Got deployment condition");
+    o
 }
 
 fn remove_deployment_condition(status: &mut DeploymentStatus, cond_type: DeploymentConditionType) {
@@ -1405,7 +1409,9 @@ fn get_rollback_to(deployment: &Deployment) -> Option<RollbackConfig> {
         if revision.is_empty() {
             return None;
         }
-        let Ok(revision64) = revision.parse::<u64>() else {return None};
+        let Ok(revision64) = revision.parse::<u64>() else {
+            return None;
+        };
         Some(RollbackConfig {
             revision: revision64,
         })
@@ -1552,12 +1558,14 @@ fn new_rs_new_replicas(
                 .spec
                 .strategy
                 .as_ref()
-                .unwrap()
-                .rolling_update
-                .as_ref()
-                .unwrap()
-                .max_surge
-                .scaled_value(deployment.spec.replicas, true);
+                .and_then(|s| {
+                    s.rolling_update.as_ref().and_then(|ru| {
+                        ru.max_surge
+                            .as_ref()
+                            .map(|ms| ms.scaled_value(deployment.spec.replicas, true))
+                    })
+                })
+                .unwrap_or_default();
             // Find the total number of pods
             let current_pod_count = get_replica_count_for_replicasets(all_replicasets);
             let max_total_pods = deployment.spec.replicas + max_surge;
@@ -2162,7 +2170,7 @@ fn scale_down_old_replicasets_for_recreate(
 
 // DeploymentComplete considers a deployment to be complete once all of its desired replicas
 // are updated and available, and no old pods are running.
-fn deployment_complete(deployment: &Deployment, new_status: &DeploymentStatus) -> bool {
+pub fn deployment_complete(deployment: &Deployment, new_status: &DeploymentStatus) -> bool {
     new_status.updated_replicas == deployment.spec.replicas
         && new_status.replicas == deployment.spec.replicas
         && new_status.available_replicas == deployment.spec.replicas
@@ -2186,8 +2194,9 @@ fn deployment_timed_out(deployment: &Deployment, new_status: &DeploymentStatus) 
         return false;
     }
 
-    let Some(cond) = get_deployment_condition(new_status, DeploymentConditionType::Progressing) else{
-        return false
+    let Some(cond) = get_deployment_condition(new_status, DeploymentConditionType::Progressing)
+    else {
+        return false;
     };
 
     if cond.reason.as_ref().unwrap() == NEW_RSAVAILABLE_REASON {
@@ -2301,9 +2310,11 @@ fn requeue_stuck_deployment(
     //
     // lastUpdated + progressDeadlineSeconds - now => 00:00:00 + 00:10:00 - 00:03:00 => 07:00
     // TODO: could delay requeue but just do it for now, the rate limiting can handle that
-    Some(DeploymentControllerAction::RequeueDeployment(
-        deployment.clone(),
-    ))
+    // TODO: fix requeueing
+    None
+    // Some(DeploymentControllerAction::RequeueDeployment(
+    //     deployment.clone(),
+    // ))
 }
 
 fn old_pods_running(

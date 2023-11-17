@@ -1,4 +1,7 @@
-use stateright::actor::{ActorModel, Network};
+use stateright::{
+    actor::{ActorModel, Network},
+    Expectation, Property,
+};
 
 use crate::{
     abstract_model::AbstractModelCfg,
@@ -7,10 +10,12 @@ use crate::{
         Controllers, DeploymentController, NodeController, ReplicaSetController,
         SchedulerController, StatefulSetController,
     },
-    state::{ConsistencySetup, StateView},
+    state::{ConsistencySetup, StateView, State},
 };
 
-#[derive(Clone, Debug)]
+#[derive(derivative::Derivative)]
+#[derivative(Debug)]
+#[derive(Clone, Default)]
 pub struct OrchestrationModelCfg {
     /// The initial state.
     pub initial_state: StateView,
@@ -26,6 +31,9 @@ pub struct OrchestrationModelCfg {
     pub replicaset_controllers: usize,
     pub deployment_controllers: usize,
     pub statefulset_controllers: usize,
+
+    #[derivative(Debug = "ignore")]
+    pub properties: Vec<Property<AbstractModelCfg>>,
 }
 
 impl OrchestrationModelCfg {
@@ -104,9 +112,8 @@ impl OrchestrationModelCfg {
             controllers: Vec::new(),
             initial_state: self.initial_state,
             consistency_level: self.consistency_level,
+            properties: self.properties,
         };
-
-        assert!(self.datastores > 0);
 
         for i in 0..self.nodes {
             model.controllers.push(Controllers::Node(NodeController {
@@ -139,5 +146,18 @@ impl OrchestrationModelCfg {
         }
 
         model
+    }
+
+    pub fn add_property(
+        &mut self,
+        expectation: Expectation,
+        name: &'static str,
+        condition: fn(&AbstractModelCfg, &State) -> bool,
+    ) {
+        self.properties.push(Property {
+            expectation,
+            name,
+            condition,
+        })
     }
 }

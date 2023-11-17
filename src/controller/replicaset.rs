@@ -8,6 +8,7 @@ use tracing::debug;
 use crate::abstract_model::ControllerAction;
 use crate::controller::util::new_controller_ref;
 use crate::controller::Controller;
+use crate::resources::ConditionStatus;
 use crate::resources::{
     LabelSelector, Pod, PodConditionType, ReplicaSet, ReplicaSetCondition, ReplicaSetConditionType,
     ReplicaSetStatus, Time,
@@ -240,7 +241,7 @@ fn is_pod_available(pod: &Pod, min_ready_seconds: u32, now: Time) -> bool {
         .status
         .conditions
         .iter()
-        .find(|c| c.r#type == PodConditionType::Ready)
+        .find(|c| c.r#type == PodConditionType::Ready && c.status == ConditionStatus::True)
     {
         if min_ready_seconds == 0
             || c.last_transition_time.map_or(false, |ltt| {

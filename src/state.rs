@@ -1,7 +1,9 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use crate::controller::ControllerStates;
-use crate::resources::{ControllerRevision, Job, Meta, PersistentVolumeClaim};
+use crate::resources::{
+    ControllerRevision, Job, LabelSelector, Meta, PersistentVolumeClaim,
+};
 use crate::utils;
 use crate::{
     abstract_model::{Change, ControllerAction},
@@ -481,6 +483,18 @@ impl Default for Revision {
     }
 }
 
+impl std::fmt::Display for Revision {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = self
+            .0
+            .iter()
+            .map(|v| v.to_string())
+            .collect::<Vec<String>>()
+            .join("-");
+        f.write_str(&s)
+    }
+}
+
 impl Revision {
     fn increment(mut self) -> Self {
         assert_eq!(self.0.len(), 1);
@@ -545,6 +559,10 @@ impl State {
     pub fn get_controller(&self, controller: usize) -> &ControllerStates {
         &self.controller_states[controller]
     }
+
+    pub fn latest(&self) -> StateView {
+        self.states.state_at(self.max_revision())
+    }
 }
 
 #[derive(derivative::Derivative)]
@@ -603,6 +621,16 @@ impl StateView {
         self
     }
 
+    pub fn with_deployment(mut self, deployment: Deployment) -> Self {
+        self.set_deployment(deployment);
+        self
+    }
+
+    pub fn set_deployment(&mut self, deployment: Deployment) -> &mut Self {
+        self.deployments.insert(deployment);
+        self
+    }
+
     pub fn with_statefulsets(mut self, statefulsets: impl Iterator<Item = StatefulSet>) -> Self {
         self.set_statefulsets(statefulsets);
         self
@@ -641,7 +669,9 @@ impl StateView {
                 self.controllers.insert(*i);
             }
             ControllerAction::CreatePod(pod) => {
-                self.pods.insert(pod.clone());
+                let mut pod = pod.clone();
+                self.fill_name(&mut pod);
+                self.pods.insert(pod);
             }
             ControllerAction::UpdatePod(pod) => {
                 self.pods.insert(pod.clone());
@@ -671,22 +701,18 @@ impl StateView {
                 // skip
             }
             ControllerAction::UpdateDeploymentStatus(dep) => {
-                if let Some(mut dp) = self.deployments.remove(&dep.metadata.name) {
-                    dp.status = dep.status.clone();
-                    self.deployments.insert(dp);
-                }
+                self.deployments.insert(dep.clone());
             }
             ControllerAction::CreateReplicaSet(rs) => {
-                self.replica_sets.insert(rs.clone());
+                let mut rs = rs.clone();
+                self.fill_name(&mut rs);
+                self.replica_sets.insert(rs);
             }
             ControllerAction::UpdateReplicaSet(rs) => {
                 self.replica_sets.insert(rs.clone());
             }
             ControllerAction::UpdateReplicaSetStatus(rs) => {
-                if let Some(mut r) = self.replica_sets.remove(&rs.metadata.name) {
-                    r.status = rs.status.clone();
-                    self.replica_sets.insert(r);
-                }
+                self.replica_sets.insert(rs.clone());
             }
             ControllerAction::UpdateReplicaSets(rss) => {
                 for rs in rss {
@@ -697,7 +723,9 @@ impl StateView {
                 self.statefulsets.insert(sts.clone());
             }
             ControllerAction::CreateControllerRevision(cr) => {
-                self.controller_revisions.insert(cr.clone());
+                let mut cr = cr.clone();
+                self.fill_name(&mut cr);
+                self.controller_revisions.insert(cr);
             }
             ControllerAction::UpdateControllerRevision(cr) => {
                 self.controller_revisions.insert(cr.clone());
@@ -709,7 +737,9 @@ impl StateView {
                 self.replica_sets.remove(&rs.metadata.name);
             }
             ControllerAction::CreatePersistentVolumeClaim(pvc) => {
-                self.persistent_volume_claims.insert(pvc.clone());
+                let mut pvc = pvc.clone();
+                self.fill_name(&mut pvc);
+                self.persistent_volume_claims.insert(pvc);
             }
             ControllerAction::UpdatePersistentVolumeClaim(pvc) => {
                 self.persistent_volume_claims.insert(pvc.clone());
@@ -726,6 +756,13 @@ impl StateView {
             .iter()
             .filter(|p| p.spec.node_name.as_ref().map_or(false, |n| n == node))
             .collect()
+    }
+
+    fn fill_name<T: Meta>(&self, res: &mut T) {
+        if res.metadata().name.is_empty() && !res.metadata().generate_name.is_empty() {
+            let rev = &self.revision;
+            res.metadata_mut().name = format!("{}{}", res.metadata().generate_name, rev);
+        }
     }
 }
 
@@ -789,6 +826,20 @@ impl<T: Meta> Resources<T> {
 
     pub fn len(&self) -> usize {
         self.0.len()
+    }
+
+    pub fn for_controller(&self, uid: &str) -> Vec<&T> {
+        self.0
+            .iter()
+            .filter(|t| t.metadata().owner_references.iter().any(|or| or.uid == uid))
+            .collect()
+    }
+
+    pub fn matching(&self, selector: LabelSelector) -> Vec<&T> {
+        self.0
+            .iter()
+            .filter(|t| selector.matches(&t.metadata().labels))
+            .collect()
     }
 }
 

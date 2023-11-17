@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
+use tracing::debug;
 
 use stateright::{Model, Property};
 
@@ -11,7 +12,8 @@ use crate::resources::{
 };
 use crate::state::{ConsistencySetup, Revision, State, StateView};
 
-#[derive(Debug)]
+#[derive(derivative::Derivative)]
+#[derivative(Debug)]
 pub struct AbstractModelCfg {
     /// The controllers running in this configuration.
     pub controllers: Vec<Controllers>,
@@ -19,6 +21,8 @@ pub struct AbstractModelCfg {
     pub initial_state: StateView,
     /// The consistency level of the state.
     pub consistency_level: ConsistencySetup,
+    #[derivative(Debug = "ignore")]
+    pub properties: Vec<Property<Self>>,
 }
 
 /// Changes to a state.
@@ -77,7 +81,7 @@ pub enum ControllerAction {
 
 #[derive(Debug, PartialEq, Eq, Hash)]
 pub enum Action {
-    ControllerStep(usize, String, ControllerStates, Vec<Change>),
+    ControllerStep(usize, String, ControllerStates, Change),
     NodeCrash(usize),
 }
 
@@ -98,20 +102,19 @@ impl Model for AbstractModelCfg {
         for (i, controller) in self.controllers.iter().enumerate() {
             for view in state.views(i) {
                 let mut cstate = state.get_controller(i).clone();
-                let operations = controller.step(i, &view, &mut cstate);
-                let changes = operations
-                    .into_iter()
-                    .map(|o| Change {
-                        revision: view.revision.clone(),
-                        operation: o,
-                    })
-                    .collect();
-                actions.push(Action::ControllerStep(
-                    i,
-                    controller.name(),
-                    cstate,
-                    changes,
-                ));
+                let action = controller.step(i, &view, &mut cstate);
+                debug!(
+                    controller = controller.name(),
+                    ?action,
+                    "Controller step completed"
+                );
+                let changes = action.map(|action| Change {
+                    revision: view.revision.clone(),
+                    operation: action,
+                });
+                if let Some(change) = changes {
+                    actions.push(Action::ControllerStep(i, controller.name(), cstate, change));
+                }
             }
         }
         // at max revision as this isn't a controller event
@@ -131,7 +134,7 @@ impl Model for AbstractModelCfg {
         match action {
             Action::ControllerStep(from, _, cstate, changes) => {
                 let mut state = last_state.clone();
-                state.push_changes(changes.into_iter(), from);
+                state.push_changes(std::iter::once(changes), from);
                 state.update_controller(from, cstate);
                 Some(state)
             }
@@ -155,7 +158,8 @@ impl Model for AbstractModelCfg {
     }
 
     fn properties(&self) -> Vec<stateright::Property<Self>> {
-        vec![
+        let mut p = self.properties.clone();
+        p.append(&mut vec![
             Property::<Self>::always("all resources have unique names", |_model, state| {
                 let state = state.view_at(state.max_revision());
                 if !all_unique(state.nodes.values().map(|n| &n.metadata.name)) {
@@ -206,7 +210,8 @@ impl Model for AbstractModelCfg {
                     true
                 },
             ),
-        ]
+        ]);
+        p
     }
 }
 

@@ -20,7 +20,7 @@ use model_checked_orchestration::resources::StatefulSetStatus;
 use model_checked_orchestration::state::ConsistencySetup;
 use model_checked_orchestration::state::StateView;
 use model_checked_orchestration::utils;
-use report::Reporter;
+use model_checked_orchestration::report::Reporter;
 use stateright::Checker;
 use stateright::Model;
 use stateright::UniformChooser;
@@ -34,7 +34,6 @@ use tracing_subscriber::util::SubscriberInitExt;
 use tracing_subscriber::EnvFilter;
 
 pub mod opts;
-pub mod report;
 
 fn main() {
     let opts = opts::Opts::parse();
@@ -159,6 +158,7 @@ fn main() {
         replicaset_controllers: opts.replicaset_controllers,
         deployment_controllers: opts.deployment_controllers,
         statefulset_controllers: opts.statefulset_controllers,
+        properties: Vec::new(),
     };
     if opts.actors {
         run(opts, model.into_actor_model())

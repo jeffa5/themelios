@@ -2,7 +2,9 @@ use std::collections::BTreeMap;
 
 use crate::abstract_model::ControllerAction;
 use crate::controller::Controller;
-use crate::resources::ResourceQuantities;
+use crate::resources::{
+    ConditionStatus, Pod, PodCondition, PodConditionType, PodPhase, ResourceQuantities,
+};
 use crate::state::StateView;
 
 #[derive(Clone, Debug)]
@@ -18,12 +20,15 @@ pub struct NodeControllerState {
 #[derive(Debug)]
 pub enum NodeControllerAction {
     NodeJoin(usize, ResourceQuantities),
+
+    UpdatePod(Pod),
 }
 
 impl From<NodeControllerAction> for ControllerAction {
     fn from(val: NodeControllerAction) -> Self {
         match val {
             NodeControllerAction::NodeJoin(id, q) => ControllerAction::NodeJoin(id, q),
+            NodeControllerAction::UpdatePod(pod) => ControllerAction::UpdatePod(pod),
         }
     }
 }
@@ -47,6 +52,25 @@ impl Controller for NodeController {
             {
                 if !local_state.running.contains(&pod.metadata.name) {
                     local_state.running.push(pod.metadata.name.clone());
+                }
+                if pod.status.phase != PodPhase::Running {
+                    let mut pod = pod.clone();
+                    pod.status.phase = PodPhase::Running;
+                    return Some(NodeControllerAction::UpdatePod(pod));
+                }
+                if !pod.status.conditions.iter().any(|c| {
+                    c.r#type == PodConditionType::Ready && c.status == ConditionStatus::True
+                }) {
+                    let mut pod = pod.clone();
+                    pod.status.conditions.push(PodCondition {
+                        status: ConditionStatus::True,
+                        r#type: PodConditionType::Ready,
+                        last_probe_time: None,
+                        last_transition_time: None,
+                        message: None,
+                        reason: None,
+                    });
+                    return Some(NodeControllerAction::UpdatePod(pod));
                 }
             }
         } else {
