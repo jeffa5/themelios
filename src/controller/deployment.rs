@@ -27,7 +27,7 @@ const RESUMED_DEPLOY_REASON: &str = "DeploymentResumed";
 
 // ReplicaSetUpdatedReason is added in a deployment when one of its replica sets is updated as part
 // of the rollout process.
-const REPLICA_SET_UPDATED_REASON: &str = "ReplicaSetUpdated";
+const REPLICASET_UPDATED_REASON: &str = "ReplicaSetUpdated";
 
 // NewRSAvailableReason is added in a deployment when its newest replica set is made available
 // ie. the number of new pods that have passed readiness checks and run for at least minReadySeconds
@@ -143,7 +143,7 @@ impl Controller for DeploymentController {
             return Some(DeploymentControllerAction::ControllerJoin(id));
         } else {
             for deployment in global_state.deployments.iter() {
-                let replicasets = global_state.replica_sets.iter().collect::<Vec<_>>();
+                let replicasets = global_state.replicasets.iter().collect::<Vec<_>>();
                 let pod_map = BTreeMap::new();
                 debug!(rev = ?global_state.revision, "Reconciling state");
                 if let Some(op) = reconcile(deployment, &replicasets, &pod_map) {
@@ -151,7 +151,7 @@ impl Controller for DeploymentController {
                 }
 
                 // for replicaset in deployment.replicasets() {
-                //     if !global_state.replica_sets.contains_key(&replicaset) {
+                //     if !global_state.replicasets.contains_key(&replicaset) {
                 //         return Some(Operation::NewReplicaset(replicaset));
                 //     }
                 // }
@@ -1273,7 +1273,7 @@ fn set_new_replicaset_annotations(
 ) -> bool {
     // First, copy deployment's annotations (except for apply and revision annotations)
     let mut annotation_changed =
-        copy_deployment_annotations_to_replica_set(deployment, new_replicaset);
+        copy_deployment_annotations_to_replicaset(deployment, new_replicaset);
     // Then, update replica set's revision annotation
     let old_revision = new_replicaset
         .metadata
@@ -1362,7 +1362,7 @@ fn set_new_replicaset_annotations(
     annotation_changed
 }
 
-fn copy_deployment_annotations_to_replica_set(
+fn copy_deployment_annotations_to_replicaset(
     deployment: &Deployment,
     replicaset: &mut ReplicaSet,
 ) -> bool {
@@ -1832,7 +1832,7 @@ fn sync_rollout_status(
             let mut condition = new_deployment_condition(
                 DeploymentConditionType::Progressing,
                 ConditionStatus::True,
-                REPLICA_SET_UPDATED_REASON.to_owned(),
+                REPLICASET_UPDATED_REASON.to_owned(),
                 msg,
             );
             if let Some(current_cond) = current_cond {

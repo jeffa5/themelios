@@ -226,7 +226,7 @@ async fn deployment(
     let state_view = StateView {
         revision: Revision::default(),
         deployments: vec![payload.deployment].into(),
-        replica_sets: payload.replicasets.into(),
+        replicasets: payload.replicasets.into(),
         controllers: btreeset![controller_id],
         ..Default::default()
     };
@@ -293,7 +293,7 @@ async fn replicaset(
     }
     let state_view = StateView {
         revision: Revision::default(),
-        replica_sets: replicasets.into(),
+        replicasets: replicasets.into(),
         pods: payload.pods.into(),
         controllers: btreeset![controller_id],
         ..Default::default()

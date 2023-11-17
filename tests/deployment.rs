@@ -93,7 +93,7 @@ fn test_new_deployment() {
         |_model, s| {
             let s = s.latest();
             let d = s.deployments.get("test-new-deployment").unwrap();
-            !s.replica_sets.for_controller(&d.metadata.uid).is_empty()
+            !s.replicasets.for_controller(&d.metadata.uid).is_empty()
         },
     );
     m.add_property(
@@ -111,7 +111,7 @@ fn test_new_deployment() {
         |_m, s| {
             let s = s.latest();
             let d = s.deployments.get("test-new-deployment").unwrap();
-            s.replica_sets
+            s.replicasets
                 .for_controller(&d.metadata.uid)
                 .iter()
                 .all(|rs| annotations_subset(d, *rs))
@@ -123,7 +123,7 @@ fn test_new_deployment() {
         |_m, s| {
             let s = s.latest();
             let d = s.deployments.get("test-new-deployment").unwrap();
-            s.replica_sets
+            s.replicasets
                 .for_controller(&d.metadata.uid)
                 .iter()
                 .all(|rs| check_rs_hash_labels(rs))

@@ -576,7 +576,7 @@ pub struct StateView {
     /// Set of the controllers that have joined the cluster.
     pub controllers: BTreeSet<usize>,
     pub pods: Resources<Pod>,
-    pub replica_sets: Resources<ReplicaSet>,
+    pub replicasets: Resources<ReplicaSet>,
     pub deployments: Resources<Deployment>,
     pub statefulsets: Resources<StatefulSet>,
     pub controller_revisions: Resources<ControllerRevision>,
@@ -604,7 +604,7 @@ impl StateView {
 
     pub fn set_replicasets(&mut self, replicasets: impl Iterator<Item = ReplicaSet>) -> &mut Self {
         for replicaset in replicasets {
-            self.replica_sets.insert(replicaset);
+            self.replicasets.insert(replicaset);
         }
         self
     }
@@ -706,17 +706,17 @@ impl StateView {
             ControllerAction::CreateReplicaSet(rs) => {
                 let mut rs = rs.clone();
                 self.fill_name(&mut rs);
-                self.replica_sets.insert(rs);
+                self.replicasets.insert(rs);
             }
             ControllerAction::UpdateReplicaSet(rs) => {
-                self.replica_sets.insert(rs.clone());
+                self.replicasets.insert(rs.clone());
             }
             ControllerAction::UpdateReplicaSetStatus(rs) => {
-                self.replica_sets.insert(rs.clone());
+                self.replicasets.insert(rs.clone());
             }
             ControllerAction::UpdateReplicaSets(rss) => {
                 for rs in rss {
-                    self.replica_sets.insert(rs.clone());
+                    self.replicasets.insert(rs.clone());
                 }
             }
             ControllerAction::UpdateStatefulSetStatus(sts) => {
@@ -734,7 +734,7 @@ impl StateView {
                 self.controller_revisions.remove(&cr.metadata.name);
             }
             ControllerAction::DeleteReplicaSet(rs) => {
-                self.replica_sets.remove(&rs.metadata.name);
+                self.replicasets.remove(&rs.metadata.name);
             }
             ControllerAction::CreatePersistentVolumeClaim(pvc) => {
                 let mut pvc = pvc.clone();

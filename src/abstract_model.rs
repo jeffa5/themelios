@@ -168,7 +168,7 @@ impl Model for AbstractModelCfg {
                 if !all_unique(state.pods.iter().map(|n| &n.metadata.name)) {
                     return false;
                 }
-                if !all_unique(state.replica_sets.iter().map(|n| &n.metadata.name)) {
+                if !all_unique(state.replicasets.iter().map(|n| &n.metadata.name)) {
                     return false;
                 }
                 if !all_unique(state.deployments.iter().map(|n| &n.metadata.name)) {
