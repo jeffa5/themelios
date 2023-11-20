@@ -1,7 +1,7 @@
+use model_checked_orchestration::model::OrchestrationModelCfg;
 use model_checked_orchestration::report::Reporter;
 use stateright::Checker;
 use stateright::Model;
-use model_checked_orchestration::model::OrchestrationModelCfg;
 use std::collections::BTreeMap;
 
 use model_checked_orchestration::resources::Meta;
@@ -24,6 +24,9 @@ pub fn run(model: OrchestrationModelCfg, fn_name: &str) {
     if let Ok(explore_test) = std::env::var("MCO_EXPLORE_TEST") {
         if fn_name.ends_with(&explore_test) {
             explore(model);
+            return;
+        } else {
+            // skip others
             return;
         }
     }
