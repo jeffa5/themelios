@@ -10,7 +10,7 @@ use crate::{
         Controllers, DeploymentController, NodeController, ReplicaSetController,
         SchedulerController, StatefulSetController,
     },
-    state::{ConsistencySetup, StateView, State},
+    state::{ConsistencySetup, State, StateView},
 };
 
 #[derive(derivative::Derivative)]
@@ -31,6 +31,8 @@ pub struct OrchestrationModelCfg {
     pub replicaset_controllers: usize,
     pub deployment_controllers: usize,
     pub statefulset_controllers: usize,
+
+    pub clients: bool,
 
     #[derivative(Debug = "ignore")]
     pub properties: Vec<Property<AbstractModelCfg>>,
@@ -110,6 +112,7 @@ impl OrchestrationModelCfg {
     pub fn into_abstract_model(self) -> AbstractModelCfg {
         let mut model = AbstractModelCfg {
             controllers: Vec::new(),
+            clients: Vec::new(),
             initial_state: self.initial_state,
             consistency_level: self.consistency_level,
             properties: self.properties,
@@ -137,6 +140,13 @@ impl OrchestrationModelCfg {
             model
                 .controllers
                 .push(Controllers::Deployment(DeploymentController));
+            if self.clients {
+                model.clients.push(crate::controller::client::Client {
+                    change_image: 1,
+                    scale_up: 1,
+                    scale_down: 1,
+                });
+            }
         }
 
         for _ in 0..self.statefulset_controllers {

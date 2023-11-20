@@ -158,6 +158,7 @@ fn main() {
         replicaset_controllers: opts.replicaset_controllers,
         deployment_controllers: opts.deployment_controllers,
         statefulset_controllers: opts.statefulset_controllers,
+        clients: opts.clients,
         properties: Vec::new(),
     };
     if opts.actors {

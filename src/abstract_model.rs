@@ -4,6 +4,8 @@ use tracing::debug;
 
 use stateright::{Model, Property};
 
+use crate::controller::client::Client;
+use crate::controller::client::ClientAction;
 use crate::controller::util::get_node_condition;
 use crate::controller::{Controller, ControllerStates, Controllers, NodeControllerState};
 use crate::resources::{
@@ -17,6 +19,8 @@ use crate::state::{ConsistencySetup, Revision, State, StateView};
 pub struct AbstractModelCfg {
     /// The controllers running in this configuration.
     pub controllers: Vec<Controllers>,
+    /// The clients manipulating the system.
+    pub clients: Vec<Client>,
     /// The initial state.
     pub initial_state: StateView,
     /// The consistency level of the state.
@@ -79,9 +83,18 @@ pub enum ControllerAction {
     NodeCrash(usize),
 }
 
+impl From<ClientAction> for ControllerAction {
+    fn from(ca: ClientAction) -> Self {
+        match ca {
+            ClientAction::UpdateDeployment(dep) => Self::UpdateDeployment(dep),
+        }
+    }
+}
+
 #[derive(Debug, PartialEq, Eq, Hash)]
 pub enum Action {
     ControllerStep(usize, String, ControllerStates, Change),
+    Client(usize, Client, Change),
     NodeCrash(usize),
 }
 
@@ -94,6 +107,9 @@ impl Model for AbstractModelCfg {
         let mut state = State::new(self.initial_state.clone(), self.consistency_level.clone());
         for c in &self.controllers {
             state.add_controller(c.new_state());
+        }
+        for c in &self.clients {
+            state.add_client(c.clone());
         }
         vec![state]
     }
@@ -117,6 +133,23 @@ impl Model for AbstractModelCfg {
                 }
             }
         }
+
+        for (i, client) in self.clients.iter().enumerate() {
+            for view in state.views(i) {
+                let mut cstate = state.get_client(i).clone();
+                let cactions = client.actions(i, &view, &mut cstate);
+                debug!(?cactions, "Client step completed");
+                let mut changes = cactions
+                    .into_iter()
+                    .map(|action| Change {
+                        revision: view.revision.clone(),
+                        operation: action.into(),
+                    })
+                    .map(|change| Action::Client(i, cstate.clone(), change));
+                actions.extend(&mut changes);
+            }
+        }
+
         // at max revision as this isn't a controller event
         for (node_id, node) in &state.view_at(state.max_revision()).nodes {
             if let Some(cond) =
@@ -136,6 +169,12 @@ impl Model for AbstractModelCfg {
                 let mut state = last_state.clone();
                 state.push_changes(std::iter::once(changes), from);
                 state.update_controller(from, cstate);
+                Some(state)
+            }
+            Action::Client(from, cstate, changes) => {
+                let mut state = last_state.clone();
+                state.push_changes(std::iter::once(changes), from);
+                state.update_client(from, cstate);
                 Some(state)
             }
             Action::NodeCrash(node) => {

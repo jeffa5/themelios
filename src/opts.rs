@@ -50,6 +50,9 @@ pub struct Opts {
     #[clap(long, short, global = true, default_value = "1")]
     pub nodes: usize,
 
+    #[clap(long, global = true)]
+    pub clients: bool,
+
     /// Max depth for the check run, 0 is no limit.
     #[clap(long, global = true, default_value = "0")]
     pub max_depth: usize,

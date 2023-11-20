@@ -8,6 +8,7 @@ use model_checked_orchestration::resources::Container;
 use model_checked_orchestration::resources::Deployment;
 use model_checked_orchestration::resources::DeploymentSpec;
 use model_checked_orchestration::resources::DeploymentStrategy;
+use model_checked_orchestration::resources::IntOrString;
 use model_checked_orchestration::resources::Metadata;
 use model_checked_orchestration::resources::Pod;
 use model_checked_orchestration::resources::PodSpec;
@@ -22,7 +23,7 @@ use stdext::function_name;
 
 mod common;
 
-fn model(deployment: Deployment) -> OrchestrationModelCfg {
+fn model(deployment: Deployment, clients: bool) -> OrchestrationModelCfg {
     let initial_state = StateView::default().with_deployment(deployment);
     OrchestrationModelCfg {
         initial_state,
@@ -30,11 +31,12 @@ fn model(deployment: Deployment) -> OrchestrationModelCfg {
         replicaset_controllers: 1,
         schedulers: 1,
         nodes: 1,
+        clients,
         ..Default::default()
     }
 }
 
-fn new_deployment(name: &str, namespace: &str, replicas: u32) -> Deployment {
+fn new_deployment(name: &str, _namespace: &str, replicas: u32) -> Deployment {
     let mut d = Deployment {
         metadata: utils::metadata(name.to_owned()),
         spec: DeploymentSpec {
@@ -86,7 +88,7 @@ fn test_new_deployment() {
         "should-not-copy-to-replica-set".to_owned(),
     );
 
-    let mut m = model(deployment);
+    let mut m = model(deployment, false);
     m.add_property(
         Expectation::Eventually,
         "new replicaset is created",
@@ -136,6 +138,43 @@ fn test_new_deployment() {
             let s = s.latest();
             let d = s.deployments.get("test-new-deployment").unwrap();
             check_pods_hash_label(&s.pods.for_controller(&d.metadata.uid))
+        },
+    );
+    run(m, function_name!())
+}
+
+#[test_log::test]
+fn test_deployment_rolling_update() {
+    // initial state: deployment with some annotations, 2 replicas, another controller that marks pods as ready immediately
+    // eventually: deployment completes when pods are marked ready
+    let mut deployment = new_deployment("test-rolling-update-deployment", "", 2);
+
+    deployment
+        .metadata
+        .annotations
+        .insert("test".to_owned(), "should-copy-to-replica-set".to_owned());
+    deployment.metadata.annotations.insert(
+        LAST_APPLIED_CONFIG_ANNOTATION.to_owned(),
+        "should-not-copy-to-replica-set".to_owned(),
+    );
+    deployment.spec.min_ready_seconds = 4;
+    let quarter = IntOrString::Str("25%".to_owned());
+    deployment.spec.strategy = Some(DeploymentStrategy {
+        r#type: model_checked_orchestration::resources::DeploymentStrategyType::RollingUpdate,
+        rolling_update: Some(RollingUpdate {
+            max_surge: Some(quarter.clone()),
+            max_unavailable: Some(quarter),
+        }),
+    });
+
+    let mut m = model(deployment, true);
+    m.add_property(
+        Expectation::Eventually,
+        "new replicaset is created",
+        |_model, s| {
+            let s = s.latest();
+            let d = s.deployments.get("test-rolling-update-deployment").unwrap();
+            !s.replicasets.for_controller(&d.metadata.uid).is_empty()
         },
     );
     run(m, function_name!())

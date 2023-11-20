@@ -35,6 +35,7 @@ fn check(model: OrchestrationModelCfg) {
     let am = model.into_abstract_model();
     let mut reporter = Reporter::new(&am);
     am.checker()
+        .threads(num_cpus::get())
         .spawn_bfs()
         .report(&mut reporter)
         .assert_properties()

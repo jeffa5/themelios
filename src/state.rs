@@ -1,9 +1,8 @@
 use std::collections::{BTreeMap, BTreeSet};
 
+use crate::controller::client::Client;
 use crate::controller::ControllerStates;
-use crate::resources::{
-    ControllerRevision, Job, LabelSelector, Meta, PersistentVolumeClaim,
-};
+use crate::resources::{ControllerRevision, Job, LabelSelector, Meta, PersistentVolumeClaim};
 use crate::utils;
 use crate::{
     abstract_model::{Change, ControllerAction},
@@ -510,6 +509,8 @@ pub struct State {
     states: StateHistory,
 
     controller_states: Vec<ControllerStates>,
+
+    client_states: Vec<Client>,
 }
 
 impl State {
@@ -517,6 +518,7 @@ impl State {
         Self {
             states: StateHistory::new(consistency_level, initial_state),
             controller_states: Vec::new(),
+            client_states: Vec::new(),
         }
     }
 
@@ -549,7 +551,15 @@ impl State {
     }
 
     pub fn add_controller(&mut self, controller_state: ControllerStates) {
-        self.controller_states.push(controller_state)
+        self.controller_states.push(controller_state);
+    }
+
+    pub fn add_client(&mut self, client: Client) {
+        self.client_states.push(client)
+    }
+
+    pub fn update_client(&mut self, client: usize, state: Client) {
+        self.client_states[client] = state;
     }
 
     pub fn update_controller(&mut self, controller: usize, controller_state: ControllerStates) {
@@ -558,6 +568,10 @@ impl State {
 
     pub fn get_controller(&self, controller: usize) -> &ControllerStates {
         &self.controller_states[controller]
+    }
+
+    pub fn get_client(&self, client: usize) -> &Client {
+        &self.client_states[client]
     }
 
     pub fn latest(&self) -> StateView {
