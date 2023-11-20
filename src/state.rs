@@ -660,6 +660,18 @@ impl StateView {
         self
     }
 
+    pub fn with_controllers(mut self, controllers: impl Iterator<Item = usize>) -> Self {
+        self.set_controllers(controllers);
+        self
+    }
+
+    pub fn set_controllers(&mut self, controllers: impl Iterator<Item = usize>) -> &mut Self {
+        for controller in controllers {
+            self.controllers.insert(controller);
+        }
+        self
+    }
+
     pub fn apply_change(&mut self, change: &Change, new_revision: Revision) {
         match &change.operation {
             ControllerAction::NodeJoin(i, capacity) => {

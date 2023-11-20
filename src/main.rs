@@ -3,6 +3,7 @@ use std::io::IsTerminal;
 
 use clap::Parser;
 use model_checked_orchestration::model;
+use model_checked_orchestration::report::Reporter;
 use model_checked_orchestration::resources::Deployment;
 use model_checked_orchestration::resources::DeploymentSpec;
 use model_checked_orchestration::resources::DeploymentStatus;
@@ -20,7 +21,6 @@ use model_checked_orchestration::resources::StatefulSetStatus;
 use model_checked_orchestration::state::ConsistencySetup;
 use model_checked_orchestration::state::StateView;
 use model_checked_orchestration::utils;
-use model_checked_orchestration::report::Reporter;
 use stateright::Checker;
 use stateright::Model;
 use stateright::UniformChooser;
@@ -133,7 +133,15 @@ fn main() {
                 ..Default::default()
             },
             status: StatefulSetStatus::default(),
-        }));
+        }))
+        .with_controllers(
+            0..(opts.schedulers
+                + opts.nodes
+                + opts.datastores
+                + opts.replicaset_controllers
+                + opts.deployment_controllers
+                + opts.statefulset_controllers),
+        );
 
     let consistency_level = if let Some(k) = opts.bounded_staleness {
         ConsistencySetup::BoundedStaleness(k)

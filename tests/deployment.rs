@@ -24,7 +24,9 @@ use stdext::function_name;
 mod common;
 
 fn model(deployment: Deployment, clients: bool) -> OrchestrationModelCfg {
-    let initial_state = StateView::default().with_deployment(deployment);
+    let initial_state = StateView::default()
+        .with_deployment(deployment)
+        .with_controllers(0..4);
     OrchestrationModelCfg {
         initial_state,
         deployment_controllers: 1,
