@@ -438,7 +438,7 @@ fn get_all_replicasets_and_sync_revision<'a>(
 
 // FindOldReplicaSets returns the old replica sets targeted by the given Deployment, with the given slice of RSes.
 // Note that the first set of old replica sets doesn't include the ones with no pods, and the second set of old replica sets include all old replica sets.
-fn find_old_replicasets<'a>(
+pub fn find_old_replicasets<'a>(
     deployment: &Deployment,
     replicasets: &[&'a ReplicaSet],
 ) -> (Vec<&'a ReplicaSet>, Vec<&'a ReplicaSet>) {

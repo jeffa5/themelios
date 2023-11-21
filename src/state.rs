@@ -879,6 +879,10 @@ impl<T: Meta> Resources<T> {
             .filter(|t| selector.matches(&t.metadata().labels))
             .collect()
     }
+
+    pub fn to_vec(&self) -> Vec<&T>{
+        self.iter().collect()
+    }
 }
 
 impl<T: Meta> From<Vec<T>> for Resources<T> {

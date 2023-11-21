@@ -2,6 +2,7 @@ use common::annotations_subset;
 use common::run;
 use model_checked_orchestration::controller::client::ClientAction;
 use model_checked_orchestration::controller::deployment::deployment_complete;
+use model_checked_orchestration::controller::deployment::find_old_replicasets;
 use model_checked_orchestration::controller::deployment::DEFAULT_DEPLOYMENT_UNIQUE_LABEL_KEY;
 use model_checked_orchestration::controller::deployment::LAST_APPLIED_CONFIG_ANNOTATION;
 use model_checked_orchestration::model::OrchestrationModelCfg;
@@ -194,6 +195,18 @@ fn test_deployment_rolling_update() {
             let s = s.latest();
             let d = s.deployments.get("test-rolling-update-deployment").unwrap();
             !s.replicasets.for_controller(&d.metadata.uid).is_empty()
+        },
+    );
+    m.add_property(
+        Expectation::Eventually,
+        "old rss do not have pods",
+        |_model, s| {
+            let s = s.latest();
+            let d = s.deployments.get("test-rolling-update-deployment").unwrap();
+            let rss = s.replicasets.to_vec();
+            let (_, old) = find_old_replicasets(d, &rss);
+            old.iter()
+                .all(|rs| rs.spec.replicas.map_or(false, |r| r == 0))
         },
     );
     run(m, function_name!())
