@@ -45,7 +45,7 @@ impl Client {
                 let mut state = state.clone();
                 state.change_image -= 1;
                 let mut d = deployment.clone();
-                d.spec.template.spec.containers[0].image = format!("image2");
+                d.spec.template.spec.containers[0].image = "image2".to_string();
                 actions.push((state, ClientAction::UpdateDeployment(d)));
             }
 

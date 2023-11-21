@@ -212,11 +212,14 @@ fn check_rs_hash_labels(rs: &ReplicaSet) -> bool {
         .labels
         .get(DEFAULT_DEPLOYMENT_UNIQUE_LABEL_KEY);
 
-    if hash != selector_hash || selector_hash != template_label_hash {
+    if hash != selector_hash
+        || selector_hash != template_label_hash
+        || hash.map_or(true, |s| s.is_empty())
+    {
         false
-    } else if hash.map_or(true, |s| s.is_empty()) {
-        false
-    } else { !hash.map_or(true, |h| !rs.metadata.name.ends_with(h)) }
+    } else {
+        !hash.map_or(true, |h| !rs.metadata.name.ends_with(h))
+    }
 }
 
 fn check_pods_hash_label(pods: &[&Pod]) -> bool {

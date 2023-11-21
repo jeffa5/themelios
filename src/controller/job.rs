@@ -208,29 +208,27 @@ fn reconcile(job: &mut Job, pods: &mut [&Pod]) -> OptionalJobControllerAction {
     } else {
         let mut manage_job_called = false;
         if job.metadata.deletion_timestamp.is_none() {
-            if let Some(op) = manage_job(job, &pods, &active_pods, succeeded, &succeeded_indexes).0
-            {
+            if let Some(op) = manage_job(job, pods, &active_pods, succeeded, &succeeded_indexes).0 {
                 return Some(op).into();
             }
             manage_job_called = true;
         }
-        let complete;
         debug!(succeeded, active, ?job.spec.completions, "Calculating complete");
-        if job.spec.completions.is_none() {
+        let complete = if job.spec.completions.is_none() {
             // This type of job is complete when any pod exits with success.
             // Each pod is capable of
             // determining whether or not the entire Job is done.  Subsequent pods are
             // not expected to fail, but if they do, the failure is ignored.  Once any
             // pod succeeds, the controller waits for remaining pods to finish, and
             // then the job is complete.
-            complete = succeeded > 0 && active == 0;
+            succeeded > 0 && active == 0
         } else {
             // Job specifies a number of completions.  This type of job signals
             // success by having that number of successes.  Since we do not
             // start more pods than there are remaining completions, there should
             // not be any remaining active pods once this count is reached.
-            complete = succeeded as u32 >= job.spec.completions.unwrap() && active == 0;
-        }
+            succeeded as u32 >= job.spec.completions.unwrap() && active == 0
+        };
 
         if complete {
             debug!("Job complete");
@@ -337,7 +335,7 @@ fn get_valid_pods_with_filter<'a>(
     expected_rm_finalizers: &[String],
     f: impl Fn(&Pod) -> bool,
 ) -> Vec<&'a Pod> {
-    pods.into_iter()
+    pods.iter()
         .filter(|&&p| {
             // Pods that don't have a completion finalizer are in the uncounted set or
             // have already been accounted for in the Job status.
@@ -418,7 +416,7 @@ fn match_pod_failure_policy(
 ) -> (Option<String>, bool, Option<JobPodFailurePolicyRuleAction>) {
     for (index, rule) in pfp.rules.iter().enumerate() {
         if let Some(on_exit_codes) = &rule.on_exit_codes {
-            if let Some(container_status) = match_on_exit_codes(&pod.status, &on_exit_codes) {
+            if let Some(container_status) = match_on_exit_codes(&pod.status, on_exit_codes) {
                 match rule.action {
                     JobPodFailurePolicyRuleAction::Ignore => {
                         return (None, false, Some(rule.action))
@@ -432,7 +430,7 @@ fn match_pod_failure_policy(
                 }
             }
         } else if let Some(on_pod_conditions) = &rule.on_pod_conditions {
-            if let Some(pod_condition) = match_on_pod_conditions(&pod.status, &on_pod_conditions) {
+            if let Some(pod_condition) = match_on_pod_conditions(&pod.status, on_pod_conditions) {
                 match rule.action {
                     JobPodFailurePolicyRuleAction::Ignore => {
                         return (None, false, Some(rule.action))
@@ -529,14 +527,14 @@ fn find_condition_by_type(
     conditions: &[JobCondition],
     cond_type: JobConditionType,
 ) -> Option<&JobCondition> {
-    conditions.into_iter().find(|c| c.r#type == cond_type)
+    conditions.iter().find(|c| c.r#type == cond_type)
 }
 
 fn find_condition_by_type_mut(
     conditions: &mut [JobCondition],
     cond_type: JobConditionType,
 ) -> Option<&mut JobCondition> {
-    conditions.into_iter().find(|c| c.r#type == cond_type)
+    conditions.iter_mut().find(|c| c.r#type == cond_type)
 }
 
 fn new_condition(
@@ -549,8 +547,8 @@ fn new_condition(
     JobCondition {
         status,
         r#type: condition_type,
-        last_probe_time: Some(now.clone()),
-        last_transition_time: Some(now.clone()),
+        last_probe_time: Some(now),
+        last_transition_time: Some(now),
         message,
         reason,
     }
@@ -641,10 +639,7 @@ fn calculate_succeeded_indexes(job: &Job, pods: &[&Pod]) -> (OrderedIntervals, O
     }
 
     // List returns the items of the set in order.
-    let result = with_ordered_indexes(
-        &prev_intervals,
-        new_succeeded.into_iter().map(|u| u as u32).collect(),
-    );
+    let result = with_ordered_indexes(&prev_intervals, new_succeeded.into_iter().collect());
     (prev_intervals, result)
 }
 
@@ -796,7 +791,7 @@ fn track_job_status_and_remove_finalizers(
                     || (ix.map_or(false, |i| i < job.spec.completions.unwrap_or_default())))
             {
                 if let Some(pfp) = &job.spec.pod_failure_policy {
-                    let (_, count_failed, _) = match_pod_failure_policy(&pfp, pod);
+                    let (_, count_failed, _) = match_pod_failure_policy(pfp, pod);
                     if count_failed {
                         debug!("needs flush count failed");
                         needs_flush = true;
@@ -943,7 +938,7 @@ fn manage_job(
         pods_to_delete = pods_to_delete[..MAX_POD_CREATE_DELETE_PER_SYNC].to_vec();
     }
 
-    if pods_to_delete.len() > 0 {
+    if !pods_to_delete.is_empty() {
         debug!(
             job = job.metadata.name,
             deleted = pods_to_delete.len(),
@@ -1099,7 +1094,7 @@ fn append_pods_with_same_index_for_removal_and_remaining<'a>(
 
     sort_active_pods(pods);
 
-    rm.extend(pods[..pods.len() - 1].into_iter());
+    rm.extend(&pods[..pods.len() - 1]);
     left.push(pods[pods.len() - 1]);
 }
 
@@ -1421,16 +1416,14 @@ fn clean_uncounted_pods_without_finalizers(
     let new_uncounted = filter_in_uncounted_uids(&uncounted_status.succeeded, uids_with_finalizer);
     if new_uncounted.len() != uncounted_status.succeeded.len() {
         updated = true;
-        status.succeeded =
-            status.succeeded + (uncounted_status.succeeded.len() - new_uncounted.len()) as u32;
+        status.succeeded += (uncounted_status.succeeded.len() - new_uncounted.len()) as u32;
         uncounted_status.succeeded = new_uncounted;
     }
 
     let new_uncounted = filter_in_uncounted_uids(&uncounted_status.failed, uids_with_finalizer);
     if new_uncounted.len() != uncounted_status.failed.len() {
         updated = true;
-        status.failed =
-            status.failed + (uncounted_status.failed.len() - new_uncounted.len()) as u32;
+        status.failed += (uncounted_status.failed.len() - new_uncounted.len()) as u32;
         uncounted_status.failed = new_uncounted;
     }
     debug!(updated, "Cleaned uncounted pods without finalizers");
@@ -1550,7 +1543,7 @@ impl OrderedIntervals {
 
         let mut last_interval: Option<Interval> = None;
         for interval_str in indexes_str.split(',') {
-            let mut limits_str = interval_str.split("-");
+            let mut limits_str = interval_str.split('-');
             let first = limits_str.next().unwrap().parse().unwrap();
             if first >= completions {
                 break;
@@ -1572,7 +1565,7 @@ impl OrderedIntervals {
                 }
             }
             let i = Interval { first, last };
-            result.0.push(i.clone());
+            result.0.push(i);
             last_interval = Some(i);
         }
         result
