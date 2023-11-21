@@ -7,8 +7,9 @@ use crate::{
     abstract_model::AbstractModelCfg,
     actor_model::{ActorModelCfg, ActorState, Actors, ControllerActor, Datastore},
     controller::{
-        client::ClientAction, Controllers, DeploymentController, NodeController,
-        ReplicaSetController, SchedulerController, StatefulSetController,
+        client::{ClientAction, ClientState, ClientStateAuto, ClientStateManual},
+        Controllers, DeploymentController, NodeController, ReplicaSetController,
+        SchedulerController, StatefulSetController,
     },
     state::{ConsistencySetup, State, StateView},
 };
@@ -148,10 +149,11 @@ impl OrchestrationModelCfg {
                 for deployment in model.initial_state.deployments.iter() {
                     model.clients.push(crate::controller::client::Client {
                         deployment_name: deployment.metadata.name.clone(),
-                        change_image: 1,
-                        scale_up: 1,
-                        scale_down: 1,
-                        actions: Vec::new(),
+                        initial_state: ClientState::Auto(ClientStateAuto {
+                            change_image: 1,
+                            scale_up: 1,
+                            scale_down: 1,
+                        }),
                     });
                 }
             }
@@ -159,8 +161,9 @@ impl OrchestrationModelCfg {
                 for deployment in model.initial_state.deployments.iter() {
                     model.clients.push(crate::controller::client::Client {
                         deployment_name: deployment.metadata.name.clone(),
-                        actions: self.client_actions.clone(),
-                        ..Default::default()
+                        initial_state: ClientState::Manual(ClientStateManual {
+                            actions: self.client_actions.clone(),
+                        }),
                     })
                 }
             }

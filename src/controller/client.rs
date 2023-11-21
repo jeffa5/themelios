@@ -1,31 +1,33 @@
 use crate::{abstract_model::ControllerAction, state::StateView};
 
 // Just a deployment client for now
-#[derive(Debug, Default, Clone, Hash, PartialEq, Eq)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct Client {
     pub deployment_name: String,
-    pub change_image: u8,
-    pub scale_up: u8,
-    pub scale_down: u8,
-    pub actions: Vec<ClientAction>,
+    pub initial_state: ClientState,
 }
 
 impl Client {
     pub fn new_state(&self) -> ClientState {
-        ClientState {
-            change_image: self.change_image,
-            scale_up: self.scale_up,
-            scale_down: self.scale_down,
-            actions: self.actions.clone(),
-        }
+        self.initial_state.clone()
     }
 }
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
-pub struct ClientState {
+pub enum ClientState {
+    Auto(ClientStateAuto),
+    Manual(ClientStateManual),
+}
+
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+pub struct ClientStateAuto {
     pub change_image: u8,
     pub scale_up: u8,
     pub scale_down: u8,
+}
+
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+pub struct ClientStateManual {
     pub actions: Vec<ClientAction>,
 }
 
@@ -44,31 +46,34 @@ impl Client {
         state: &ClientState,
     ) -> Vec<(ClientState, ClientAction)> {
         let mut actions = Vec::new();
-        if self.actions.is_empty() {
-            if view.deployments.has(&self.deployment_name) {
-                if state.change_image > 0 {
-                    let mut state = state.clone();
-                    state.change_image -= 1;
-                    actions.push((state, ClientAction::ChangeImage));
-                }
+        match state {
+            ClientState::Auto(auto) => {
+                if view.deployments.has(&self.deployment_name) {
+                    if auto.change_image > 0 {
+                        let mut auto = auto.clone();
+                        auto.change_image -= 1;
+                        actions.push((ClientState::Auto(auto), ClientAction::ChangeImage));
+                    }
 
-                if state.scale_up > 0 {
-                    let mut state = state.clone();
-                    state.scale_up -= 1;
-                    actions.push((state, ClientAction::ScaleUp));
-                }
+                    if auto.scale_up > 0 {
+                        let mut auto = auto.clone();
+                        auto.scale_up -= 1;
+                        actions.push((ClientState::Auto(auto), ClientAction::ScaleUp));
+                    }
 
-                if state.scale_down > 0 {
-                    let mut state = state.clone();
-                    state.scale_down -= 1;
-                    actions.push((state, ClientAction::ScaleDown));
+                    if auto.scale_down > 0 {
+                        let mut auto = auto.clone();
+                        auto.scale_down -= 1;
+                        actions.push((ClientState::Auto(auto), ClientAction::ScaleDown));
+                    }
                 }
             }
-        } else {
-            for i in 0..state.actions.len() {
-                let mut state = state.clone();
-                let action = state.actions.remove(i);
-                actions.push((state, action));
+            ClientState::Manual(manual) => {
+                for i in 0..manual.actions.len() {
+                    let mut manual = manual.clone();
+                    let action = manual.actions.remove(i);
+                    actions.push((ClientState::Manual(manual), action));
+                }
             }
         }
         actions
