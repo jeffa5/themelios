@@ -53,16 +53,14 @@ impl Controller for NodeController {
                 if !local_state.running.contains(&pod.metadata.name) {
                     local_state.running.push(pod.metadata.name.clone());
                 }
-                if pod.status.phase != PodPhase::Running {
-                    let mut pod = pod.clone();
-                    pod.status.phase = PodPhase::Running;
-                    return Some(NodeControllerAction::UpdatePod(pod));
+                let mut new_pod = pod.clone();
+                if new_pod.status.phase != PodPhase::Running {
+                    new_pod.status.phase = PodPhase::Running;
                 }
-                if !pod.status.conditions.iter().any(|c| {
+                if !new_pod.status.conditions.iter().any(|c| {
                     c.r#type == PodConditionType::Ready && c.status == ConditionStatus::True
                 }) {
-                    let mut pod = pod.clone();
-                    pod.status.conditions.push(PodCondition {
+                    new_pod.status.conditions.push(PodCondition {
                         status: ConditionStatus::True,
                         r#type: PodConditionType::Ready,
                         last_probe_time: None,
@@ -70,7 +68,9 @@ impl Controller for NodeController {
                         message: None,
                         reason: None,
                     });
-                    return Some(NodeControllerAction::UpdatePod(pod));
+                }
+                if new_pod.status != pod.status {
+                    return Some(NodeControllerAction::UpdatePod(new_pod));
                 }
             }
         } else {
