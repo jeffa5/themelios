@@ -197,22 +197,19 @@ impl Model for AbstractModelCfg {
         p.append(&mut vec![
             Property::<Self>::always("all resources have unique names", |_model, state| {
                 let state = state.view_at(state.max_revision());
-                if !all_unique(state.nodes.values().map(|n| &n.metadata.name)) {
-                    return false;
-                }
-                if !all_unique(state.pods.iter().map(|n| &n.metadata.name)) {
-                    return false;
-                }
-                if !all_unique(state.replicasets.iter().map(|n| &n.metadata.name)) {
-                    return false;
-                }
-                if !all_unique(state.deployments.iter().map(|n| &n.metadata.name)) {
-                    return false;
-                }
-                if !all_unique(state.statefulsets.iter().map(|n| &n.metadata.name)) {
-                    return false;
-                }
-                true
+                all_unique(state.nodes.values().map(|n| &n.metadata.name))
+                    && all_unique(state.pods.iter().map(|n| &n.metadata.name))
+                    && all_unique(state.replicasets.iter().map(|n| &n.metadata.name))
+                    && all_unique(state.deployments.iter().map(|n| &n.metadata.name))
+                    && all_unique(state.statefulsets.iter().map(|n| &n.metadata.name))
+                    && all_unique(state.controller_revisions.iter().map(|n| &n.metadata.name))
+                    && all_unique(
+                        state
+                            .persistent_volume_claims
+                            .iter()
+                            .map(|n| &n.metadata.name),
+                    )
+                    && all_unique(state.jobs.iter().map(|n| &n.metadata.name))
             }),
             Property::<Self>::eventually("every pod gets scheduled", |_model, state| {
                 let state = state.view_at(state.max_revision());
