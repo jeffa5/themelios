@@ -84,18 +84,10 @@ pub enum ControllerAction {
     NodeCrash(usize),
 }
 
-impl From<ClientAction> for ControllerAction {
-    fn from(ca: ClientAction) -> Self {
-        match ca {
-            ClientAction::UpdateDeployment(dep) => Self::UpdateDeployment(dep),
-        }
-    }
-}
-
 #[derive(Debug, PartialEq, Eq, Hash)]
 pub enum Action {
     ControllerStep(usize, String, ControllerStates, Change),
-    Client(usize, ClientState, Change),
+    Client(usize, ClientState, ClientAction),
     NodeCrash(usize),
 }
 
@@ -142,16 +134,7 @@ impl Model for AbstractModelCfg {
                 debug!(?cactions, "Client step completed");
                 let mut changes = cactions
                     .into_iter()
-                    .map(|(state, action)| {
-                        (
-                            state,
-                            Change {
-                                revision: view.revision.clone(),
-                                operation: action.into(),
-                            },
-                        )
-                    })
-                    .map(|(state, change)| Action::Client(i, state, change));
+                    .map(|(state, action)| Action::Client(i, state, action));
                 actions.extend(&mut changes);
             }
         }
@@ -177,9 +160,16 @@ impl Model for AbstractModelCfg {
                 state.update_controller(from, cstate);
                 Some(state)
             }
-            Action::Client(from, cstate, changes) => {
+            Action::Client(from, cstate, action) => {
                 let mut state = last_state.clone();
-                state.push_changes(std::iter::once(changes), from);
+                let client = self.clients.get(from).unwrap();
+                let sv = state.latest();
+                let action = client.apply(&sv, action);
+                let change = Change {
+                    revision: sv.revision,
+                    operation: action,
+                };
+                state.push_changes(std::iter::once(change), from);
                 state.update_client(from, cstate);
                 Some(state)
             }
