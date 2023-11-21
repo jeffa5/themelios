@@ -183,6 +183,7 @@ fn main() {
         deployment_controllers: opts.deployment_controllers,
         statefulset_controllers: opts.statefulset_controllers,
         clients: opts.clients,
+        client_actions: Vec::new(),
         properties: Vec::new(),
     };
     if opts.actors {

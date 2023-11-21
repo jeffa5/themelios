@@ -1,5 +1,6 @@
 use common::annotations_subset;
 use common::run;
+use model_checked_orchestration::controller::client::ClientAction;
 use model_checked_orchestration::controller::deployment::deployment_complete;
 use model_checked_orchestration::controller::deployment::DEFAULT_DEPLOYMENT_UNIQUE_LABEL_KEY;
 use model_checked_orchestration::controller::deployment::LAST_APPLIED_CONFIG_ANNOTATION;
@@ -26,7 +27,7 @@ use stdext::function_name;
 
 mod common;
 
-fn model(deployment: Deployment, clients: bool) -> OrchestrationModelCfg {
+fn model(deployment: Deployment, client_actions: Vec<ClientAction>) -> OrchestrationModelCfg {
     let initial_state = StateView::default()
         .with_deployment(deployment)
         .with_nodes((0..1).map(|i| {
@@ -49,7 +50,7 @@ fn model(deployment: Deployment, clients: bool) -> OrchestrationModelCfg {
         replicaset_controllers: 1,
         schedulers: 1,
         nodes: 1,
-        clients,
+        client_actions,
         ..Default::default()
     }
 }
@@ -106,7 +107,7 @@ fn test_new_deployment() {
         "should-not-copy-to-replica-set".to_owned(),
     );
 
-    let mut m = model(deployment, false);
+    let mut m = model(deployment, vec![]);
     m.add_property(
         Expectation::Eventually,
         "new replicaset is created",
@@ -185,7 +186,7 @@ fn test_deployment_rolling_update() {
         }),
     });
 
-    let mut m = model(deployment, true);
+    let mut m = model(deployment, vec![ClientAction::ChangeImage]);
     m.add_property(
         Expectation::Eventually,
         "new replicaset is created",

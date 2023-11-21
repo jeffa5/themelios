@@ -1,12 +1,13 @@
 use crate::{abstract_model::ControllerAction, state::StateView};
 
 // Just a deployment client for now
-#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+#[derive(Debug, Default, Clone, Hash, PartialEq, Eq)]
 pub struct Client {
     pub deployment_name: String,
     pub change_image: u8,
     pub scale_up: u8,
     pub scale_down: u8,
+    pub actions: Vec<ClientAction>,
 }
 
 impl Client {
@@ -15,6 +16,7 @@ impl Client {
             change_image: self.change_image,
             scale_up: self.scale_up,
             scale_down: self.scale_down,
+            actions: self.actions.clone(),
         }
     }
 }
@@ -24,9 +26,10 @@ pub struct ClientState {
     pub change_image: u8,
     pub scale_up: u8,
     pub scale_down: u8,
+    pub actions: Vec<ClientAction>,
 }
 
-#[derive(Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum ClientAction {
     ScaleUp,
     ScaleDown,
@@ -41,26 +44,33 @@ impl Client {
         state: &ClientState,
     ) -> Vec<(ClientState, ClientAction)> {
         let mut actions = Vec::new();
-        if view.deployments.has(&self.deployment_name) {
-            if state.change_image > 0 {
-                let mut state = state.clone();
-                state.change_image -= 1;
-                actions.push((state, ClientAction::ChangeImage));
-            }
+        if self.actions.is_empty() {
+            if view.deployments.has(&self.deployment_name) {
+                if state.change_image > 0 {
+                    let mut state = state.clone();
+                    state.change_image -= 1;
+                    actions.push((state, ClientAction::ChangeImage));
+                }
 
-            if state.scale_up > 0 {
-                let mut state = state.clone();
-                state.scale_up -= 1;
-                actions.push((state.clone(), ClientAction::ScaleUp));
-            }
+                if state.scale_up > 0 {
+                    let mut state = state.clone();
+                    state.scale_up -= 1;
+                    actions.push((state, ClientAction::ScaleUp));
+                }
 
-            if state.scale_down > 0 {
+                if state.scale_down > 0 {
+                    let mut state = state.clone();
+                    state.scale_down -= 1;
+                    actions.push((state, ClientAction::ScaleDown));
+                }
+            }
+        } else {
+            for i in 0..state.actions.len() {
                 let mut state = state.clone();
-                state.scale_down -= 1;
-                actions.push((state.clone(), ClientAction::ScaleDown));
+                let action = state.actions.remove(i);
+                actions.push((state, action));
             }
         }
-
         actions
     }
 
@@ -79,7 +89,7 @@ impl Client {
                 let image = &deployment.spec.template.spec.containers[0].image;
                 let pos = image.rfind(|c: char| c.is_numeric());
                 let new_image = if let Some(pos) = pos {
-                    let n:u32 = image[pos..].parse().unwrap();
+                    let n: u32 = image[pos..].parse().unwrap();
                     format!("{}{}", image, n)
                 } else {
                     format!("{}1", image)

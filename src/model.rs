@@ -7,8 +7,8 @@ use crate::{
     abstract_model::AbstractModelCfg,
     actor_model::{ActorModelCfg, ActorState, Actors, ControllerActor, Datastore},
     controller::{
-        Controllers, DeploymentController, NodeController, ReplicaSetController,
-        SchedulerController, StatefulSetController,
+        client::ClientAction, Controllers, DeploymentController, NodeController,
+        ReplicaSetController, SchedulerController, StatefulSetController,
     },
     state::{ConsistencySetup, State, StateView},
 };
@@ -32,7 +32,11 @@ pub struct OrchestrationModelCfg {
     pub deployment_controllers: usize,
     pub statefulset_controllers: usize,
 
+    /// Whether to enable clients with some default params.
     pub clients: bool,
+
+    /// Set up clients with specific actions to perform.
+    pub client_actions: Vec<ClientAction>,
 
     #[derivative(Debug = "ignore")]
     pub properties: Vec<Property<AbstractModelCfg>>,
@@ -147,7 +151,17 @@ impl OrchestrationModelCfg {
                         change_image: 1,
                         scale_up: 1,
                         scale_down: 1,
+                        actions: Vec::new(),
                     });
+                }
+            }
+            if !self.client_actions.is_empty() {
+                for deployment in model.initial_state.deployments.iter() {
+                    model.clients.push(crate::controller::client::Client {
+                        deployment_name: deployment.metadata.name.clone(),
+                        actions: self.client_actions.clone(),
+                        ..Default::default()
+                    })
                 }
             }
         }
