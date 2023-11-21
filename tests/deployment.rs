@@ -114,8 +114,9 @@ fn test_new_deployment() {
         "new replicaset is created",
         |_model, s| {
             let s = s.latest();
-            let d = s.deployments.get("test-new-deployment").unwrap();
-            !s.replicasets.for_controller(&d.metadata.uid).is_empty()
+            s.deployments
+                .iter()
+                .all(|d| !s.replicasets.for_controller(&d.metadata.uid).is_empty())
         },
     );
     m.add_property(
@@ -123,8 +124,9 @@ fn test_new_deployment() {
         "deployment is complete",
         |_m, s| {
             let s = s.latest();
-            let d = s.deployments.get("test-new-deployment").unwrap();
-            deployment_complete(d, &d.status)
+            s.deployments
+                .iter()
+                .all(|d| deployment_complete(d, &d.status))
         },
     );
     m.add_property(
@@ -132,11 +134,12 @@ fn test_new_deployment() {
         "replicaset has annotations from deployment",
         |_m, s| {
             let s = s.latest();
-            let d = s.deployments.get("test-new-deployment").unwrap();
-            s.replicasets
-                .for_controller(&d.metadata.uid)
-                .iter()
-                .all(|rs| annotations_subset(d, *rs))
+            s.deployments.iter().all(|d| {
+                s.replicasets
+                    .for_controller(&d.metadata.uid)
+                    .iter()
+                    .all(|rs| annotations_subset(d, *rs))
+            })
         },
     );
     m.add_property(
@@ -144,11 +147,12 @@ fn test_new_deployment() {
         "rs has pod-template-hash in selector, label and template label",
         |_m, s| {
             let s = s.latest();
-            let d = s.deployments.get("test-new-deployment").unwrap();
-            s.replicasets
-                .for_controller(&d.metadata.uid)
-                .iter()
-                .all(|rs| check_rs_hash_labels(rs))
+            s.deployments.iter().all(|d| {
+                s.replicasets
+                    .for_controller(&d.metadata.uid)
+                    .iter()
+                    .all(|rs| check_rs_hash_labels(rs))
+            })
         },
     );
     m.add_property(
@@ -156,8 +160,9 @@ fn test_new_deployment() {
         "all pods for the rs should have the pod-template-hash in their labels",
         |_m, s| {
             let s = s.latest();
-            let d = s.deployments.get("test-new-deployment").unwrap();
-            check_pods_hash_label(&s.pods.for_controller(&d.metadata.uid))
+            s.deployments
+                .iter()
+                .all(|d| check_pods_hash_label(&s.pods.for_controller(&d.metadata.uid)))
         },
     );
     run(m, function_name!())
@@ -167,7 +172,8 @@ fn test_new_deployment() {
 fn test_deployment_rolling_update() {
     // initial state: deployment with some annotations, 2 replicas, another controller that marks pods as ready immediately
     // eventually: deployment completes when pods are marked ready
-    let mut deployment = new_deployment("test-rolling-update-deployment", "", 2);
+    let name = "test-rolling-update-deployment";
+    let mut deployment = new_deployment(name, "", 2);
 
     deployment
         .metadata
@@ -193,8 +199,9 @@ fn test_deployment_rolling_update() {
         "new replicaset is created",
         |_model, s| {
             let s = s.latest();
-            let d = s.deployments.get("test-rolling-update-deployment").unwrap();
-            !s.replicasets.for_controller(&d.metadata.uid).is_empty()
+            s.deployments
+                .iter()
+                .all(|d| !s.replicasets.for_controller(&d.metadata.uid).is_empty())
         },
     );
     m.add_property(
@@ -202,11 +209,12 @@ fn test_deployment_rolling_update() {
         "old rss do not have pods",
         |_model, s| {
             let s = s.latest();
-            let d = s.deployments.get("test-rolling-update-deployment").unwrap();
-            let rss = s.replicasets.to_vec();
-            let (_, old) = find_old_replicasets(d, &rss);
-            old.iter()
-                .all(|rs| rs.spec.replicas.map_or(false, |r| r == 0))
+            s.deployments.iter().all(|d| {
+                let rss = s.replicasets.to_vec();
+                let (_, old) = find_old_replicasets(d, &rss);
+                old.iter()
+                    .all(|rs| rs.spec.replicas.map_or(false, |r| r == 0))
+            })
         },
     );
     run(m, function_name!())
