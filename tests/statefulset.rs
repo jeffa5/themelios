@@ -38,7 +38,6 @@ fn model(statefulset: StatefulSet, client_actions: Vec<ClientAction>) -> Orchest
     OrchestrationModelCfg {
         initial_state,
         statefulset_controllers: 1,
-        replicaset_controllers: 1,
         schedulers: 1,
         nodes: 1,
         client_actions,
