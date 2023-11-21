@@ -866,6 +866,10 @@ impl<T: Meta> Resources<T> {
         self.0.len()
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
     pub fn for_controller(&self, uid: &str) -> Vec<&T> {
         self.0
             .iter()
@@ -880,7 +884,7 @@ impl<T: Meta> Resources<T> {
             .collect()
     }
 
-    pub fn to_vec(&self) -> Vec<&T>{
+    pub fn to_vec(&self) -> Vec<&T> {
         self.iter().collect()
     }
 }

@@ -24,6 +24,7 @@ pub struct ClientStateAuto {
     pub change_image: u8,
     pub scale_up: u8,
     pub scale_down: u8,
+    pub toggle_pause: u8,
 }
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
@@ -36,6 +37,7 @@ pub enum ClientAction {
     ScaleUp,
     ScaleDown,
     ChangeImage,
+    TogglePause,
 }
 
 impl Client {
@@ -66,6 +68,12 @@ impl Client {
                         auto.scale_down -= 1;
                         actions.push((ClientState::Auto(auto), ClientAction::ScaleDown));
                     }
+
+                    if auto.toggle_pause > 0 {
+                        let mut auto = auto.clone();
+                        auto.toggle_pause -= 1;
+                        actions.push((ClientState::Auto(auto), ClientAction::TogglePause));
+                    }
                 }
             }
             ClientState::Manual(manual) => {
@@ -88,6 +96,10 @@ impl Client {
             }
             ClientAction::ScaleDown => {
                 deployment.spec.replicas = deployment.spec.replicas.saturating_sub(1);
+                ControllerAction::UpdateDeployment(deployment)
+            }
+            ClientAction::TogglePause => {
+                deployment.spec.paused = !deployment.spec.paused;
                 ControllerAction::UpdateDeployment(deployment)
             }
             ClientAction::ChangeImage => {

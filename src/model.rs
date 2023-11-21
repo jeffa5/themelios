@@ -153,6 +153,7 @@ impl OrchestrationModelCfg {
                             change_image: 1,
                             scale_up: 1,
                             scale_down: 1,
+                            toggle_pause: 1,
                         }),
                     });
                 }

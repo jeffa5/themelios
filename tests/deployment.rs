@@ -221,6 +221,38 @@ fn test_deployment_rolling_update() {
     run(m, function_name!())
 }
 
+#[test_log::test]
+fn test_paused_deployment() {
+    // initial state: deployment with some annotations, 2 replicas, another controller that marks pods as ready immediately
+    // always: no replicasets are created
+    let name = "test-paused-deployment";
+    let mut deployment = new_deployment(name, "", 1);
+    deployment.spec.paused = true;
+    deployment
+        .spec
+        .template
+        .spec
+        .termination_grace_period_seconds = Some(1);
+
+    let mut m = model(
+        deployment,
+        vec![
+            ClientAction::ChangeImage,
+            ClientAction::ScaleUp,
+            ClientAction::ScaleDown,
+        ],
+    );
+    m.add_property(
+        Expectation::Always,
+        "no replicaset is created",
+        |_model, s| {
+            let s = s.latest();
+            s.replicasets.is_empty()
+        },
+    );
+    run(m, function_name!())
+}
+
 fn check_rs_hash_labels(rs: &ReplicaSet) -> bool {
     let hash = rs.metadata.labels.get(DEFAULT_DEPLOYMENT_UNIQUE_LABEL_KEY);
     let selector_hash = rs
