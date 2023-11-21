@@ -230,6 +230,13 @@ impl Model for AbstractModelCfg {
                             }
                         }
                         ordinals.sort();
+                        // the first one should be 0
+                        if let Some(first) = ordinals.first() {
+                            if *first != 0 {
+                                return false;
+                            }
+                        }
+                        // then each other should be one more than this
                         for os in ordinals.windows(2) {
                             if os[0] + 1 != os[1] {
                                 // violation of the property
