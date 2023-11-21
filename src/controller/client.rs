@@ -3,7 +3,7 @@ use crate::{abstract_model::ControllerAction, state::StateView};
 // Just a deployment client for now
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct Client {
-    pub deployment_name: String,
+    pub name: String,
     pub initial_state: ClientState,
 }
 
@@ -50,7 +50,7 @@ impl Client {
         let mut actions = Vec::new();
         match state {
             ClientState::Auto(auto) => {
-                if view.deployments.has(&self.deployment_name) {
+                if view.deployments.has(&self.name) || view.statefulsets.has(&self.name) {
                     if auto.change_image > 0 {
                         let mut auto = auto.clone();
                         auto.change_image -= 1;
@@ -88,22 +88,48 @@ impl Client {
     }
 
     pub fn apply(&self, view: &StateView, action: ClientAction) -> ControllerAction {
-        let mut deployment = view.deployments.get(&self.deployment_name).unwrap().clone();
+        let deployment = view.deployments.get(&self.name).cloned();
+        let statefulset = view.statefulsets.get(&self.name).cloned();
+
         match action {
             ClientAction::ScaleUp => {
-                deployment.spec.replicas += 1;
-                ControllerAction::UpdateDeployment(deployment)
+                if let Some(mut d) = deployment {
+                    d.spec.replicas += 1;
+                    ControllerAction::UpdateDeployment(d)
+                } else if let Some(mut s) = statefulset {
+                    s.spec.replicas = Some(s.spec.replicas.unwrap_or(1) + 1);
+                    ControllerAction::UpdateStatefulSet(s)
+                } else {
+                    unreachable!()
+                }
             }
             ClientAction::ScaleDown => {
-                deployment.spec.replicas = deployment.spec.replicas.saturating_sub(1);
-                ControllerAction::UpdateDeployment(deployment)
+                if let Some(mut d) = deployment {
+                    d.spec.replicas = d.spec.replicas.saturating_sub(1);
+                    ControllerAction::UpdateDeployment(d)
+                } else if let Some(mut s) = statefulset {
+                    s.spec.replicas = s.spec.replicas.map(|r| r.saturating_sub(1));
+                    ControllerAction::UpdateStatefulSet(s)
+                } else {
+                    unreachable!()
+                }
             }
             ClientAction::TogglePause => {
-                deployment.spec.paused = !deployment.spec.paused;
-                ControllerAction::UpdateDeployment(deployment)
+                if let Some(mut d) = deployment {
+                    d.spec.paused = !d.spec.paused;
+                    ControllerAction::UpdateDeployment(d)
+                } else {
+                    unreachable!()
+                }
             }
             ClientAction::ChangeImage => {
-                let image = &deployment.spec.template.spec.containers[0].image;
+                let image = if let Some(d) = &deployment {
+                    d.spec.template.spec.containers[0].image.clone()
+                } else if let Some(s) = &statefulset {
+                    s.spec.template.spec.containers[0].image.clone()
+                } else {
+                    unreachable!()
+                };
                 let pos = image.rfind(|c: char| c.is_numeric());
                 let new_image = if let Some(pos) = pos {
                     let n: u32 = image[pos..].parse().unwrap();
@@ -111,8 +137,15 @@ impl Client {
                 } else {
                     format!("{}1", image)
                 };
-                deployment.spec.template.spec.containers[0].image = new_image;
-                ControllerAction::UpdateDeployment(deployment)
+                if let Some(mut d) = deployment {
+                    d.spec.template.spec.containers[0].image = new_image;
+                    ControllerAction::UpdateDeployment(d)
+                } else if let Some(mut s) = statefulset {
+                    s.spec.template.spec.containers[0].image = new_image;
+                    ControllerAction::UpdateStatefulSet(s)
+                } else {
+                    unreachable!()
+                }
             }
         }
     }

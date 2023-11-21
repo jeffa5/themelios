@@ -66,6 +66,7 @@ pub enum ControllerAction {
     DeleteReplicaSet(ReplicaSet),
 
     // StatefulSets
+    UpdateStatefulSet(StatefulSet),
     UpdateStatefulSetStatus(StatefulSet),
 
     // ControllerRevisions

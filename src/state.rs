@@ -660,6 +660,16 @@ impl StateView {
         self
     }
 
+    pub fn with_statefulset(mut self, statefulset: StatefulSet) -> Self {
+        self.set_statefulset(statefulset);
+        self
+    }
+
+    pub fn set_statefulset(&mut self, statefulset: StatefulSet) -> &mut Self {
+        self.statefulsets.insert(statefulset);
+        self
+    }
+
     pub fn with_nodes(mut self, nodes: impl Iterator<Item = (usize, Node)>) -> Self {
         self.set_nodes(nodes);
         self
@@ -756,6 +766,9 @@ impl StateView {
                 for rs in rss {
                     self.replicasets.insert(rs.clone());
                 }
+            }
+            ControllerAction::UpdateStatefulSet(sts) => {
+                self.statefulsets.insert(sts.clone());
             }
             ControllerAction::UpdateStatefulSetStatus(sts) => {
                 self.statefulsets.insert(sts.clone());

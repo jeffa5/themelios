@@ -148,7 +148,7 @@ impl OrchestrationModelCfg {
             if self.clients {
                 for deployment in model.initial_state.deployments.iter() {
                     model.clients.push(crate::controller::client::Client {
-                        deployment_name: deployment.metadata.name.clone(),
+                        name: deployment.metadata.name.clone(),
                         initial_state: ClientState::Auto(ClientStateAuto {
                             change_image: 1,
                             scale_up: 1,
@@ -161,7 +161,7 @@ impl OrchestrationModelCfg {
             if !self.client_actions.is_empty() {
                 for deployment in model.initial_state.deployments.iter() {
                     model.clients.push(crate::controller::client::Client {
-                        deployment_name: deployment.metadata.name.clone(),
+                        name: deployment.metadata.name.clone(),
                         initial_state: ClientState::Manual(ClientStateManual {
                             actions: self.client_actions.clone(),
                         }),
@@ -174,6 +174,29 @@ impl OrchestrationModelCfg {
             model
                 .controllers
                 .push(Controllers::StatefulSet(StatefulSetController));
+            if self.clients {
+                for statefulset in model.initial_state.statefulsets.iter() {
+                    model.clients.push(crate::controller::client::Client {
+                        name: statefulset.metadata.name.clone(),
+                        initial_state: ClientState::Auto(ClientStateAuto {
+                            change_image: 1,
+                            scale_up: 1,
+                            scale_down: 1,
+                            toggle_pause: 1,
+                        }),
+                    });
+                }
+            }
+            if !self.client_actions.is_empty() {
+                for statefulset in model.initial_state.statefulsets.iter() {
+                    model.clients.push(crate::controller::client::Client {
+                        name: statefulset.metadata.name.clone(),
+                        initial_state: ClientState::Manual(ClientStateManual {
+                            actions: self.client_actions.clone(),
+                        }),
+                    })
+                }
+            }
         }
 
         model
