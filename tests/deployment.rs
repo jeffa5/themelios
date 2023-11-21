@@ -10,6 +10,9 @@ use model_checked_orchestration::resources::DeploymentSpec;
 use model_checked_orchestration::resources::DeploymentStrategy;
 use model_checked_orchestration::resources::IntOrString;
 use model_checked_orchestration::resources::Metadata;
+use model_checked_orchestration::resources::Node;
+use model_checked_orchestration::resources::NodeSpec;
+use model_checked_orchestration::resources::NodeStatus;
 use model_checked_orchestration::resources::Pod;
 use model_checked_orchestration::resources::PodSpec;
 use model_checked_orchestration::resources::PodTemplateSpec;
@@ -26,7 +29,20 @@ mod common;
 fn model(deployment: Deployment, clients: bool) -> OrchestrationModelCfg {
     let initial_state = StateView::default()
         .with_deployment(deployment)
-        .with_controllers(0..4);
+        .with_nodes((0..1).map(|i| {
+            (
+                i,
+                Node {
+                    metadata: utils::metadata(format!("node-{i}")),
+                    spec: NodeSpec {
+                        taints: Vec::new(),
+                        unschedulable: false,
+                    },
+                    status: NodeStatus::default(),
+                },
+            )
+        }))
+        .with_controllers(1..4);
     OrchestrationModelCfg {
         initial_state,
         deployment_controllers: 1,

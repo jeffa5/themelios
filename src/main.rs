@@ -8,6 +8,9 @@ use model_checked_orchestration::resources::Deployment;
 use model_checked_orchestration::resources::DeploymentSpec;
 use model_checked_orchestration::resources::DeploymentStatus;
 use model_checked_orchestration::resources::LabelSelector;
+use model_checked_orchestration::resources::Node;
+use model_checked_orchestration::resources::NodeSpec;
+use model_checked_orchestration::resources::NodeStatus;
 use model_checked_orchestration::resources::Pod;
 use model_checked_orchestration::resources::PodSpec;
 use model_checked_orchestration::resources::PodStatus;
@@ -134,9 +137,21 @@ fn main() {
             },
             status: StatefulSetStatus::default(),
         }))
+        .with_nodes((0..opts.nodes).map(|i| {
+            (
+                i,
+                Node {
+                    metadata: utils::metadata(format!("node-{i}")),
+                    spec: NodeSpec {
+                        taints: Vec::new(),
+                        unschedulable: false,
+                    },
+                    status: NodeStatus::default(),
+                },
+            )
+        }))
         .with_controllers(
-            0..(opts.schedulers
-                + opts.nodes
+            opts.nodes..(opts.schedulers
                 + opts.datastores
                 + opts.replicaset_controllers
                 + opts.deployment_controllers

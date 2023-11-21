@@ -660,6 +660,18 @@ impl StateView {
         self
     }
 
+    pub fn with_nodes(mut self, nodes: impl Iterator<Item = (usize, Node)>) -> Self {
+        self.set_nodes(nodes);
+        self
+    }
+
+    pub fn set_nodes(&mut self, nodes: impl Iterator<Item = (usize, Node)>) -> &mut Self {
+        for (i, node) in nodes {
+            self.nodes.insert(i, node);
+        }
+        self
+    }
+
     pub fn with_controllers(mut self, controllers: impl Iterator<Item = usize>) -> Self {
         self.set_controllers(controllers);
         self
