@@ -383,13 +383,9 @@ fn do_update_statefulset(
 
     // Fix pod claims for condemned pods, if necessary.
     let fix_pod_claim = |replica| {
-        let match_policy = dbg!(claims_match_retention_policy(&update_sts, replica, pvcs));
+        let match_policy = claims_match_retention_policy(&update_sts, replica, pvcs);
         if !match_policy {
-            if let Some(op) = dbg!(update_pod_claim_for_retention_policy(
-                &update_sts,
-                replica,
-                pvcs
-            )) {
+            if let Some(op) = update_pod_claim_for_retention_policy(&update_sts, replica, pvcs) {
                 return ValOrOp::Op(op);
             }
         }
