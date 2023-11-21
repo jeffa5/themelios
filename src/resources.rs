@@ -1334,7 +1334,7 @@ pub struct Taint {
     pub value: String,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff)]
 #[diff(attr(
     #[derive(Debug, PartialEq)]
 ))]

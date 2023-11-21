@@ -1,6 +1,6 @@
 use std::collections::{BTreeMap, BTreeSet};
 
-use crate::controller::client::Client;
+use crate::controller::client::ClientState;
 use crate::controller::ControllerStates;
 use crate::resources::{ControllerRevision, Job, LabelSelector, Meta, PersistentVolumeClaim};
 use crate::utils;
@@ -510,7 +510,7 @@ pub struct State {
 
     controller_states: Vec<ControllerStates>,
 
-    client_states: Vec<Client>,
+    client_states: Vec<ClientState>,
 }
 
 impl State {
@@ -554,11 +554,11 @@ impl State {
         self.controller_states.push(controller_state);
     }
 
-    pub fn add_client(&mut self, client: Client) {
+    pub fn add_client(&mut self, client: ClientState) {
         self.client_states.push(client)
     }
 
-    pub fn update_client(&mut self, client: usize, state: Client) {
+    pub fn update_client(&mut self, client: usize, state: ClientState) {
         self.client_states[client] = state;
     }
 
@@ -570,7 +570,7 @@ impl State {
         &self.controller_states[controller]
     }
 
-    pub fn get_client(&self, client: usize) -> &Client {
+    pub fn get_client(&self, client: usize) -> &ClientState {
         &self.client_states[client]
     }
 

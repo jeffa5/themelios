@@ -141,11 +141,14 @@ impl OrchestrationModelCfg {
                 .controllers
                 .push(Controllers::Deployment(DeploymentController));
             if self.clients {
-                model.clients.push(crate::controller::client::Client {
-                    change_image: 1,
-                    scale_up: 1,
-                    scale_down: 1,
-                });
+                for deployment in model.initial_state.deployments.iter() {
+                    model.clients.push(crate::controller::client::Client {
+                        deployment_name: deployment.metadata.name.clone(),
+                        change_image: 1,
+                        scale_up: 1,
+                        scale_down: 1,
+                    });
+                }
             }
         }
 

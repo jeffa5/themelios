@@ -6,6 +6,7 @@ use stateright::{Model, Property};
 
 use crate::controller::client::Client;
 use crate::controller::client::ClientAction;
+use crate::controller::client::ClientState;
 use crate::controller::util::get_node_condition;
 use crate::controller::{Controller, ControllerStates, Controllers, NodeControllerState};
 use crate::resources::{
@@ -94,7 +95,7 @@ impl From<ClientAction> for ControllerAction {
 #[derive(Debug, PartialEq, Eq, Hash)]
 pub enum Action {
     ControllerStep(usize, String, ControllerStates, Change),
-    Client(usize, Client, Change),
+    Client(usize, ClientState, Change),
     NodeCrash(usize),
 }
 
@@ -109,7 +110,7 @@ impl Model for AbstractModelCfg {
             state.add_controller(c.new_state());
         }
         for c in &self.clients {
-            state.add_client(c.clone());
+            state.add_client(c.new_state());
         }
         vec![state]
     }
@@ -136,16 +137,21 @@ impl Model for AbstractModelCfg {
 
         for (i, client) in self.clients.iter().enumerate() {
             for view in state.views(i) {
-                let mut cstate = state.get_client(i).clone();
-                let cactions = client.actions(i, &view, &mut cstate);
+                let cstate = state.get_client(i);
+                let cactions = client.actions(i, &view, cstate);
                 debug!(?cactions, "Client step completed");
                 let mut changes = cactions
                     .into_iter()
-                    .map(|action| Change {
-                        revision: view.revision.clone(),
-                        operation: action.into(),
+                    .map(|(state, action)| {
+                        (
+                            state,
+                            Change {
+                                revision: view.revision.clone(),
+                                operation: action.into(),
+                            },
+                        )
                     })
-                    .map(|change| Action::Client(i, cstate.clone(), change));
+                    .map(|(state, change)| Action::Client(i, state, change));
                 actions.extend(&mut changes);
             }
         }
