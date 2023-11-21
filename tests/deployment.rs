@@ -172,6 +172,7 @@ fn test_new_deployment() {
 fn test_deployment_rolling_update() {
     // initial state: deployment with some annotations, 2 replicas, another controller that marks pods as ready immediately
     // eventually: deployment completes when pods are marked ready
+    // eventually: old replicasets have no pods
     let name = "test-rolling-update-deployment";
     let mut deployment = new_deployment(name, "", 2);
 
