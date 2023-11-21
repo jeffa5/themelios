@@ -30,7 +30,7 @@ pub struct ClientState {
 pub enum ClientAction {
     ScaleUp,
     ScaleDown,
-    ChangeImage(String),
+    ChangeImage,
 }
 
 impl Client {
@@ -45,7 +45,7 @@ impl Client {
             if state.change_image > 0 {
                 let mut state = state.clone();
                 state.change_image -= 1;
-                actions.push((state, ClientAction::ChangeImage("image2".to_owned())));
+                actions.push((state, ClientAction::ChangeImage));
             }
 
             if state.scale_up > 0 {
@@ -75,7 +75,15 @@ impl Client {
                 deployment.spec.replicas = deployment.spec.replicas.saturating_sub(1);
                 ControllerAction::UpdateDeployment(deployment)
             }
-            ClientAction::ChangeImage(new_image) => {
+            ClientAction::ChangeImage => {
+                let image = &deployment.spec.template.spec.containers[0].image;
+                let pos = image.rfind(|c: char| c.is_numeric());
+                let new_image = if let Some(pos) = pos {
+                    let n:u32 = image[pos..].parse().unwrap();
+                    format!("{}{}", image, n)
+                } else {
+                    format!("{}1", image)
+                };
                 deployment.spec.template.spec.containers[0].image = new_image;
                 ControllerAction::UpdateDeployment(deployment)
             }
