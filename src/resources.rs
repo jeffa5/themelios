@@ -291,7 +291,9 @@ pub struct PersistentVolumeClaimVolumeSource {
     pub read_only: bool,
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff)]
+#[derive(
+    Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff,
+)]
 #[diff(attr(
     #[derive(Debug, PartialEq)]
 ))]
@@ -881,7 +883,9 @@ pub enum ConditionStatus {
     Unknown,
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff)]
+#[derive(
+    Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff,
+)]
 #[diff(attr(
     #[derive(Debug, PartialEq)]
 ))]
@@ -903,7 +907,9 @@ impl Deployment {
     }
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff)]
+#[derive(
+    Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff,
+)]
 #[diff(attr(
     #[derive(Debug, PartialEq)]
 ))]
@@ -945,7 +951,9 @@ pub struct DeploymentStrategy {
     pub rolling_update: Option<RollingUpdate>,
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff)]
+#[derive(
+    Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff,
+)]
 #[diff(attr(
     #[derive(Debug, PartialEq)]
 ))]
@@ -1334,7 +1342,9 @@ pub struct Taint {
     pub value: String,
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff)]
+#[derive(
+    Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff,
+)]
 #[diff(attr(
     #[derive(Debug, PartialEq)]
 ))]

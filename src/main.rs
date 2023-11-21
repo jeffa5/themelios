@@ -151,11 +151,12 @@ fn main() {
             )
         }))
         .with_controllers(
-            opts.nodes..(opts.schedulers
-                + opts.datastores
-                + opts.replicaset_controllers
-                + opts.deployment_controllers
-                + opts.statefulset_controllers),
+            opts.nodes
+                ..(opts.schedulers
+                    + opts.datastores
+                    + opts.replicaset_controllers
+                    + opts.deployment_controllers
+                    + opts.statefulset_controllers),
         );
 
     let consistency_level = if let Some(k) = opts.bounded_staleness {

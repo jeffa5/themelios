@@ -4,12 +4,12 @@ use time::OffsetDateTime;
 use crate::resources::Metadata;
 
 #[cfg(feature = "serve")]
-pub fn new_uid(_name:&str) -> String {
+pub fn new_uid(_name: &str) -> String {
     uuid::Uuid::new_v4().to_string()
 }
 
 #[cfg(feature = "model")]
-pub fn new_uid(name:&str) -> String {
+pub fn new_uid(name: &str) -> String {
     name.to_owned()
 }
 

@@ -1011,7 +1011,7 @@ fn create_missing_persistent_volume_claims(
     claims: &[&PersistentVolumeClaim],
 ) -> Option<StatefulSetControllerAction> {
     if let Some(op) = create_persistent_volume_claims(sts, pod, claims) {
-        let StatefulSetControllerAction::CreatePersistentVolumeClaim(mut claim) =  op else {
+        let StatefulSetControllerAction::CreatePersistentVolumeClaim(mut claim) = op else {
             unreachable!()
         };
         update_claim_owner_ref_for_set_and_pod(&mut claim, sts, pod);

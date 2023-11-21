@@ -917,7 +917,7 @@ fn manage_job(
         terminating = count_terminating_pods(pods);
     }
 
-    let mut want_active ;
+    let mut want_active;
     if let Some(completions) = job.spec.completions {
         // Job specifies a specific number of completions.  Therefore, number
         // active should not ever exceed number of remaining completions.
@@ -1199,7 +1199,7 @@ fn max_container_restarts(pod: &Pod) -> u32 {
         .unwrap_or_default()
 }
 
-fn delete_job_pods( pods: &[&Pod]) -> OptionalJobControllerAction {
+fn delete_job_pods(pods: &[&Pod]) -> OptionalJobControllerAction {
     if let Some(pod) = pods.first() {
         if let Some(op) = remove_tracking_finalizer_patch(pod).0 {
             return Some(op).into();
