@@ -122,7 +122,7 @@ fn test_new_deployment() {
         |_m, s| {
             let s = s.latest();
             let d = s.deployments.get("test-new-deployment").unwrap();
-            deployment_complete(&d, &d.status)
+            deployment_complete(d, &d.status)
         },
     );
     m.add_property(
@@ -216,11 +216,7 @@ fn check_rs_hash_labels(rs: &ReplicaSet) -> bool {
         false
     } else if hash.map_or(true, |s| s.is_empty()) {
         false
-    } else if hash.map_or(true, |h| !rs.metadata.name.ends_with(h)) {
-        false
-    } else {
-        true
-    }
+    } else { !hash.map_or(true, |h| !rs.metadata.name.ends_with(h)) }
 }
 
 fn check_pods_hash_label(pods: &[&Pod]) -> bool {
