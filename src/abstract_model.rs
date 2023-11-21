@@ -86,7 +86,7 @@ pub enum ControllerAction {
 
 #[derive(Debug, PartialEq, Eq, Hash)]
 pub enum Action {
-    ControllerStep(usize, String, ControllerStates, Change),
+    ControllerStep(usize, ControllerStates, Change),
     Client(usize, ClientState, ClientAction),
     NodeCrash(usize),
 }
@@ -117,12 +117,12 @@ impl Model for AbstractModelCfg {
                     ?action,
                     "Controller step completed"
                 );
-                let changes = action.map(|action| Change {
+                let change = action.map(|action| Change {
                     revision: view.revision.clone(),
                     operation: action,
                 });
-                if let Some(change) = changes {
-                    actions.push(Action::ControllerStep(i, controller.name(), cstate, change));
+                if let Some(change) = change {
+                    actions.push(Action::ControllerStep(i, cstate, change));
                 }
             }
         }
@@ -154,9 +154,9 @@ impl Model for AbstractModelCfg {
 
     fn next_state(&self, last_state: &Self::State, action: Self::Action) -> Option<Self::State> {
         match action {
-            Action::ControllerStep(from, _, cstate, changes) => {
+            Action::ControllerStep(from, cstate, change) => {
                 let mut state = last_state.clone();
-                state.push_changes(std::iter::once(changes), from);
+                state.push_changes(std::iter::once(change), from);
                 state.update_controller(from, cstate);
                 Some(state)
             }
