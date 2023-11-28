@@ -1,6 +1,6 @@
 use common::annotations_subset;
 use common::run;
-use model_checked_orchestration::controller::client::ClientAction;
+use model_checked_orchestration::controller::client::ClientState;
 use model_checked_orchestration::controller::deployment::deployment_complete;
 use model_checked_orchestration::controller::deployment::find_old_replicasets;
 use model_checked_orchestration::controller::deployment::DEFAULT_DEPLOYMENT_UNIQUE_LABEL_KEY;
@@ -28,7 +28,7 @@ use stdext::function_name;
 
 mod common;
 
-fn model(deployment: Deployment, client_actions: Vec<ClientAction>) -> OrchestrationModelCfg {
+fn model(deployment: Deployment, client_state: ClientState) -> OrchestrationModelCfg {
     let initial_state = StateView::default()
         .with_deployment(deployment)
         .with_nodes((0..1).map(|i| {
@@ -51,7 +51,7 @@ fn model(deployment: Deployment, client_actions: Vec<ClientAction>) -> Orchestra
         replicaset_controllers: 1,
         schedulers: 1,
         nodes: 1,
-        client_actions,
+        client_state,
         ..Default::default()
     }
 }
@@ -108,7 +108,7 @@ fn test_new_deployment() {
         "should-not-copy-to-replica-set".to_owned(),
     );
 
-    let mut m = model(deployment, vec![]);
+    let mut m = model(deployment, ClientState::default());
     m.add_property(
         Expectation::Eventually,
         "new replicaset is created",
@@ -194,7 +194,10 @@ fn test_deployment_rolling_update() {
         }),
     });
 
-    let mut m = model(deployment, vec![ClientAction::ChangeImage]);
+    let mut m = model(
+        deployment,
+        ClientState::new_unordered().with_change_images(1),
+    );
     m.add_property(
         Expectation::Eventually,
         "new replicaset is created",
@@ -236,11 +239,10 @@ fn test_paused_deployment() {
 
     let mut m = model(
         deployment,
-        vec![
-            ClientAction::ChangeImage,
-            ClientAction::ScaleUp,
-            ClientAction::ScaleDown,
-        ],
+        ClientState::new_unordered()
+            .with_change_images(1)
+            .with_scale_ups(1)
+            .with_scale_downs(1),
     );
     m.add_property(
         Expectation::Always,

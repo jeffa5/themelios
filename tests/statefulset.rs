@@ -1,5 +1,5 @@
 use common::run;
-use model_checked_orchestration::controller::client::ClientAction;
+use model_checked_orchestration::controller::client::ClientState;
 use model_checked_orchestration::model::OrchestrationModelCfg;
 use model_checked_orchestration::resources::Container;
 use model_checked_orchestration::resources::Metadata;
@@ -18,7 +18,7 @@ use stdext::function_name;
 
 mod common;
 
-fn model(statefulset: StatefulSet, client_actions: Vec<ClientAction>) -> OrchestrationModelCfg {
+fn model(statefulset: StatefulSet, client_actions: ClientState) -> OrchestrationModelCfg {
     let initial_state = StateView::default()
         .with_statefulset(statefulset)
         .with_nodes((0..1).map(|i| {
@@ -40,7 +40,7 @@ fn model(statefulset: StatefulSet, client_actions: Vec<ClientAction>) -> Orchest
         statefulset_controllers: 1,
         schedulers: 1,
         nodes: 1,
-        client_actions,
+        client_state: client_actions,
         ..Default::default()
     }
 }
@@ -85,7 +85,10 @@ fn test_spec_replicas_change() {
 
     let mut m = model(
         statefulset,
-        vec![ClientAction::ScaleUp, ClientAction::ScaleDown],
+        // scale from initial 2 up to 3 and down to 0 then up to 2 again
+        ClientState::new_unordered()
+            .with_scale_ups(3)
+            .with_scale_downs(3),
     );
     m.add_property(
         Expectation::Eventually,

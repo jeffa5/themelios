@@ -2,6 +2,7 @@ use std::collections::BTreeMap;
 use std::io::IsTerminal;
 
 use clap::Parser;
+use model_checked_orchestration::controller::client::ClientState;
 use model_checked_orchestration::model;
 use model_checked_orchestration::report::Reporter;
 use model_checked_orchestration::resources::Deployment;
@@ -182,8 +183,7 @@ fn main() {
         replicaset_controllers: opts.replicaset_controllers,
         deployment_controllers: opts.deployment_controllers,
         statefulset_controllers: opts.statefulset_controllers,
-        clients: opts.clients,
-        client_actions: Vec::new(),
+        client_state: ClientState::new_ordered(),
         properties: Vec::new(),
     };
     if opts.actors {

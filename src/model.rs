@@ -7,9 +7,8 @@ use crate::{
     abstract_model::AbstractModelCfg,
     actor_model::{ActorModelCfg, ActorState, Actors, ControllerActor, Datastore},
     controller::{
-        client::{ClientAction, ClientState, ClientStateAuto, ClientStateManual},
-        Controllers, DeploymentController, NodeController, ReplicaSetController,
-        SchedulerController, StatefulSetController,
+        client::ClientState, Controllers, DeploymentController, NodeController,
+        ReplicaSetController, SchedulerController, StatefulSetController,
     },
     state::{ConsistencySetup, State, StateView},
 };
@@ -33,11 +32,8 @@ pub struct OrchestrationModelCfg {
     pub deployment_controllers: usize,
     pub statefulset_controllers: usize,
 
-    /// Whether to enable clients with some default params.
-    pub clients: bool,
-
     /// Set up clients with specific actions to perform.
-    pub client_actions: Vec<ClientAction>,
+    pub client_state: ClientState,
 
     #[derivative(Debug = "ignore")]
     pub properties: Vec<Property<AbstractModelCfg>>,
@@ -145,26 +141,11 @@ impl OrchestrationModelCfg {
             model
                 .controllers
                 .push(Controllers::Deployment(DeploymentController));
-            if self.clients {
+            if !self.client_state.is_empty() {
                 for deployment in model.initial_state.deployments.iter() {
                     model.clients.push(crate::controller::client::Client {
                         name: deployment.metadata.name.clone(),
-                        initial_state: ClientState::Auto(ClientStateAuto {
-                            change_image: 1,
-                            scale_up: 1,
-                            scale_down: 1,
-                            toggle_pause: 1,
-                        }),
-                    });
-                }
-            }
-            if !self.client_actions.is_empty() {
-                for deployment in model.initial_state.deployments.iter() {
-                    model.clients.push(crate::controller::client::Client {
-                        name: deployment.metadata.name.clone(),
-                        initial_state: ClientState::Manual(ClientStateManual {
-                            actions: self.client_actions.clone(),
-                        }),
+                        initial_state: self.client_state.clone(),
                     })
                 }
             }
@@ -174,26 +155,11 @@ impl OrchestrationModelCfg {
             model
                 .controllers
                 .push(Controllers::StatefulSet(StatefulSetController));
-            if self.clients {
+            if !self.client_state.is_empty() {
                 for statefulset in model.initial_state.statefulsets.iter() {
                     model.clients.push(crate::controller::client::Client {
                         name: statefulset.metadata.name.clone(),
-                        initial_state: ClientState::Auto(ClientStateAuto {
-                            change_image: 1,
-                            scale_up: 1,
-                            scale_down: 1,
-                            toggle_pause: 1,
-                        }),
-                    });
-                }
-            }
-            if !self.client_actions.is_empty() {
-                for statefulset in model.initial_state.statefulsets.iter() {
-                    model.clients.push(crate::controller::client::Client {
-                        name: statefulset.metadata.name.clone(),
-                        initial_state: ClientState::Manual(ClientStateManual {
-                            actions: self.client_actions.clone(),
-                        }),
+                        initial_state: self.client_state.clone(),
                     })
                 }
             }

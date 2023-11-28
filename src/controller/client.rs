@@ -1,3 +1,5 @@
+use std::collections::BTreeSet;
+
 use crate::{abstract_model::ControllerAction, state::StateView};
 
 // Just a deployment client for now
@@ -13,26 +15,7 @@ impl Client {
     }
 }
 
-#[derive(Debug, Clone, Hash, PartialEq, Eq)]
-pub enum ClientState {
-    Auto(ClientStateAuto),
-    Manual(ClientStateManual),
-}
-
-#[derive(Debug, Clone, Hash, PartialEq, Eq)]
-pub struct ClientStateAuto {
-    pub change_image: u8,
-    pub scale_up: u8,
-    pub scale_down: u8,
-    pub toggle_pause: u8,
-}
-
-#[derive(Debug, Clone, Hash, PartialEq, Eq)]
-pub struct ClientStateManual {
-    pub actions: Vec<ClientAction>,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Ord, PartialOrd)]
 pub enum ClientAction {
     ScaleUp,
     ScaleDown,
@@ -40,51 +23,129 @@ pub enum ClientAction {
     TogglePause,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum ClientState {
+    /// Process the client actions in the order from first to last
+    Ordered(Vec<ClientAction>),
+    /// Process the client actions in any order.
+    Unordered(Vec<ClientAction>),
+}
+
+impl Default for ClientState {
+    fn default() -> Self {
+        ClientState::Ordered(Vec::new())
+    }
+}
+
+impl ClientState {
+    pub fn new_ordered() -> Self {
+        Self::Ordered(Vec::new())
+    }
+
+    pub fn new_unordered() -> Self {
+        Self::Unordered(Vec::new())
+    }
+
+    pub fn len(&self) -> usize {
+        match self {
+            ClientState::Ordered(a) => a,
+            ClientState::Unordered(a) => a,
+        }
+        .len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        match self {
+            ClientState::Ordered(a) => a,
+            ClientState::Unordered(a) => a,
+        }
+        .is_empty()
+    }
+
+    fn push_action(&mut self, action: ClientAction) {
+        match self {
+            ClientState::Ordered(a) => a,
+            ClientState::Unordered(a) => a,
+        }
+        .push(action)
+    }
+
+    pub fn set_change_images(&mut self, n: usize) -> &mut Self {
+        for _ in 0..n {
+            self.push_action(ClientAction::ChangeImage)
+        }
+        self
+    }
+
+    pub fn set_scale_ups(&mut self, n: usize) -> &mut Self {
+        for _ in 0..n {
+            self.push_action(ClientAction::ScaleUp)
+        }
+        self
+    }
+
+    pub fn set_scale_downs(&mut self, n: usize) -> &mut Self {
+        for _ in 0..n {
+            self.push_action(ClientAction::ScaleDown)
+        }
+        self
+    }
+
+    pub fn set_toggle_pauses(&mut self, n: usize) -> &mut Self {
+        for _ in 0..n {
+            self.push_action(ClientAction::TogglePause)
+        }
+        self
+    }
+
+    pub fn with_change_images(mut self, n: usize) -> Self {
+        self.set_change_images(n);
+        self
+    }
+
+    pub fn with_scale_ups(mut self, n: usize) -> Self {
+        self.set_scale_ups(n);
+        self
+    }
+
+    pub fn with_scale_downs(mut self, n: usize) -> Self {
+        self.set_scale_downs(n);
+        self
+    }
+
+    pub fn with_toggle_pauses(mut self, n: usize) -> Self {
+        self.set_toggle_pauses(n);
+        self
+    }
+}
+
 impl Client {
     pub fn actions(
         &self,
         _i: usize,
-        view: &StateView,
+        _view: &StateView,
         state: &ClientState,
     ) -> Vec<(ClientState, ClientAction)> {
-        let mut actions = Vec::new();
+        let mut possible_actions = Vec::new();
         match state {
-            ClientState::Auto(auto) => {
-                if view.deployments.has(&self.name) || view.statefulsets.has(&self.name) {
-                    if auto.change_image > 0 {
-                        let mut auto = auto.clone();
-                        auto.change_image -= 1;
-                        actions.push((ClientState::Auto(auto), ClientAction::ChangeImage));
-                    }
-
-                    if auto.scale_up > 0 {
-                        let mut auto = auto.clone();
-                        auto.scale_up -= 1;
-                        actions.push((ClientState::Auto(auto), ClientAction::ScaleUp));
-                    }
-
-                    if auto.scale_down > 0 {
-                        let mut auto = auto.clone();
-                        auto.scale_down -= 1;
-                        actions.push((ClientState::Auto(auto), ClientAction::ScaleDown));
-                    }
-
-                    if auto.toggle_pause > 0 {
-                        let mut auto = auto.clone();
-                        auto.toggle_pause -= 1;
-                        actions.push((ClientState::Auto(auto), ClientAction::TogglePause));
-                    }
-                }
+            ClientState::Ordered(actions) => {
+                // just pop the first one and continue from there
+                let mut actions = actions.clone();
+                let action = actions.remove(0);
+                possible_actions.push((ClientState::Ordered(actions), action));
             }
-            ClientState::Manual(manual) => {
-                for i in 0..manual.actions.len() {
-                    let mut manual = manual.clone();
-                    let action = manual.actions.remove(i);
-                    actions.push((ClientState::Manual(manual), action));
+            ClientState::Unordered(actions) => {
+                // propose one action of each kind
+                let unique = actions.iter().collect::<BTreeSet<_>>();
+                for action in unique {
+                    let pos = actions.iter().position(|a| a == action).unwrap();
+                    let mut actions = actions.clone();
+                    let action = actions.remove(pos);
+                    possible_actions.push((ClientState::Unordered(actions), action));
                 }
             }
         }
-        actions
+        possible_actions
     }
 
     pub fn apply(&self, view: &StateView, action: ClientAction) -> ControllerAction {
