@@ -1,4 +1,6 @@
-# Model checked orchestration
+# Themelios - Model checked orchestration
+
+_Name derived from [θεμέλιος](https://en.wiktionary.org/wiki/%CE%B8%CE%B5%CE%BC%CE%AD%CE%BB%CE%B9%CE%BF%CF%82#Ancient_Greek)_
 
 Each component is its own actor, can be run in duplicate and model checked individually (for local properties).
 
