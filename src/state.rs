@@ -168,15 +168,15 @@ impl History for SessionHistory {
         let max = self.max_revision();
         self.sessions.insert(from, max.clone());
 
-        let min_revision = self.sessions.values().min().unwrap();
-        loop {
-            let val = &self.states.first().unwrap().revision;
-            if val < min_revision {
-                self.states.remove(0);
-            } else {
-                break;
-            }
-        }
+        // let min_revision = self.sessions.values().min().unwrap();
+        // loop {
+        //     let val = &self.states.first().unwrap().revision;
+        //     if val < min_revision {
+        //         self.states.remove(0);
+        //     } else {
+        //         break;
+        //     }
+        // }
 
         max
     }
