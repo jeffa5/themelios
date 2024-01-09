@@ -47,15 +47,20 @@ impl Controller for NodeController {
         local_state: &mut Self::State,
     ) -> Option<NodeControllerAction> {
         if let Some(_node) = global_state.nodes.get(&id) {
-            for pod in global_state
+            let pods_for_this_node = global_state
                 .pods
                 .iter()
                 .filter(|p| p.spec.node_name.as_ref().map_or(false, |n| n == &self.name))
-            {
+                .collect::<Vec<_>>();
+
+            // quickly start up all local pods
+            for pod in &pods_for_this_node {
                 if !local_state.running.contains(&pod.metadata.name) {
                     local_state.running.push(pod.metadata.name.clone());
                 }
+            }
 
+            for pod in pods_for_this_node {
                 if pod.metadata.deletion_timestamp.is_some() {
                     // pod has been marked for deletion and is running on this node, forget about
                     // it locally and delete it for good in the API
