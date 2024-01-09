@@ -118,6 +118,6 @@ fn stale_reads() {
         spec: PodSpec::default(),
         status: Default::default(),
     }));
-    m.consistency_level = ConsistencySetup::BoundedStaleness(100);
+    m.consistency_level = ConsistencySetup::Session;
     run(m, function_name!())
 }
