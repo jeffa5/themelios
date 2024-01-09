@@ -816,7 +816,10 @@ fn process_replica(
             name = replica.metadata.name,
             "Replica hasn't been created, creating it"
         );
-        return ValOrOp::Op(StatefulSetControllerAction::CreatePod(replica.clone()));
+        let mut replica = replica.clone();
+        // mark this pod as pending
+        replica.status.phase = PodPhase::Pending;
+        return ValOrOp::Op(StatefulSetControllerAction::CreatePod(replica));
     }
 
     // If the Pod is in pending state then trigger PVC creation to create missing PVCs
