@@ -3,7 +3,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use crate::controller::client::ClientState;
 use crate::controller::ControllerStates;
 use crate::resources::{ControllerRevision, Job, LabelSelector, Meta, PersistentVolumeClaim};
-use crate::utils;
+use crate::utils::{self, now};
 use crate::{
     abstract_model::{Change, ControllerAction},
     resources::{Deployment, Node, Pod, ReplicaSet, StatefulSet},
@@ -724,7 +724,13 @@ impl StateView {
             ControllerAction::UpdatePod(pod) => {
                 self.pods.insert(pod.clone());
             }
-            ControllerAction::DeletePod(pod) => {
+            ControllerAction::SoftDeletePod(pod) => {
+                let mut pod = pod.clone();
+                // marked for deletion
+                pod.metadata.deletion_timestamp = Some(now());
+                self.pods.insert(pod);
+            }
+            ControllerAction::HardDeletePod(pod) => {
                 self.pods.remove(&pod.metadata.name);
             }
             ControllerAction::SchedulePod(pod, node) => {

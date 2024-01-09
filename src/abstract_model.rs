@@ -46,7 +46,8 @@ pub enum ControllerAction {
 
     // Pods
     CreatePod(Pod),
-    DeletePod(Pod),
+    SoftDeletePod(Pod),
+    HardDeletePod(Pod),
     SchedulePod(String, String),
     UpdatePod(Pod),
 

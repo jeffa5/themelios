@@ -22,6 +22,7 @@ pub enum NodeControllerAction {
     NodeJoin(usize, ResourceQuantities),
 
     UpdatePod(Pod),
+    DeletePod(Pod),
 }
 
 impl From<NodeControllerAction> for ControllerAction {
@@ -29,6 +30,7 @@ impl From<NodeControllerAction> for ControllerAction {
         match val {
             NodeControllerAction::NodeJoin(id, q) => ControllerAction::NodeJoin(id, q),
             NodeControllerAction::UpdatePod(pod) => ControllerAction::UpdatePod(pod),
+            NodeControllerAction::DeletePod(pod) => ControllerAction::HardDeletePod(pod),
         }
     }
 }
@@ -53,6 +55,20 @@ impl Controller for NodeController {
                 if !local_state.running.contains(&pod.metadata.name) {
                     local_state.running.push(pod.metadata.name.clone());
                 }
+
+                if pod.metadata.deletion_timestamp.is_some() {
+                    // pod has been marked for deletion and is running on this node, forget about
+                    // it locally and delete it for good in the API
+                    local_state.running.remove(
+                        local_state
+                            .running
+                            .iter()
+                            .position(|r| r == &pod.metadata.name)
+                            .unwrap(),
+                    );
+                    return Some(NodeControllerAction::DeletePod(pod.clone()));
+                }
+
                 let mut new_pod = pod.clone();
                 if new_pod.status.phase != PodPhase::Running {
                     new_pod.status.phase = PodPhase::Running;

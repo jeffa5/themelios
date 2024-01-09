@@ -47,7 +47,7 @@ impl From<ReplicaSetControllerAction> for ControllerAction {
             ReplicaSetControllerAction::ControllerJoin(id) => ControllerAction::ControllerJoin(id),
             ReplicaSetControllerAction::CreatePod(p) => ControllerAction::CreatePod(p),
             ReplicaSetControllerAction::UpdatePod(p) => ControllerAction::UpdatePod(p),
-            ReplicaSetControllerAction::DeletePod(p) => ControllerAction::DeletePod(p),
+            ReplicaSetControllerAction::DeletePod(p) => ControllerAction::SoftDeletePod(p),
             ReplicaSetControllerAction::UpdateReplicaSetStatus(rs) => {
                 ControllerAction::UpdateReplicaSetStatus(rs)
             }

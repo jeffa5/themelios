@@ -6,6 +6,7 @@ use model_checked_orchestration::resources::Metadata;
 use model_checked_orchestration::resources::Node;
 use model_checked_orchestration::resources::NodeSpec;
 use model_checked_orchestration::resources::NodeStatus;
+use model_checked_orchestration::resources::Pod;
 use model_checked_orchestration::resources::PodSpec;
 use model_checked_orchestration::resources::PodTemplateSpec;
 use model_checked_orchestration::resources::StatefulSet;
@@ -118,6 +119,11 @@ fn stale_reads() {
         ClientState::new_ordered().with_change_images(1),
         2,
     );
+    m.initial_state.set_pods(std::iter::once(Pod {
+        metadata: utils::metadata("zspare-pod".to_owned()),
+        spec: PodSpec::default(),
+        status: Default::default(),
+    }));
     // m.consistency_level = ConsistencySetup::BoundedStaleness(1);
     run(m, function_name!())
 }
