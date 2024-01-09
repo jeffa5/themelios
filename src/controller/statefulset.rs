@@ -1,6 +1,6 @@
 use std::{collections::BTreeMap, time::Duration};
 
-use tracing::debug;
+use tracing::{debug, trace};
 
 use super::{
     util::{get_pod_from_template, new_controller_ref},
@@ -13,7 +13,8 @@ use crate::{
         ConditionStatus, ControllerRevision, GroupVersionKind, Metadata, OwnerReference,
         PersistentVolumeClaim, PersistentVolumeClaimVolumeSource, Pod, PodConditionType,
         PodManagementPolicyType, PodPhase, StatefulSet,
-        StatefulSetPersistentVolumeClaimRetentionPolicyType, StatefulSetStatus, Volume,
+        StatefulSetPersistentVolumeClaimRetentionPolicyType, StatefulSetSpec, StatefulSetStatus,
+        Volume,
     },
     state::StateView,
     utils::now,
@@ -462,12 +463,20 @@ fn do_update_statefulset(
         update_min = ru.partition;
     }
 
-    debug!(update_min, "checking for deleteable pods");
+    debug!(
+        update_min,
+        replicas = replicas.len(),
+        "checking for deleteable pods"
+    );
     // we terminate the Pod with the largest ordinal that does not match the update revision.
-    for replica in replicas.iter().take(update_min as usize) {
+    for replica in replicas.iter().skip(update_min as usize).rev() {
+        debug!(
+            replica =? replica.as_ref().map(|r| &r.metadata.name),
+            "checking for deleteable pods"
+        );
         // delete the Pod if it is not already terminating and does not match the update revision.
         if get_pod_revision(replica.as_ref().unwrap()) != update_revision.metadata.name
-            && is_terminating(replica.as_ref().unwrap())
+            && !is_terminating(replica.as_ref().unwrap())
         {
             return ValOrOp::Op(StatefulSetControllerAction::DeletePod(
                 replica.as_ref().unwrap().clone(),
@@ -495,6 +504,7 @@ fn get_statefulset_revisions(
 
     // create a new revision from the current set
     let mut update_revision = new_revision(sts, next_revision(&revisions), collision_count);
+    trace!(?update_revision, "built default update revision");
 
     // find any equivalent revisions
     let equal_revisions = find_equal_revisions(&revisions, &update_revision);
@@ -508,6 +518,7 @@ fn get_statefulset_revisions(
     {
         // if the equivalent revision is immediately prior the update revision has not changed
         update_revision = revisions[revision_count - 1].clone();
+        trace!(?update_revision, "using prior unchanged revision");
     } else if equal_count > 0 {
         // if the equivalent revision is not immediately prior we will roll back by incrementing the
         // Revision of the equivalent revision
@@ -517,8 +528,10 @@ fn get_statefulset_revisions(
             return ValOrOp::Op(op);
         }
         update_revision = equal_revisions[equal_count - 1].clone();
+        trace!(?update_revision, "rolling back");
     } else {
         //if there is no equivalent revision we create a new one
+        trace!("creating new revision");
         return ValOrOp::Op(create_controller_revision(
             sts,
             &update_revision,
@@ -661,8 +674,12 @@ fn allows_burst(sts: &StatefulSet) -> bool {
     sts.spec.pod_management_policy == PodManagementPolicyType::Parallel
 }
 
-fn apply_revision(_sts: &StatefulSet, revision: &ControllerRevision) -> StatefulSet {
-    serde_json::from_str(&revision.data).unwrap()
+/// Restore the old statefulset based on current statefulset and the old saved state (just the pod template).
+fn apply_revision(sts: &StatefulSet, revision: &ControllerRevision) -> StatefulSet {
+    let unmarshaled: StatefulSet = serde_json::from_str(&revision.data).unwrap();
+    let mut restored_sts = sts.clone();
+    restored_sts.spec.template = unmarshaled.spec.template;
+    restored_sts
 }
 
 fn update_status(
@@ -1184,8 +1201,18 @@ fn new_revision(sts: &StatefulSet, revision: u64, collision_count: u32) -> Contr
     cr
 }
 
+/// Return just the patch of the pod template.
 fn get_patch(sts: &StatefulSet) -> Vec<u8> {
-    serde_json::to_vec(&sts).unwrap()
+    let template_spec = &sts.spec.template;
+    let patch_sts = StatefulSet {
+        spec: StatefulSetSpec {
+            template: template_spec.clone(),
+            ..Default::default()
+        },
+        ..Default::default()
+    };
+
+    serde_json::to_vec(&patch_sts).unwrap()
 }
 
 fn find_equal_revisions<'a>(
@@ -1199,10 +1226,14 @@ fn find_equal_revisions<'a>(
         .collect()
 }
 
-fn equal_revision(_lhs: &ControllerRevision, _rhs: &ControllerRevision) -> bool {
-    // lhs.metadata.labels.get(CONTROLLER_REVISION_HASH);
-    // TODO: fixme
-    true
+fn equal_revision(lhs: &ControllerRevision, rhs: &ControllerRevision) -> bool {
+    let lhs_hash = lhs.metadata.labels.get(CONTROLLER_REVISION_HASH_LABEL);
+    let rhs_hash = rhs.metadata.labels.get(CONTROLLER_REVISION_HASH_LABEL);
+    debug!(lhs_hash, rhs_hash, "checking equal revision");
+    if lhs_hash != rhs_hash {
+        return false;
+    }
+    lhs.data == rhs.data
 }
 
 fn update_controller_revision(
