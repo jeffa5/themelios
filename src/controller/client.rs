@@ -131,8 +131,10 @@ impl Client {
             ClientState::Ordered(actions) => {
                 // just pop the first one and continue from there
                 let mut actions = actions.clone();
-                let action = actions.remove(0);
-                possible_actions.push((ClientState::Ordered(actions), action));
+                if !actions.is_empty() {
+                    let action = actions.remove(0);
+                    possible_actions.push((ClientState::Ordered(actions), action));
+                }
             }
             ClientState::Unordered(actions) => {
                 // propose one action of each kind
