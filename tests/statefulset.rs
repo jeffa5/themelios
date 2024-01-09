@@ -10,6 +10,7 @@ use model_checked_orchestration::resources::PodSpec;
 use model_checked_orchestration::resources::PodTemplateSpec;
 use model_checked_orchestration::resources::StatefulSet;
 use model_checked_orchestration::resources::StatefulSetSpec;
+use model_checked_orchestration::state::ConsistencySetup;
 use model_checked_orchestration::state::StateView;
 use model_checked_orchestration::utils;
 use stateright::Expectation;
@@ -18,10 +19,14 @@ use stdext::function_name;
 
 mod common;
 
-fn model(statefulset: StatefulSet, client_actions: ClientState) -> OrchestrationModelCfg {
+fn model(
+    statefulset: StatefulSet,
+    client_actions: ClientState,
+    nodes: usize,
+) -> OrchestrationModelCfg {
     let initial_state = StateView::default()
         .with_statefulset(statefulset)
-        .with_nodes((0..1).map(|i| {
+        .with_nodes((0..nodes).map(|i| {
             (
                 i,
                 Node {
@@ -39,7 +44,7 @@ fn model(statefulset: StatefulSet, client_actions: ClientState) -> Orchestration
         initial_state,
         statefulset_controllers: 1,
         schedulers: 1,
-        nodes: 1,
+        nodes,
         client_state: client_actions,
         ..Default::default()
     }
@@ -89,6 +94,7 @@ fn test_spec_replicas_change() {
         ClientState::new_unordered()
             .with_scale_ups(3)
             .with_scale_downs(3),
+        1,
     );
     m.add_property(
         Expectation::Eventually,
@@ -100,5 +106,18 @@ fn test_spec_replicas_change() {
                 .all(|d| !s.replicasets.for_controller(&d.metadata.uid).is_empty())
         },
     );
+    run(m, function_name!())
+}
+
+#[test_log::test]
+fn stale_reads() {
+    let statefulset = new_statefulset("stale-reads", "", 1);
+
+    let mut m = model(
+        statefulset,
+        ClientState::new_ordered().with_change_images(1),
+        2,
+    );
+    // m.consistency_level = ConsistencySetup::BoundedStaleness(1);
     run(m, function_name!())
 }
