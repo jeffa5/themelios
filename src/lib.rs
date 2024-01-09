@@ -1,5 +1,4 @@
 pub mod abstract_model;
-pub mod actor_model;
 pub mod controller;
 pub mod hasher;
 pub mod model;

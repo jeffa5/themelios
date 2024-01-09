@@ -1,11 +1,7 @@
-use stateright::{
-    actor::{ActorModel, Network},
-    Expectation, Property,
-};
+use stateright::{Expectation, Property};
 
 use crate::{
     abstract_model::AbstractModelCfg,
-    actor_model::{ActorModelCfg, ActorState, Actors, ControllerActor, Datastore},
     controller::{
         client::ClientState, Controllers, DeploymentController, NodeController,
         ReplicaSetController, SchedulerController, StatefulSetController,
@@ -40,76 +36,6 @@ pub struct OrchestrationModelCfg {
 }
 
 impl OrchestrationModelCfg {
-    /// Instantiate a new actor model based on this config.
-    pub fn into_actor_model(self) -> ActorModel<Actors, ActorModelCfg, ()> {
-        let mut model = ActorModel::new(
-            ActorModelCfg {
-                initial_pods: self.initial_state.pods.len(),
-            },
-            (),
-        );
-
-        assert!(self.datastores > 0);
-        for _ in 0..self.datastores {
-            model = model.actor(Actors::Datastore(Datastore {
-                initial_state: self.initial_state.clone(),
-            }));
-        }
-
-        for i in 0..self.nodes {
-            model = model.actor(Actors::Node(ControllerActor::new(NodeController {
-                name: format!("node-{i}"),
-            })));
-        }
-
-        for _ in 0..self.schedulers {
-            model = model.actor(Actors::Scheduler(ControllerActor::new(SchedulerController)));
-        }
-
-        for _ in 0..self.replicaset_controllers {
-            model = model.actor(Actors::ReplicaSet(ControllerActor::new(
-                ReplicaSetController,
-            )));
-        }
-
-        for _ in 0..self.deployment_controllers {
-            model = model.actor(Actors::Deployment(ControllerActor::new(
-                DeploymentController,
-            )));
-        }
-
-        for _ in 0..self.replicaset_controllers {
-            model = model.actor(Actors::StatefulSet(ControllerActor::new(
-                StatefulSetController,
-            )));
-        }
-
-        model = model.init_network(Network::new_unordered_nonduplicating(vec![]));
-
-        model.property(
-            // TODO: eventually properties don't seem to work with timers, even though they may be
-            // steady state.
-            stateright::Expectation::Eventually,
-            "every application gets scheduled",
-            |model, state| {
-                let mut any = false;
-                let total_apps = model.cfg.initial_pods;
-                if let ActorState::Datastore(datastore) = &**state.actor_states.first().unwrap() {
-                    let datastore_state = datastore.view_at(datastore.max_revision());
-                    let all_apps_scheduled = datastore_state
-                        .pods
-                        .iter()
-                        .all(|a| a.spec.node_name.is_some());
-                    let num_scheduled_apps = datastore_state.pods.len();
-                    if all_apps_scheduled && num_scheduled_apps == total_apps {
-                        any = true;
-                    }
-                }
-                any
-            },
-        )
-    }
-
     pub fn into_abstract_model(self) -> AbstractModelCfg {
         let mut model = AbstractModelCfg {
             controllers: Vec::new(),

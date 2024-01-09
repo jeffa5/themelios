@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
 
 use crate::controller::client::ClientState;
 use crate::controller::ControllerStates;
@@ -41,6 +41,8 @@ pub enum ConsistencySetup {
 pub trait History {
     fn add_change(&mut self, change: Change, from: usize) -> Revision;
 
+    fn reset_session(&mut self, from: usize);
+
     fn max_revision(&self) -> Revision;
 
     fn state_at(&self, revision: Revision) -> StateView;
@@ -71,6 +73,10 @@ impl History for StrongHistory {
         let new_revision = self.max_revision().increment();
         self.state.apply_change(&change, new_revision);
         self.max_revision()
+    }
+
+    fn reset_session(&mut self, _from: usize) {
+        // nothing to do
     }
 
     fn max_revision(&self) -> Revision {
@@ -112,6 +118,10 @@ impl History for BoundedHistory {
         }
         self.last_k_states.push(state);
         self.max_revision()
+    }
+
+    fn reset_session(&mut self, _from: usize) {
+        // nothing to do
     }
 
     fn max_revision(&self) -> Revision {
@@ -171,6 +181,10 @@ impl History for SessionHistory {
         max
     }
 
+    fn reset_session(&mut self, from: usize) {
+        self.sessions.remove(&from);
+    }
+
     fn max_revision(&self) -> Revision {
         self.states.last().unwrap().revision.clone()
     }
@@ -213,6 +227,9 @@ impl History for EventualHistory {
         state.apply_change(&change, new_revision);
         self.states.push(state);
         self.max_revision()
+    }
+    fn reset_session(&mut self, _from: usize) {
+        // nothing to do
     }
 
     fn max_revision(&self) -> Revision {
@@ -277,6 +294,9 @@ impl History for OptimisticLinearHistory {
         }
 
         self.max_revision()
+    }
+    fn reset_session(&mut self, _from: usize) {
+        // nothing to do
     }
 
     fn max_revision(&self) -> Revision {
@@ -352,6 +372,9 @@ impl History for CausalHistory {
         });
 
         self.max_revision()
+    }
+    fn reset_session(&mut self, _from: usize) {
+        // nothing to do
     }
 
     fn max_revision(&self) -> Revision {
@@ -439,6 +462,17 @@ impl StateHistory {
         }
     }
 
+    fn reset_session(&mut self, from: usize) {
+        match self {
+            StateHistory::Strong(s) => s.reset_session(from),
+            StateHistory::Bounded(s) => s.reset_session(from),
+            StateHistory::Session(s) => s.reset_session(from),
+            StateHistory::Eventual(s) => s.reset_session(from),
+            StateHistory::OptimisticLinear(s) => s.reset_session(from),
+            StateHistory::Causal(s) => s.reset_session(from),
+        }
+    }
+
     fn max_revision(&self) -> Revision {
         match self {
             StateHistory::Strong(s) => s.max_revision(),
@@ -522,6 +556,11 @@ impl State {
         }
     }
 
+    /// Reset the session for the given connection.
+    pub fn reset_session(&mut self, from: usize) {
+        self.states.reset_session(from)
+    }
+
     /// Record a change for this state from a given controller.
     pub fn push_change(&mut self, change: Change, from: usize) -> Revision {
         self.states.add_change(change, from)
@@ -586,9 +625,7 @@ pub struct StateView {
     // Ignore the revision field as we just care whether the rest of the state is the same.
     #[derivative(PartialEq = "ignore", Hash = "ignore")]
     pub revision: Revision,
-    pub nodes: BTreeMap<usize, Node>,
-    /// Set of the controllers that have joined the cluster.
-    pub controllers: BTreeSet<usize>,
+    pub nodes: Resources<Node>,
     pub pods: Resources<Pod>,
     pub replicasets: Resources<ReplicaSet>,
     pub deployments: Resources<Deployment>,
@@ -670,51 +707,33 @@ impl StateView {
         self
     }
 
-    pub fn with_nodes(mut self, nodes: impl Iterator<Item = (usize, Node)>) -> Self {
+    pub fn with_nodes(mut self, nodes: impl Iterator<Item = Node>) -> Self {
         self.set_nodes(nodes);
         self
     }
 
-    pub fn set_nodes(&mut self, nodes: impl Iterator<Item = (usize, Node)>) -> &mut Self {
-        for (i, node) in nodes {
-            self.nodes.insert(i, node);
-        }
-        self
-    }
-
-    pub fn with_controllers(mut self, controllers: impl Iterator<Item = usize>) -> Self {
-        self.set_controllers(controllers);
-        self
-    }
-
-    pub fn set_controllers(&mut self, controllers: impl Iterator<Item = usize>) -> &mut Self {
-        for controller in controllers {
-            self.controllers.insert(controller);
+    pub fn set_nodes(&mut self, nodes: impl Iterator<Item = Node>) -> &mut Self {
+        for node in nodes {
+            self.nodes.insert(node);
         }
         self
     }
 
     pub fn apply_change(&mut self, change: &Change, new_revision: Revision) {
         match &change.operation {
-            ControllerAction::NodeJoin(i, capacity) => {
-                self.nodes.insert(
-                    *i,
-                    Node {
-                        metadata: utils::metadata(format!("node-{i}")),
-                        spec: crate::resources::NodeSpec {
-                            taints: Vec::new(),
-                            unschedulable: false,
-                        },
-                        status: crate::resources::NodeStatus {
-                            capacity: capacity.clone(),
-                            allocatable: Some(capacity.clone()),
-                            conditions: Vec::new(),
-                        },
+            ControllerAction::NodeJoin(name, capacity) => {
+                self.nodes.insert(Node {
+                    metadata: utils::metadata(name.clone()),
+                    spec: crate::resources::NodeSpec {
+                        taints: Vec::new(),
+                        unschedulable: false,
                     },
-                );
-            }
-            ControllerAction::ControllerJoin(i) => {
-                self.controllers.insert(*i);
+                    status: crate::resources::NodeStatus {
+                        capacity: capacity.clone(),
+                        allocatable: Some(capacity.clone()),
+                        conditions: Vec::new(),
+                    },
+                });
             }
             ControllerAction::CreatePod(pod) => {
                 let mut pod = pod.clone();
@@ -738,8 +757,8 @@ impl StateView {
                     pod.spec.node_name = Some(node.clone());
                 }
             }
-            ControllerAction::NodeCrash(node) => {
-                if let Some(node) = self.nodes.remove(node) {
+            ControllerAction::NodeCrash(node_name) => {
+                if let Some(node) = self.nodes.remove(node_name) {
                     self.pods.retain(|pod| {
                         pod.spec
                             .node_name

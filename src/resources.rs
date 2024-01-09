@@ -32,6 +32,7 @@ impl_meta!(ReplicaSet);
 impl_meta!(StatefulSet);
 impl_meta!(ControllerRevision);
 impl_meta!(PersistentVolumeClaim);
+impl_meta!(Node);
 
 #[derive(
     Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff,

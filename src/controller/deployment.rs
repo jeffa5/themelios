@@ -85,8 +85,6 @@ pub struct DeploymentControllerState;
 
 #[derive(Debug)]
 pub enum DeploymentControllerAction {
-    ControllerJoin(usize),
-
     RequeueDeployment(Deployment),
     UpdateDeployment(Deployment),
     UpdateDeploymentStatus(Deployment),
@@ -100,7 +98,6 @@ pub enum DeploymentControllerAction {
 impl From<DeploymentControllerAction> for ControllerAction {
     fn from(value: DeploymentControllerAction) -> Self {
         match value {
-            DeploymentControllerAction::ControllerJoin(id) => ControllerAction::ControllerJoin(id),
             DeploymentControllerAction::RequeueDeployment(d) => {
                 ControllerAction::RequeueDeployment(d)
             }
@@ -135,27 +132,23 @@ impl Controller for DeploymentController {
 
     fn step(
         &self,
-        id: usize,
+        _id: usize,
         global_state: &StateView,
         _local_state: &mut Self::State,
     ) -> Option<DeploymentControllerAction> {
-        if !global_state.controllers.contains(&id) {
-            return Some(DeploymentControllerAction::ControllerJoin(id));
-        } else {
-            for deployment in global_state.deployments.iter() {
-                let replicasets = global_state.replicasets.iter().collect::<Vec<_>>();
-                let pod_map = BTreeMap::new();
-                debug!(rev = ?global_state.revision, "Reconciling state");
-                if let Some(op) = reconcile(deployment, &replicasets, &pod_map) {
-                    return Some(op);
-                }
-
-                // for replicaset in deployment.replicasets() {
-                //     if !global_state.replicasets.contains_key(&replicaset) {
-                //         return Some(Operation::NewReplicaset(replicaset));
-                //     }
-                // }
+        for deployment in global_state.deployments.iter() {
+            let replicasets = global_state.replicasets.iter().collect::<Vec<_>>();
+            let pod_map = BTreeMap::new();
+            debug!(rev = ?global_state.revision, "Reconciling state");
+            if let Some(op) = reconcile(deployment, &replicasets, &pod_map) {
+                return Some(op);
             }
+
+            // for replicaset in deployment.replicasets() {
+            //     if !global_state.replicasets.contains_key(&replicaset) {
+            //         return Some(Operation::NewReplicaset(replicaset));
+            //     }
+            // }
         }
         None
     }

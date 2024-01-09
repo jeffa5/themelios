@@ -2,7 +2,6 @@ use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use axum::routing::post;
 use axum::{Json, Router};
-use maplit::btreeset;
 use serde_json::json;
 use tracing::debug;
 
@@ -195,10 +194,9 @@ async fn scheduler(
     pods.push(payload.pod);
     let state_view = StateView {
         revision: Revision::default(),
-        nodes: payload.nodes.into_iter().enumerate().collect(),
+        nodes: payload.nodes.into(),
         pods: pods.into(),
         persistent_volume_claims: payload.persistent_volume_claims.into(),
-        controllers: btreeset![controller_id],
         ..Default::default()
     };
     let mut local_state = SchedulerControllerState;
@@ -207,9 +205,6 @@ async fn scheduler(
     match operation {
         Some(SchedulerControllerAction::SchedulePod(_, node)) => {
             Ok(Json(SchedulerResponse::SchedulePod { node_name: node }))
-        }
-        Some(SchedulerControllerAction::ControllerJoin(_)) => {
-            panic!("got controller join whilst serving")
         }
         None => Err(ErrorResponse::NoOperation),
     }
@@ -227,7 +222,6 @@ async fn deployment(
         revision: Revision::default(),
         deployments: vec![payload.deployment].into(),
         replicasets: payload.replicasets.into(),
-        controllers: btreeset![controller_id],
         ..Default::default()
     };
     let mut local_state = DeploymentControllerState;
@@ -269,9 +263,6 @@ async fn deployment(
                 replicasets: rss,
             }))
         }
-        Some(DeploymentControllerAction::ControllerJoin(_)) => {
-            panic!("got controller join whilst serving")
-        }
         None => Err(ErrorResponse::NoOperation),
     }
 }
@@ -295,7 +286,6 @@ async fn replicaset(
         revision: Revision::default(),
         replicasets: replicasets.into(),
         pods: payload.pods.into(),
-        controllers: btreeset![controller_id],
         ..Default::default()
     };
     let mut local_state = ReplicaSetControllerState;
@@ -316,9 +306,6 @@ async fn replicaset(
         Some(ReplicaSetControllerAction::DeletePod(pod)) => {
             Ok(Json(ReplicasetResponse::DeletePod { pod }))
         }
-        Some(ReplicaSetControllerAction::ControllerJoin(_)) => {
-            panic!("got controller join whilst serving")
-        }
         None => Err(ErrorResponse::NoOperation),
     }
 }
@@ -337,7 +324,6 @@ async fn statefulset(
         controller_revisions: payload.controller_revisions.into(),
         pods: payload.pods.into(),
         persistent_volume_claims: payload.persistent_volume_claims.into(),
-        controllers: btreeset![controller_id],
         ..Default::default()
     };
     let mut local_state = StatefulSetControllerState;
@@ -383,9 +369,6 @@ async fn statefulset(
                 persistent_volume_claim: pvc,
             }))
         }
-        Some(StatefulSetControllerAction::ControllerJoin(_)) => {
-            panic!("got controller join whilst serving")
-        }
         None => Err(ErrorResponse::NoOperation),
     }
 }
@@ -400,7 +383,6 @@ async fn job(Json(payload): Json<JobRequest>) -> Result<Json<JobResponse>, Error
         revision: Revision::default(),
         jobs: vec![payload.job].into(),
         pods: payload.pods.into(),
-        controllers: btreeset![controller_id],
         ..Default::default()
     };
     let mut local_state = JobControllerState;
@@ -413,9 +395,6 @@ async fn job(Json(payload): Json<JobRequest>) -> Result<Json<JobResponse>, Error
         Some(JobControllerAction::CreatePod(pod)) => Ok(Json(JobResponse::CreatePod { pod })),
         Some(JobControllerAction::UpdatePod(pod)) => Ok(Json(JobResponse::UpdatePod { pod })),
         Some(JobControllerAction::DeletePod(pod)) => Ok(Json(JobResponse::DeletePod { pod })),
-        Some(JobControllerAction::ControllerJoin(_)) => {
-            panic!("got controller join whilst serving")
-        }
         None => Err(ErrorResponse::NoOperation),
     }
 }

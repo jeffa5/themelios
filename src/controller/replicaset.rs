@@ -32,8 +32,6 @@ pub struct ReplicaSetControllerState;
 
 #[derive(Debug, Hash, Clone, PartialEq, Eq)]
 pub enum ReplicaSetControllerAction {
-    ControllerJoin(usize),
-
     CreatePod(Pod),
     UpdatePod(Pod),
     DeletePod(Pod),
@@ -44,7 +42,6 @@ pub enum ReplicaSetControllerAction {
 impl From<ReplicaSetControllerAction> for ControllerAction {
     fn from(value: ReplicaSetControllerAction) -> Self {
         match value {
-            ReplicaSetControllerAction::ControllerJoin(id) => ControllerAction::ControllerJoin(id),
             ReplicaSetControllerAction::CreatePod(p) => ControllerAction::CreatePod(p),
             ReplicaSetControllerAction::UpdatePod(p) => ControllerAction::UpdatePod(p),
             ReplicaSetControllerAction::DeletePod(p) => ControllerAction::SoftDeletePod(p),
@@ -60,18 +57,14 @@ impl Controller for ReplicaSetController {
     type Action = ReplicaSetControllerAction;
     fn step(
         &self,
-        id: usize,
+        _id: usize,
         global_state: &StateView,
         _local_state: &mut Self::State,
     ) -> Option<Self::Action> {
-        if !global_state.controllers.contains(&id) {
-            return Some(Self::Action::ControllerJoin(id));
-        } else {
-            for replicaset in global_state.replicasets.iter() {
-                let pods = global_state.pods.iter().collect::<Vec<_>>();
-                if let Some(op) = reconcile(replicaset, &pods) {
-                    return Some(op);
-                }
+        for replicaset in global_state.replicasets.iter() {
+            let pods = global_state.pods.iter().collect::<Vec<_>>();
+            if let Some(op) = reconcile(replicaset, &pods) {
+                return Some(op);
             }
         }
         None

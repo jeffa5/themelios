@@ -13,15 +13,12 @@ pub struct SchedulerControllerState;
 
 #[derive(Debug)]
 pub enum SchedulerControllerAction {
-    ControllerJoin(usize),
-
     SchedulePod(String, String),
 }
 
 impl From<SchedulerControllerAction> for ControllerAction {
     fn from(value: SchedulerControllerAction) -> Self {
         match value {
-            SchedulerControllerAction::ControllerJoin(id) => ControllerAction::ControllerJoin(id),
             SchedulerControllerAction::SchedulePod(p, n) => ControllerAction::SchedulePod(p, n),
         }
     }
@@ -34,35 +31,31 @@ impl Controller for SchedulerController {
 
     fn step(
         &self,
-        id: usize,
+        _id: usize,
         global_state: &StateView,
         _local_state: &mut Self::State,
     ) -> Option<SchedulerControllerAction> {
-        if !global_state.controllers.contains(&id) {
-            return Some(SchedulerControllerAction::ControllerJoin(id));
-        } else {
-            let mut nodes = global_state
-                .nodes
-                .values()
-                .map(|v| (v, global_state.pods_for_node(&v.metadata.name)))
-                .collect::<Vec<_>>();
-            // TODO: sort nodes by load
-            nodes.sort_by_key(|(_, pods)| pods.len());
+        let mut nodes = global_state
+            .nodes
+            .iter()
+            .map(|v| (v, global_state.pods_for_node(&v.metadata.name)))
+            .collect::<Vec<_>>();
+        // TODO: sort nodes by load
+        nodes.sort_by_key(|(_, pods)| pods.len());
 
-            let pods_to_schedule = global_state
-                .pods
-                .iter()
-                .filter(|p| p.spec.node_name.is_none());
+        let pods_to_schedule = global_state
+            .pods
+            .iter()
+            .filter(|p| p.spec.node_name.is_none());
 
-            let pvcs = global_state
-                .persistent_volume_claims
-                .iter()
-                .collect::<Vec<_>>();
+        let pvcs = global_state
+            .persistent_volume_claims
+            .iter()
+            .collect::<Vec<_>>();
 
-            for pod in pods_to_schedule {
-                if let Some(op) = schedule(pod, &nodes, &pvcs) {
-                    return Some(op);
-                }
+        for pod in pods_to_schedule {
+            if let Some(op) = schedule(pod, &nodes, &pvcs) {
+                return Some(op);
             }
         }
         None

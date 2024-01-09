@@ -27,20 +27,14 @@ fn model(
 ) -> OrchestrationModelCfg {
     let initial_state = StateView::default()
         .with_statefulset(statefulset)
-        .with_nodes((0..nodes).map(|i| {
-            (
-                i,
-                Node {
-                    metadata: utils::metadata(format!("node-{i}")),
-                    spec: NodeSpec {
-                        taints: Vec::new(),
-                        unschedulable: false,
-                    },
-                    status: NodeStatus::default(),
-                },
-            )
-        }))
-        .with_controllers(1..4);
+        .with_nodes((0..nodes).map(|i| Node {
+            metadata: utils::metadata(format!("node-{i}")),
+            spec: NodeSpec {
+                taints: Vec::new(),
+                unschedulable: false,
+            },
+            status: NodeStatus::default(),
+        }));
     OrchestrationModelCfg {
         initial_state,
         statefulset_controllers: 1,

@@ -138,27 +138,14 @@ fn main() {
             },
             status: StatefulSetStatus::default(),
         }))
-        .with_nodes((0..opts.nodes).map(|i| {
-            (
-                i,
-                Node {
-                    metadata: utils::metadata(format!("node-{i}")),
-                    spec: NodeSpec {
-                        taints: Vec::new(),
-                        unschedulable: false,
-                    },
-                    status: NodeStatus::default(),
-                },
-            )
-        }))
-        .with_controllers(
-            opts.nodes
-                ..(opts.schedulers
-                    + opts.datastores
-                    + opts.replicaset_controllers
-                    + opts.deployment_controllers
-                    + opts.statefulset_controllers),
-        );
+        .with_nodes((0..opts.nodes).map(|i| Node {
+            metadata: utils::metadata(format!("node-{i}")),
+            spec: NodeSpec {
+                taints: Vec::new(),
+                unschedulable: false,
+            },
+            status: NodeStatus::default(),
+        }));
 
     let consistency_level = if let Some(k) = opts.bounded_staleness {
         ConsistencySetup::BoundedStaleness(k)
@@ -186,11 +173,7 @@ fn main() {
         client_state: ClientState::new_ordered(),
         properties: Vec::new(),
     };
-    if opts.actors {
-        run(opts, model.into_actor_model())
-    } else {
         run(opts, model.into_abstract_model())
-    }
 }
 
 fn run<M>(opts: opts::Opts, model: M)

@@ -19,7 +19,7 @@ pub struct NodeControllerState {
 
 #[derive(Debug)]
 pub enum NodeControllerAction {
-    NodeJoin(usize, ResourceQuantities),
+    NodeJoin(String, ResourceQuantities),
 
     UpdatePod(Pod),
     DeletePod(Pod),
@@ -42,11 +42,11 @@ impl Controller for NodeController {
 
     fn step(
         &self,
-        id: usize,
+        _id: usize,
         global_state: &StateView,
         local_state: &mut Self::State,
     ) -> Option<NodeControllerAction> {
-        if let Some(_node) = global_state.nodes.get(&id) {
+        if let Some(_node) = global_state.nodes.get(&self.name) {
             let pods_for_this_node = global_state
                 .pods
                 .iter()
@@ -96,7 +96,7 @@ impl Controller for NodeController {
             }
         } else {
             return Some(NodeControllerAction::NodeJoin(
-                id,
+                self.name.clone(),
                 ResourceQuantities {
                     others: BTreeMap::new(),
                 },

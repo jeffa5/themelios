@@ -41,8 +41,8 @@ pub struct Change {
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum ControllerAction {
-    NodeJoin(usize, ResourceQuantities),
-    ControllerJoin(usize),
+    /// Name and resources
+    NodeJoin(String, ResourceQuantities),
 
     // Pods
     CreatePod(Pod),
@@ -83,14 +83,16 @@ pub enum ControllerAction {
     UpdateJobStatus(Job),
 
     // Environmental
-    NodeCrash(usize),
+    /// Name of the crashed node.
+    NodeCrash(String),
 }
 
 #[derive(Debug, PartialEq, Eq, Hash)]
 pub enum Action {
     ControllerStep(usize, ControllerStates, Change),
     Client(usize, ClientState, ClientAction),
-    NodeCrash(usize),
+    /// The node with the given controller index, and name, crashes.
+    NodeCrash(usize, String),
 }
 
 impl Model for AbstractModelCfg {
@@ -142,12 +144,27 @@ impl Model for AbstractModelCfg {
         }
 
         // at max revision as this isn't a controller event
-        for (node_id, node) in &state.view_at(state.max_revision()).nodes {
+        for node in state.view_at(state.max_revision()).nodes.iter() {
+            let mut controller_index = None;
+            // find the controller index for the corresponding node
+            for (i, controller) in self.controllers.iter().enumerate() {
+                if let Controllers::Node(n) = controller {
+                    if n.name == node.metadata.name {
+                        // match
+                        controller_index = Some(i);
+                        break;
+                    }
+                }
+            }
+
             if let Some(cond) =
                 get_node_condition(&node.status.conditions, NodeConditionType::Ready)
             {
                 if cond.status == ConditionStatus::True {
-                    actions.push(Action::NodeCrash(*node_id));
+                    actions.push(Action::NodeCrash(
+                        controller_index.unwrap(),
+                        node.metadata.name.clone(),
+                    ));
                 }
             }
         }
@@ -175,18 +192,19 @@ impl Model for AbstractModelCfg {
                 state.update_client(from, cstate);
                 Some(state)
             }
-            Action::NodeCrash(node) => {
+            Action::NodeCrash(controller_index, node_name) => {
                 let mut state = last_state.clone();
                 state.push_change(
                     Change {
                         revision: last_state.max_revision(),
-                        operation: ControllerAction::NodeCrash(node),
+                        operation: ControllerAction::NodeCrash(node_name),
                     },
-                    node,
+                    controller_index,
                 );
+                state.reset_session(controller_index);
                 // reset the node's local state
                 state.update_controller(
-                    node,
+                    controller_index,
                     ControllerStates::Node(NodeControllerState::default()),
                 );
                 Some(state)
@@ -199,7 +217,7 @@ impl Model for AbstractModelCfg {
         p.append(&mut vec![
             Property::<Self>::always("all resources have unique names", |_model, state| {
                 let state = state.view_at(state.max_revision());
-                all_unique(state.nodes.values().map(|n| &n.metadata.name))
+                all_unique(state.nodes.iter().map(|n| &n.metadata.name))
                     && all_unique(state.pods.iter().map(|n| &n.metadata.name))
                     && all_unique(state.replicasets.iter().map(|n| &n.metadata.name))
                     && all_unique(state.deployments.iter().map(|n| &n.metadata.name))

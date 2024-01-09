@@ -51,8 +51,6 @@ pub struct JobControllerState;
 #[derive(Debug, Hash, Clone, PartialEq, Eq)]
 #[must_use]
 pub enum JobControllerAction {
-    ControllerJoin(usize),
-
     UpdateJobStatus(Job),
 
     CreatePod(Pod),
@@ -71,7 +69,6 @@ impl From<Option<JobControllerAction>> for OptionalJobControllerAction {
 impl From<JobControllerAction> for ControllerAction {
     fn from(value: JobControllerAction) -> Self {
         match value {
-            JobControllerAction::ControllerJoin(id) => ControllerAction::ControllerJoin(id),
             JobControllerAction::UpdateJobStatus(j) => ControllerAction::UpdateJobStatus(j),
             JobControllerAction::CreatePod(pod) => ControllerAction::CreatePod(pod),
             JobControllerAction::UpdatePod(pod) => ControllerAction::UpdatePod(pod),
@@ -87,23 +84,19 @@ impl Controller for JobController {
 
     fn step(
         &self,
-        id: usize,
+        _id: usize,
         global_state: &crate::state::StateView,
         _local_state: &mut Self::State,
     ) -> Option<Self::Action> {
-        if !global_state.controllers.contains(&id) {
-            return Some(JobControllerAction::ControllerJoin(id));
-        } else {
-            for job in global_state.jobs.iter() {
-                let mut pods = global_state
-                    .pods
-                    .iter()
-                    .filter(|p| job.spec.selector.matches(&p.metadata.labels))
-                    .collect::<Vec<_>>();
-                let mut job = job.clone();
-                if let Some(op) = reconcile(&mut job, &mut pods).0 {
-                    return Some(op);
-                }
+        for job in global_state.jobs.iter() {
+            let mut pods = global_state
+                .pods
+                .iter()
+                .filter(|p| job.spec.selector.matches(&p.metadata.labels))
+                .collect::<Vec<_>>();
+            let mut job = job.clone();
+            if let Some(op) = reconcile(&mut job, &mut pods).0 {
+                return Some(op);
             }
         }
         None
