@@ -233,6 +233,20 @@ impl Model for AbstractModelCfg {
                 let state = state.view_at(state.max_revision());
                 state.pods.iter().all(|pod| pod.spec.node_name.is_some())
             }),
+            Property::<Self>::always("pods on nodes are unique", |model, state| {
+                let mut node_pods = BTreeSet::new();
+                for c in 0..model.controllers.len() {
+                    let cstate = state.get_controller(c);
+                    if let ControllerStates::Node(n) = cstate {
+                        for node in &n.running {
+                            if !node_pods.insert(node) {
+                                return false;
+                            }
+                        }
+                    }
+                }
+                true
+            }),
             Property::<Self>::always(
                 "statefulsets always have consecutive pods",
                 |_model, state| {
