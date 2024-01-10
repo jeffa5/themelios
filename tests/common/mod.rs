@@ -2,6 +2,7 @@ use model_checked_orchestration::model::OrchestrationModelCfg;
 use model_checked_orchestration::report::Reporter;
 use stateright::Checker;
 use stateright::Model;
+use stateright::UniformChooser;
 use std::collections::BTreeMap;
 
 use model_checked_orchestration::resources::Meta;
@@ -37,11 +38,25 @@ fn check(model: OrchestrationModelCfg) {
     println!("Checking model");
     let am = model.into_abstract_model();
     let mut reporter = Reporter::new(&am);
-    am.checker()
-        .threads(num_cpus::get())
-        .spawn_bfs()
-        .report(&mut reporter)
-        .assert_properties()
+    let checker = am.checker().threads(num_cpus::get());
+    if let Ok(check_mode) = std::env::var("MCO_CHECK_MODE") {
+        // skip clippy bit here for clarity
+        #[allow(clippy::wildcard_in_or_patterns)]
+        match check_mode.as_str() {
+            "simulation" => checker
+                .spawn_simulation(0, UniformChooser)
+                .report(&mut reporter)
+                .assert_properties(),
+            "dfs" => checker
+                .spawn_bfs()
+                .report(&mut reporter)
+                .assert_properties(),
+            "bfs" | _ => checker
+                .spawn_bfs()
+                .report(&mut reporter)
+                .assert_properties(),
+        }
+    }
 }
 
 fn explore(model: OrchestrationModelCfg) {
