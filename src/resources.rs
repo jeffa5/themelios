@@ -873,7 +873,7 @@ pub enum ReplicaSetConditionType {
 }
 
 #[derive(
-    Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff,
+    Clone, Copy, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff,
 )]
 #[diff(attr(
     #[derive(Debug, PartialEq)]
@@ -881,6 +881,7 @@ pub enum ReplicaSetConditionType {
 pub enum ConditionStatus {
     True,
     False,
+    #[default]
     Unknown,
 }
 
@@ -1361,7 +1362,7 @@ pub struct NodeStatus {
     pub conditions: Vec<NodeCondition>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff)]
 #[diff(attr(
     #[derive(Debug, PartialEq)]
 ))]
@@ -1377,11 +1378,12 @@ pub struct NodeCondition {
     pub last_transition_time: Option<Time>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff)]
 #[diff(attr(
     #[derive(Debug, PartialEq)]
 ))]
 pub enum NodeConditionType {
+    #[default]
     Ready,
     DiskPressure,
     MemoryPressure,

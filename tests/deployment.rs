@@ -29,16 +29,7 @@ use stdext::function_name;
 mod common;
 
 fn model(deployment: Deployment, client_state: ClientState) -> OrchestrationModelCfg {
-    let initial_state = StateView::default()
-        .with_deployment(deployment)
-        .with_nodes((0..1).map(|i| Node {
-            metadata: utils::metadata(format!("node-{i}")),
-            spec: NodeSpec {
-                taints: Vec::new(),
-                unschedulable: false,
-            },
-            status: NodeStatus::default(),
-        }));
+    let initial_state = StateView::default().with_deployment(deployment);
     OrchestrationModelCfg {
         initial_state,
         deployment_controllers: 1,

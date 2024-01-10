@@ -145,22 +145,21 @@ impl Model for AbstractModelCfg {
 
         // at max revision as this isn't a controller event
         for node in state.view_at(state.max_revision()).nodes.iter() {
-            let mut controller_index = None;
-            // find the controller index for the corresponding node
-            for (i, controller) in self.controllers.iter().enumerate() {
-                if let Controllers::Node(n) = controller {
-                    if n.name == node.metadata.name {
-                        // match
-                        controller_index = Some(i);
-                        break;
-                    }
-                }
-            }
-
             if let Some(cond) =
                 get_node_condition(&node.status.conditions, NodeConditionType::Ready)
             {
                 if cond.status == ConditionStatus::True {
+                    let mut controller_index = None;
+                    // find the controller index for the corresponding node
+                    for (i, controller) in self.controllers.iter().enumerate() {
+                        if let Controllers::Node(n) = controller {
+                            if n.name == node.metadata.name {
+                                // match
+                                controller_index = Some(i);
+                                break;
+                            }
+                        }
+                    }
                     actions.push(Action::NodeCrash(
                         controller_index.unwrap(),
                         node.metadata.name.clone(),
@@ -168,7 +167,6 @@ impl Model for AbstractModelCfg {
                 }
             }
         }
-        // TODO: re-enable node crashes
     }
 
     fn next_state(&self, last_state: &Self::State, action: Self::Action) -> Option<Self::State> {

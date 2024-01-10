@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use crate::controller::client::ClientState;
 use crate::controller::ControllerStates;
-use crate::resources::{ControllerRevision, Job, LabelSelector, Meta, PersistentVolumeClaim};
+use crate::resources::{ControllerRevision, Job, LabelSelector, Meta, PersistentVolumeClaim, NodeCondition, NodeConditionType, ConditionStatus};
 use crate::utils::{self, now};
 use crate::{
     abstract_model::{Change, ControllerAction},
@@ -731,7 +731,11 @@ impl StateView {
                     status: crate::resources::NodeStatus {
                         capacity: capacity.clone(),
                         allocatable: Some(capacity.clone()),
-                        conditions: Vec::new(),
+                        conditions: vec![NodeCondition {
+                            r#type: NodeConditionType::Ready,
+                            status: ConditionStatus::True,
+                            ..Default::default()
+                        }],
                     },
                 });
             }

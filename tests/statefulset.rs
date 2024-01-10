@@ -25,16 +25,7 @@ fn model(
     client_actions: ClientState,
     nodes: usize,
 ) -> OrchestrationModelCfg {
-    let initial_state = StateView::default()
-        .with_statefulset(statefulset)
-        .with_nodes((0..nodes).map(|i| Node {
-            metadata: utils::metadata(format!("node-{i}")),
-            spec: NodeSpec {
-                taints: Vec::new(),
-                unschedulable: false,
-            },
-            status: NodeStatus::default(),
-        }));
+    let initial_state = StateView::default().with_statefulset(statefulset);
     OrchestrationModelCfg {
         initial_state,
         statefulset_controllers: 1,
