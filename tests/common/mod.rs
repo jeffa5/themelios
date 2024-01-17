@@ -39,23 +39,22 @@ fn check(model: OrchestrationModelCfg) {
     let am = model.into_abstract_model();
     let mut reporter = Reporter::new(&am);
     let checker = am.checker().threads(num_cpus::get());
-    if let Ok(check_mode) = std::env::var("MCO_CHECK_MODE") {
-        // skip clippy bit here for clarity
-        #[allow(clippy::wildcard_in_or_patterns)]
-        match check_mode.as_str() {
-            "simulation" => checker
-                .spawn_simulation(0, UniformChooser)
-                .report(&mut reporter)
-                .assert_properties(),
-            "dfs" => checker
-                .spawn_bfs()
-                .report(&mut reporter)
-                .assert_properties(),
-            "bfs" | _ => checker
-                .spawn_bfs()
-                .report(&mut reporter)
-                .assert_properties(),
-        }
+    let check_mode = std::env::var("MCO_CHECK_MODE").unwrap_or_else(|_| "bfs".to_owned());
+    // skip clippy bit here for clarity
+    #[allow(clippy::wildcard_in_or_patterns)]
+    match check_mode.as_str() {
+        "simulation" => checker
+            .spawn_simulation(0, UniformChooser)
+            .report(&mut reporter)
+            .assert_properties(),
+        "dfs" => checker
+            .spawn_bfs()
+            .report(&mut reporter)
+            .assert_properties(),
+        "bfs" | _ => checker
+            .spawn_bfs()
+            .report(&mut reporter)
+            .assert_properties(),
     }
 }
 
