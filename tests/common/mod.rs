@@ -1,6 +1,7 @@
 use model_checked_orchestration::model::OrchestrationModelCfg;
 use model_checked_orchestration::report::Reporter;
 use stateright::Checker;
+use stateright::HasDiscoveries;
 use stateright::Model;
 use stateright::UniformChooser;
 use std::collections::BTreeMap;
@@ -38,7 +39,10 @@ fn check(model: OrchestrationModelCfg) {
     println!("Checking model");
     let am = model.into_abstract_model();
     let mut reporter = Reporter::new(&am);
-    let checker = am.checker().threads(num_cpus::get());
+    let checker = am
+        .checker()
+        .threads(num_cpus::get())
+        .finish_when(HasDiscoveries::AnyFailures);
     let check_mode = std::env::var("MCO_CHECK_MODE").unwrap_or_else(|_| "bfs".to_owned());
     // skip clippy bit here for clarity
     #[allow(clippy::wildcard_in_or_patterns)]

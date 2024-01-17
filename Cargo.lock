@@ -1181,7 +1181,7 @@ dependencies = [
 [[package]]
 name = "stateright"
 version = "0.30.1"
-source = "git+https://github.com/jeffa5/stateright?branch=master#d4fcd29ce294a349c1252d6c420d17a4e5a1ccc9"
+source = "git+https://github.com/jeffa5/stateright?branch=mco#07ae91cefd8b4f8abf18291bb088c8f25fbc0ba9"
 dependencies = [
  "ahash",
  "choice",
