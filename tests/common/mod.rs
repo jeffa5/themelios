@@ -28,7 +28,8 @@ pub fn run(model: OrchestrationModelCfg, default_check_mode: CheckMode, fn_name:
     println!("Running test {:?}", fn_name);
     if let Ok(explore_test) = std::env::var("MCO_EXPLORE_TEST") {
         if fn_name.ends_with(&explore_test) {
-            explore(model);
+            let path = std::env::var("MCO_EXPLORE_PATH").unwrap_or_default();
+            explore(model, path);
             return;
         } else {
             // skip others
@@ -88,10 +89,10 @@ fn check(model: OrchestrationModelCfg, default_check_mode: CheckMode) {
     }
 }
 
-fn explore(model: OrchestrationModelCfg) {
+fn explore(model: OrchestrationModelCfg, path:String) {
     let host = "127.0.0.1";
     let port = 8080;
-    println!("Exploring model, served on http://{}:{}", host, port);
+    println!("Exploring model, served on http://{}:{}/{}", host, port, path);
     let am = model.into_abstract_model();
     am.checker().serve((host, port));
 }
