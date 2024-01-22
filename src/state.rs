@@ -934,12 +934,11 @@ impl<T: Meta + Clone> Resources<T> {
             .map(|r| r.as_ref())
     }
 
-    pub fn matching(&self, selector: LabelSelector) -> Vec<&T> {
+    pub fn matching(&self, selector: LabelSelector) -> impl Iterator<Item = &T> {
         self.0
             .iter()
-            .filter(|t| selector.matches(&t.metadata().labels))
+            .filter(move |t| selector.matches(&t.metadata().labels))
             .map(|r| r.as_ref())
-            .collect()
     }
 
     pub fn to_vec(&self) -> Vec<&T> {
