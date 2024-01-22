@@ -152,25 +152,25 @@ impl History for BoundedHistory {
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub struct SessionHistory {
     sessions: BTreeMap<usize, Revision>,
-    states: Vec<Arc<StateView>>,
+    states: imbl::Vector<Arc<StateView>>,
 }
 
 impl SessionHistory {
     fn new(initial_state: StateView) -> Self {
         Self {
             sessions: BTreeMap::new(),
-            states: vec![Arc::new(initial_state)],
+            states: imbl::vector![Arc::new(initial_state)],
         }
     }
 }
 
 impl History for SessionHistory {
     fn add_change(&mut self, change: Change, from: usize) -> Revision {
-        let mut new_state_ref = Arc::clone(self.states.last().unwrap());
+        let mut new_state_ref = self.states.last().unwrap().clone();
         let new_state = Arc::make_mut(&mut new_state_ref);
         let new_revision = self.max_revision().increment();
         new_state.apply_change(&change, new_revision);
-        self.states.push(new_state_ref);
+        self.states.push_back(new_state_ref);
         let max = self.max_revision();
         self.sessions.insert(from, max.clone());
 
@@ -198,7 +198,7 @@ impl History for SessionHistory {
     fn state_at(&self, revision: Revision) -> StateView {
         let index = self
             .states
-            .binary_search_by_key(&&revision, |s| &s.revision)
+            .binary_search_by_key(&revision, |s| s.revision.clone())
             .unwrap();
         (*self.states[index]).clone()
     }

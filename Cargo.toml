@@ -12,6 +12,7 @@ derivative = "2.2.0"
 diff-struct = "0.5.3"
 env_logger = "0.10.1"
 fnv = "1.0.7"
+imbl = { version = "2.0.3", features = ["small-chunks"] }
 maplit = "1.0.2"
 num_cpus = "1.13.1"
 serde = { version = "1.0.189", features = ["derive"] }
