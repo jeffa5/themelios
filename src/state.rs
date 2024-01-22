@@ -860,7 +860,7 @@ impl StateView {
 #[derive(derivative::Derivative)]
 #[derivative(PartialEq, Hash)]
 #[derive(Clone, Debug, Eq, PartialOrd, Ord)]
-pub struct Resources<T>(Vec<T>);
+pub struct Resources<T>(imbl::Vector<T>);
 
 impl<T> Default for Resources<T> {
     fn default() -> Self {
@@ -868,7 +868,7 @@ impl<T> Default for Resources<T> {
     }
 }
 
-impl<T: Meta> Resources<T> {
+impl<T: Meta + Clone> Resources<T> {
     pub fn insert(&mut self, res: T) {
         if let Some(existing) = self.get_mut(&res.metadata().name) {
             *existing = res;
@@ -879,14 +879,19 @@ impl<T: Meta> Resources<T> {
     }
 
     fn get_insertion_pos(&self, k: &str) -> usize {
-        match self.0.binary_search_by_key(&k, |t| &t.metadata().name) {
+        match self
+            .0
+            .binary_search_by_key(&k.to_owned(), |t| t.metadata().name.clone())
+        {
             Ok(p) => p,
             Err(p) => p,
         }
     }
 
     fn get_pos(&self, k: &str) -> Option<usize> {
-        self.0.binary_search_by_key(&k, |t| &t.metadata().name).ok()
+        self.0
+            .binary_search_by_key(&k.to_owned(), |t| t.metadata().name.clone())
+            .ok()
     }
 
     pub fn has(&self, name: &str) -> bool {
@@ -901,7 +906,7 @@ impl<T: Meta> Resources<T> {
         self.get_pos(name).map(|p| &mut self.0[p])
     }
 
-    pub fn iter(&self) -> std::slice::Iter<T> {
+    pub fn iter(&self) -> imbl::vector::Iter<T> {
         self.0.iter()
     }
 
@@ -940,7 +945,7 @@ impl<T: Meta> Resources<T> {
     }
 }
 
-impl<T: Meta> From<Vec<T>> for Resources<T> {
+impl<T: Meta + Clone> From<Vec<T>> for Resources<T> {
     fn from(value: Vec<T>) -> Self {
         let mut rv = Resources::default();
         for v in value {
