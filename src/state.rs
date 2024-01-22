@@ -1,4 +1,5 @@
 use std::sync::Arc;
+use tracing::warn;
 
 use crate::controller::client::ClientState;
 use crate::controller::ControllerStates;
@@ -633,6 +634,10 @@ pub struct StateView {
     // Ignore the revision field as we just care whether the rest of the state is the same.
     #[derivative(PartialEq = "ignore", Hash = "ignore")]
     pub revision: Revision,
+    // Ignore the next_uid field as it is just for convenience in checking.
+    // In reality this would be a UUID but randomness doesn't go very well in the checker.
+    #[derivative(PartialEq = "ignore", Hash = "ignore")]
+    pub next_uid: u64,
     pub nodes: Resources<Node>,
     pub pods: Resources<Pod>,
     pub replicasets: Resources<ReplicaSet>,
@@ -749,6 +754,8 @@ impl StateView {
             }
             ControllerAction::CreatePod(pod) => {
                 let mut pod = pod.clone();
+                pod.metadata.uid = self.next_uid.to_string();
+                self.next_uid += 1;
                 self.fill_name(&mut pod);
                 self.pods.insert(pod);
             }
@@ -790,6 +797,8 @@ impl StateView {
             }
             ControllerAction::CreateReplicaSet(rs) => {
                 let mut rs = rs.clone();
+                rs.metadata.uid = self.next_uid.to_string();
+                self.next_uid += 1;
                 self.fill_name(&mut rs);
                 self.replicasets.insert(rs);
             }
@@ -812,6 +821,8 @@ impl StateView {
             }
             ControllerAction::CreateControllerRevision(cr) => {
                 let mut cr = cr.clone();
+                cr.metadata.uid = self.next_uid.to_string();
+                self.next_uid += 1;
                 self.fill_name(&mut cr);
                 self.controller_revisions.insert(cr);
             }
@@ -826,6 +837,8 @@ impl StateView {
             }
             ControllerAction::CreatePersistentVolumeClaim(pvc) => {
                 let mut pvc = pvc.clone();
+                pvc.metadata.uid = self.next_uid.to_string();
+                self.next_uid += 1;
                 self.fill_name(&mut pvc);
                 self.persistent_volume_claims.insert(pvc);
             }
@@ -870,6 +883,14 @@ impl<T> Default for Resources<T> {
 impl<T: Meta + Clone> Resources<T> {
     pub fn insert(&mut self, res: T) {
         if let Some(existing) = self.get_mut(&res.metadata().name) {
+            if existing.metadata().uid != res.metadata().uid {
+                // TODO: update this to have some conflict-reconciliation thing?
+                warn!(
+                    "Different uids! {} vs {}",
+                    existing.metadata().uid,
+                    res.metadata().uid
+                );
+            }
             *existing = res;
         } else {
             let pos = self.get_insertion_pos(&res.metadata().name);
