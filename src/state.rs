@@ -1,4 +1,3 @@
-use std::collections::BTreeMap;
 use std::sync::Arc;
 
 use crate::controller::client::ClientState;
@@ -151,14 +150,14 @@ impl History for BoundedHistory {
 
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub struct SessionHistory {
-    sessions: BTreeMap<usize, Revision>,
+    sessions: imbl::OrdMap<usize, Revision>,
     states: imbl::Vector<Arc<StateView>>,
 }
 
 impl SessionHistory {
     fn new(initial_state: StateView) -> Self {
         Self {
-            sessions: BTreeMap::new(),
+            sessions: imbl::OrdMap::new(),
             states: imbl::vector![Arc::new(initial_state)],
         }
     }
