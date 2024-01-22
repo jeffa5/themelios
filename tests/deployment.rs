@@ -97,7 +97,7 @@ fn test_new_deployment() {
         |_model, s| {
             let s = s.latest();
             let mut deployment_iter = s.deployments.iter();
-            deployment_iter.all(|d| !s.replicasets.for_controller(&d.metadata.uid).is_empty())
+            deployment_iter.all(|d| s.replicasets.for_controller(&d.metadata.uid).count() != 0)
         },
     );
     m.add_property(
@@ -118,8 +118,7 @@ fn test_new_deployment() {
             deployment_iter.all(|d| {
                 s.replicasets
                     .for_controller(&d.metadata.uid)
-                    .iter()
-                    .all(|rs| annotations_subset(d, *rs))
+                    .all(|rs| annotations_subset(d, rs))
             })
         },
     );
@@ -132,8 +131,7 @@ fn test_new_deployment() {
             deployment_iter.all(|d| {
                 s.replicasets
                     .for_controller(&d.metadata.uid)
-                    .iter()
-                    .all(|rs| check_rs_hash_labels(rs))
+                    .all(check_rs_hash_labels)
             })
         },
     );
@@ -143,7 +141,7 @@ fn test_new_deployment() {
         |_m, s| {
             let s = s.latest();
             let mut deployment_iter = s.deployments.iter();
-            deployment_iter.all(|d| check_pods_hash_label(&s.pods.for_controller(&d.metadata.uid)))
+            deployment_iter.all(|d| check_pods_hash_label(s.pods.for_controller(&d.metadata.uid)))
         },
     );
     run(m, function_name!())
@@ -185,7 +183,7 @@ fn test_deployment_rolling_update() {
         |_model, s| {
             let s = s.latest();
             let mut deployment_iter = s.deployments.iter();
-            deployment_iter.all(|d| !s.replicasets.for_controller(&d.metadata.uid).is_empty())
+            deployment_iter.all(|d| s.replicasets.for_controller(&d.metadata.uid).count() != 0)
         },
     );
     m.add_property(
@@ -260,7 +258,7 @@ fn check_rs_hash_labels(rs: &ReplicaSet) -> bool {
     }
 }
 
-fn check_pods_hash_label(pods: &[&Pod]) -> bool {
+fn check_pods_hash_label<'a>(pods: impl Iterator<Item=&'a Pod>) -> bool {
     let mut first_hash = None;
     for pod in pods {
         let pod_hash = pod.metadata.labels.get(DEFAULT_DEPLOYMENT_UNIQUE_LABEL_KEY);

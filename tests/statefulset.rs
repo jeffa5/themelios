@@ -85,7 +85,7 @@ fn test_spec_replicas_change() {
         |_model, s| {
             let s = s.latest();
             let mut deployment_iter = s.deployments.iter();
-            deployment_iter.all(|d| !s.replicasets.for_controller(&d.metadata.uid).is_empty())
+            deployment_iter.all(|d| s.replicasets.for_controller(&d.metadata.uid).count() != 0)
         },
     );
     run(m, function_name!())

@@ -927,12 +927,11 @@ impl<T: Meta + Clone> Resources<T> {
         self.0.is_empty()
     }
 
-    pub fn for_controller(&self, uid: &str) -> Vec<&T> {
+    pub fn for_controller<'a>(&'a self, uid: &'a str) -> impl Iterator<Item = &T> + 'a {
         self.0
             .iter()
-            .filter(|t| t.metadata().owner_references.iter().any(|or| or.uid == uid))
+            .filter(move |t| t.metadata().owner_references.iter().any(|or| or.uid == uid))
             .map(|r| r.as_ref())
-            .collect()
     }
 
     pub fn matching(&self, selector: LabelSelector) -> Vec<&T> {
