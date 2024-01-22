@@ -52,7 +52,7 @@ fn check(model: OrchestrationModelCfg) {
             .report(&mut reporter)
             .assert_properties(),
         "dfs" => checker
-            .spawn_bfs()
+            .spawn_dfs()
             .report(&mut reporter)
             .assert_properties(),
         "bfs" | _ => checker
