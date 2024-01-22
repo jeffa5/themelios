@@ -96,9 +96,8 @@ fn test_new_deployment() {
         "new replicaset is created",
         |_model, s| {
             let s = s.latest();
-            s.deployments
-                .iter()
-                .all(|d| !s.replicasets.for_controller(&d.metadata.uid).is_empty())
+            let mut deployment_iter = s.deployments.iter();
+            deployment_iter.all(|d| !s.replicasets.for_controller(&d.metadata.uid).is_empty())
         },
     );
     m.add_property(
@@ -106,9 +105,8 @@ fn test_new_deployment() {
         "deployment is complete",
         |_m, s| {
             let s = s.latest();
-            s.deployments
-                .iter()
-                .all(|d| deployment_complete(d, &d.status))
+            let mut deployment_iter = s.deployments.iter();
+            deployment_iter.all(|d| deployment_complete(d, &d.status))
         },
     );
     m.add_property(
@@ -116,7 +114,8 @@ fn test_new_deployment() {
         "replicaset has annotations from deployment",
         |_m, s| {
             let s = s.latest();
-            s.deployments.iter().all(|d| {
+            let mut deployment_iter = s.deployments.iter();
+            deployment_iter.all(|d| {
                 s.replicasets
                     .for_controller(&d.metadata.uid)
                     .iter()
@@ -129,7 +128,8 @@ fn test_new_deployment() {
         "rs has pod-template-hash in selector, label and template label",
         |_m, s| {
             let s = s.latest();
-            s.deployments.iter().all(|d| {
+            let mut deployment_iter = s.deployments.iter();
+            deployment_iter.all(|d| {
                 s.replicasets
                     .for_controller(&d.metadata.uid)
                     .iter()
@@ -142,9 +142,8 @@ fn test_new_deployment() {
         "all pods for the rs should have the pod-template-hash in their labels",
         |_m, s| {
             let s = s.latest();
-            s.deployments
-                .iter()
-                .all(|d| check_pods_hash_label(&s.pods.for_controller(&d.metadata.uid)))
+            let mut deployment_iter = s.deployments.iter();
+            deployment_iter.all(|d| check_pods_hash_label(&s.pods.for_controller(&d.metadata.uid)))
         },
     );
     run(m, function_name!())
@@ -185,9 +184,8 @@ fn test_deployment_rolling_update() {
         "new replicaset is created",
         |_model, s| {
             let s = s.latest();
-            s.deployments
-                .iter()
-                .all(|d| !s.replicasets.for_controller(&d.metadata.uid).is_empty())
+            let mut deployment_iter = s.deployments.iter();
+            deployment_iter.all(|d| !s.replicasets.for_controller(&d.metadata.uid).is_empty())
         },
     );
     m.add_property(
@@ -195,7 +193,8 @@ fn test_deployment_rolling_update() {
         "old rss do not have pods",
         |_model, s| {
             let s = s.latest();
-            s.deployments.iter().all(|d| {
+            let mut deployment_iter = s.deployments.iter();
+            deployment_iter.all(|d| {
                 let rss = s.replicasets.to_vec();
                 let (_, old) = find_old_replicasets(d, &rss);
                 old.iter()

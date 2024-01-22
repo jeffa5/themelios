@@ -859,7 +859,7 @@ impl StateView {
 #[derive(derivative::Derivative)]
 #[derivative(PartialEq, Hash)]
 #[derive(Clone, Debug, Eq, PartialOrd, Ord)]
-pub struct Resources<T>(imbl::Vector<T>);
+pub struct Resources<T>(imbl::Vector<Arc<T>>);
 
 impl<T> Default for Resources<T> {
     fn default() -> Self {
@@ -873,7 +873,7 @@ impl<T: Meta + Clone> Resources<T> {
             *existing = res;
         } else {
             let pos = self.get_insertion_pos(&res.metadata().name);
-            self.0.insert(pos, res);
+            self.0.insert(pos, Arc::new(res));
         }
     }
 
@@ -898,23 +898,25 @@ impl<T: Meta + Clone> Resources<T> {
     }
 
     pub fn get(&self, name: &str) -> Option<&T> {
-        self.get_pos(name).map(|p| &self.0[p])
+        self.get_pos(name)
+            .and_then(|p| self.0.get(p).map(|r| r.as_ref()))
     }
 
     pub fn get_mut(&mut self, name: &str) -> Option<&mut T> {
-        self.get_pos(name).map(|p| &mut self.0[p])
+        self.get_pos(name)
+            .and_then(|p| self.0.get_mut(p).map(|r| Arc::make_mut(r)))
     }
 
-    pub fn iter(&self) -> imbl::vector::Iter<T> {
-        self.0.iter()
+    pub fn iter(&self) -> impl Iterator<Item = &T> {
+        self.0.iter().map(|r| r.as_ref())
     }
 
     pub fn remove(&mut self, name: &str) -> Option<T> {
-        self.get_pos(name).map(|p| self.0.remove(p))
+        self.get_pos(name).map(|p| (*self.0.remove(p)).clone())
     }
 
     pub fn retain(&mut self, f: impl Fn(&T) -> bool) {
-        self.0.retain(f)
+        self.0.retain(|r| f(r))
     }
 
     pub fn len(&self) -> usize {
@@ -929,6 +931,7 @@ impl<T: Meta + Clone> Resources<T> {
         self.0
             .iter()
             .filter(|t| t.metadata().owner_references.iter().any(|or| or.uid == uid))
+            .map(|r| r.as_ref())
             .collect()
     }
 
@@ -936,6 +939,7 @@ impl<T: Meta + Clone> Resources<T> {
         self.0
             .iter()
             .filter(|t| selector.matches(&t.metadata().labels))
+            .map(|r| r.as_ref())
             .collect()
     }
 

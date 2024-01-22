@@ -84,9 +84,8 @@ fn test_spec_replicas_change() {
         "new replicaset is created",
         |_model, s| {
             let s = s.latest();
-            s.deployments
-                .iter()
-                .all(|d| !s.replicasets.for_controller(&d.metadata.uid).is_empty())
+            let mut deployment_iter = s.deployments.iter();
+            deployment_iter.all(|d| !s.replicasets.for_controller(&d.metadata.uid).is_empty())
         },
     );
     run(m, function_name!())

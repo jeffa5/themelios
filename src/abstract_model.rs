@@ -231,7 +231,8 @@ impl Model for AbstractModelCfg {
             }),
             Property::<Self>::eventually("every pod gets scheduled", |_model, state| {
                 let state = state.view_at(state.max_revision());
-                state.pods.iter().all(|pod| pod.spec.node_name.is_some())
+                let mut pods_iter = state.pods.iter();
+                pods_iter.all(|pod| pod.spec.node_name.is_some())
             }),
             Property::<Self>::always("pods on nodes are unique", |model, state| {
                 let mut node_pods = BTreeSet::new();
