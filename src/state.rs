@@ -1,8 +1,12 @@
 use std::collections::BTreeMap;
+use std::sync::Arc;
 
 use crate::controller::client::ClientState;
 use crate::controller::ControllerStates;
-use crate::resources::{ControllerRevision, Job, LabelSelector, Meta, PersistentVolumeClaim, NodeCondition, NodeConditionType, ConditionStatus};
+use crate::resources::{
+    ConditionStatus, ControllerRevision, Job, LabelSelector, Meta, NodeCondition,
+    NodeConditionType, PersistentVolumeClaim,
+};
 use crate::utils::{self, now};
 use crate::{
     abstract_model::{Change, ControllerAction},
@@ -57,13 +61,13 @@ pub trait History {
 
 #[derive(Default, Clone, PartialEq, Eq, Hash, Debug)]
 pub struct StrongHistory {
-    state: StateView,
+    state: Arc<StateView>,
 }
 
 impl StrongHistory {
     fn new(initial_state: StateView) -> Self {
         Self {
-            state: initial_state,
+            state: Arc::new(initial_state),
         }
     }
 }
@@ -71,7 +75,7 @@ impl StrongHistory {
 impl History for StrongHistory {
     fn add_change(&mut self, change: Change, _from: usize) -> Revision {
         let new_revision = self.max_revision().increment();
-        self.state.apply_change(&change, new_revision);
+        Arc::make_mut(&mut self.state).apply_change(&change, new_revision);
         self.max_revision()
     }
 
@@ -85,7 +89,7 @@ impl History for StrongHistory {
 
     fn state_at(&self, revision: Revision) -> StateView {
         assert_eq!(revision, self.state.revision);
-        self.state.clone()
+        (*self.state).clone()
     }
 
     fn valid_revisions(&self, _from: usize) -> Vec<Revision> {
@@ -96,27 +100,28 @@ impl History for StrongHistory {
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub struct BoundedHistory {
     k: usize,
-    last_k_states: Vec<StateView>,
+    last_k_states: Vec<Arc<StateView>>,
 }
 
 impl BoundedHistory {
     fn new(initial_state: StateView, k: usize) -> Self {
         Self {
             k,
-            last_k_states: vec![initial_state],
+            last_k_states: vec![Arc::new(initial_state)],
         }
     }
 }
 
 impl History for BoundedHistory {
     fn add_change(&mut self, change: Change, _from: usize) -> Revision {
-        let mut state = self.last_k_states.last().unwrap().clone();
+        let mut new_state_ref = Arc::clone(self.last_k_states.last().unwrap());
+        let new_state = Arc::make_mut(&mut new_state_ref);
         let new_revision = self.max_revision().increment();
-        state.apply_change(&change, new_revision);
+        new_state.apply_change(&change, new_revision);
         if self.last_k_states.len() > self.k {
             self.last_k_states.remove(0);
         }
-        self.last_k_states.push(state);
+        self.last_k_states.push(new_state_ref);
         self.max_revision()
     }
 
@@ -133,7 +138,7 @@ impl History for BoundedHistory {
             .last_k_states
             .binary_search_by_key(&&revision, |s| &s.revision)
             .unwrap();
-        self.last_k_states[index].clone()
+        (*self.last_k_states[index]).clone()
     }
 
     fn valid_revisions(&self, _from: usize) -> Vec<Revision> {
@@ -147,24 +152,25 @@ impl History for BoundedHistory {
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub struct SessionHistory {
     sessions: BTreeMap<usize, Revision>,
-    states: Vec<StateView>,
+    states: Vec<Arc<StateView>>,
 }
 
 impl SessionHistory {
     fn new(initial_state: StateView) -> Self {
         Self {
             sessions: BTreeMap::new(),
-            states: vec![initial_state],
+            states: vec![Arc::new(initial_state)],
         }
     }
 }
 
 impl History for SessionHistory {
     fn add_change(&mut self, change: Change, from: usize) -> Revision {
-        let mut state = self.states.last().unwrap().clone();
+        let mut new_state_ref = Arc::clone(self.states.last().unwrap());
+        let new_state = Arc::make_mut(&mut new_state_ref);
         let new_revision = self.max_revision().increment();
-        state.apply_change(&change, new_revision);
-        self.states.push(state);
+        new_state.apply_change(&change, new_revision);
+        self.states.push(new_state_ref);
         let max = self.max_revision();
         self.sessions.insert(from, max.clone());
 
@@ -194,7 +200,7 @@ impl History for SessionHistory {
             .states
             .binary_search_by_key(&&revision, |s| &s.revision)
             .unwrap();
-        self.states[index].clone()
+        (*self.states[index]).clone()
     }
 
     fn valid_revisions(&self, from: usize) -> Vec<Revision> {
@@ -209,23 +215,24 @@ impl History for SessionHistory {
 
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub struct EventualHistory {
-    states: Vec<StateView>,
+    states: Vec<Arc<StateView>>,
 }
 
 impl EventualHistory {
     fn new(initial_state: StateView) -> Self {
         Self {
-            states: vec![initial_state],
+            states: vec![Arc::new(initial_state)],
         }
     }
 }
 
 impl History for EventualHistory {
     fn add_change(&mut self, change: Change, _from: usize) -> Revision {
-        let mut state = self.states.last().unwrap().clone();
+        let mut new_state_ref = Arc::clone(self.states.last().unwrap());
+        let new_state = Arc::make_mut(&mut new_state_ref);
         let new_revision = self.max_revision().increment();
-        state.apply_change(&change, new_revision);
-        self.states.push(state);
+        new_state.apply_change(&change, new_revision);
+        self.states.push(new_state_ref);
         self.max_revision()
     }
     fn reset_session(&mut self, _from: usize) {
@@ -237,7 +244,7 @@ impl History for EventualHistory {
     }
 
     fn state_at(&self, revision: Revision) -> StateView {
-        self.states[revision.0[0]].clone()
+        (*self.states[revision.0[0]]).clone()
     }
 
     fn valid_revisions(&self, _from: usize) -> Vec<Revision> {
@@ -250,14 +257,14 @@ pub struct OptimisticLinearHistory {
     /// First is the last committed state.
     /// Last is the optimistic one.
     /// In between are states that could be committed.
-    states: Vec<StateView>,
+    states: Vec<Arc<StateView>>,
     commit_every: usize,
 }
 
 impl OptimisticLinearHistory {
     fn new(initial_state: StateView, commit_every: usize) -> Self {
         Self {
-            states: vec![initial_state],
+            states: vec![Arc::new(initial_state)],
             commit_every,
         }
     }
@@ -271,9 +278,10 @@ impl History for OptimisticLinearHistory {
             .states
             .binary_search_by_key(&&change.revision, |s| &s.revision)
             .unwrap();
-        let mut state_to_mutate = self.states[index].clone();
+        let mut new_state_ref = Arc::clone(&self.states[index]);
+        let new_state = Arc::make_mut(&mut new_state_ref);
         let new_revision = self.max_revision().increment();
-        state_to_mutate.apply_change(&change, new_revision);
+        new_state.apply_change(&change, new_revision);
 
         if index + 1 == self.states.len() {
             // this was a mutation on the optimistic state
@@ -283,14 +291,14 @@ impl History for OptimisticLinearHistory {
             } else {
                 // we haven't reached a guaranteed commit yet, just extend the current states
             }
-            self.states.push(state_to_mutate);
+            self.states.push(new_state_ref);
         } else {
             // this was a mutation on a committed state (leader changed)
             // Discard all states before and after this one
             let committed_state = self.states.swap_remove(index);
             self.states.clear();
             self.states.push(committed_state);
-            self.states.push(state_to_mutate);
+            self.states.push(new_state_ref);
         }
 
         self.max_revision()
@@ -308,7 +316,7 @@ impl History for OptimisticLinearHistory {
             .states
             .binary_search_by_key(&&revision, |s| &s.revision)
             .unwrap();
-        self.states[index].clone()
+        (*self.states[index]).clone()
     }
 
     fn valid_revisions(&self, _from: usize) -> Vec<Revision> {
@@ -324,7 +332,7 @@ pub struct CausalHistory {
 
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
 struct CausalState {
-    state: StateView,
+    state: Arc<StateView>,
     predecessors: Vec<usize>,
     successors: Vec<usize>,
 }
@@ -333,7 +341,7 @@ impl CausalHistory {
     fn new(initial_state: StateView) -> Self {
         Self {
             states: vec![CausalState {
-                state: initial_state,
+                state: Arc::new(initial_state),
                 predecessors: Vec::new(),
                 successors: Vec::new(),
             }],
@@ -350,8 +358,9 @@ impl History for CausalHistory {
             .states
             .binary_search_by_key(&&target_revision, |s| &s.state.revision)
             .unwrap();
-        let mut state_to_mutate = self.states[index].state.clone();
-        state_to_mutate.apply_change(&change, self.max_revision().increment());
+        let mut new_state_ref = Arc::clone(&self.states[index].state);
+        let new_state = Arc::make_mut(&mut new_state_ref);
+        new_state.apply_change(&change, self.max_revision().increment());
 
         // find the dependencies of the change
         let mut predecessors = Vec::new();
@@ -366,7 +375,7 @@ impl History for CausalHistory {
         }
 
         self.states.push(CausalState {
-            state: state_to_mutate,
+            state: new_state_ref,
             predecessors,
             successors: Vec::new(),
         });
@@ -390,7 +399,7 @@ impl History for CausalHistory {
             .binary_search_by_key(&&target_revision, |s| &s.state.revision)
             .unwrap();
 
-        let mut s = self.states[index].state.clone();
+        let mut s = (*self.states[index].state).clone();
         s.revision = revision;
         s
     }
