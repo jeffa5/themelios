@@ -144,7 +144,7 @@ fn test_new_deployment() {
             deployment_iter.all(|d| check_pods_hash_label(s.pods.for_controller(&d.metadata.uid)))
         },
     );
-    run(m, function_name!())
+    run(m, common::CheckMode::Bfs, function_name!())
 }
 
 #[test_log::test]
@@ -200,7 +200,7 @@ fn test_deployment_rolling_update() {
             })
         },
     );
-    run(m, function_name!())
+    run(m, common::CheckMode::Bfs, function_name!())
 }
 
 #[test_log::test]
@@ -231,7 +231,7 @@ fn test_paused_deployment() {
             s.replicasets.is_empty()
         },
     );
-    run(m, function_name!())
+    run(m, common::CheckMode::Bfs, function_name!())
 }
 
 fn check_rs_hash_labels(rs: &ReplicaSet) -> bool {
@@ -258,7 +258,7 @@ fn check_rs_hash_labels(rs: &ReplicaSet) -> bool {
     }
 }
 
-fn check_pods_hash_label<'a>(pods: impl Iterator<Item=&'a Pod>) -> bool {
+fn check_pods_hash_label<'a>(pods: impl Iterator<Item = &'a Pod>) -> bool {
     let mut first_hash = None;
     for pod in pods {
         let pod_hash = pod.metadata.labels.get(DEFAULT_DEPLOYMENT_UNIQUE_LABEL_KEY);

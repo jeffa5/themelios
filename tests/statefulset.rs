@@ -88,7 +88,7 @@ fn test_spec_replicas_change() {
             deployment_iter.all(|d| s.replicasets.for_controller(&d.metadata.uid).count() != 0)
         },
     );
-    run(m, function_name!())
+    run(m, common::CheckMode::Bfs, function_name!())
 }
 
 #[test_log::test]
@@ -106,5 +106,5 @@ fn stale_reads() {
         status: Default::default(),
     }));
     m.consistency_level = ConsistencySetup::Session;
-    run(m, function_name!())
+    run(m, common::CheckMode::Dfs, function_name!())
 }
