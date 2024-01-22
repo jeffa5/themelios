@@ -173,7 +173,7 @@ fn main() {
         client_state: ClientState::new_ordered(),
         properties: Vec::new(),
     };
-        run(opts, model.into_abstract_model())
+    run(opts, model.into_abstract_model())
 }
 
 fn run<M>(opts: opts::Opts, model: M)

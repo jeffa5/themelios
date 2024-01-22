@@ -1362,7 +1362,9 @@ pub struct NodeStatus {
     pub conditions: Vec<NodeCondition>,
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff)]
+#[derive(
+    Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff,
+)]
 #[diff(attr(
     #[derive(Debug, PartialEq)]
 ))]
@@ -1378,7 +1380,9 @@ pub struct NodeCondition {
     pub last_transition_time: Option<Time>,
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff)]
+#[derive(
+    Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff,
+)]
 #[diff(attr(
     #[derive(Debug, PartialEq)]
 ))]
