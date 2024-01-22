@@ -54,7 +54,7 @@ fn check(model: OrchestrationModelCfg, default_check_mode: CheckMode) {
         .threads(num_cpus::get())
         .finish_when(HasDiscoveries::AnyFailures)
         .target_max_depth(30);
-    let check_mode = std::env::var("MCO_CHECK_MODE").unwrap_or_else(|_| "bfs".to_owned());
+    let check_mode = std::env::var("MCO_CHECK_MODE").unwrap_or_else(|_| String::new());
     // skip clippy bit here for clarity
     #[allow(clippy::wildcard_in_or_patterns)]
     match check_mode.as_str() {
