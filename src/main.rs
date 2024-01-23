@@ -22,7 +22,7 @@ use model_checked_orchestration::resources::ReplicaSetStatus;
 use model_checked_orchestration::resources::StatefulSet;
 use model_checked_orchestration::resources::StatefulSetSpec;
 use model_checked_orchestration::resources::StatefulSetStatus;
-use model_checked_orchestration::state::ConsistencySetup;
+use model_checked_orchestration::state::history::ConsistencySetup;
 use model_checked_orchestration::state::StateView;
 use model_checked_orchestration::utils;
 use stateright::Checker;

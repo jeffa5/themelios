@@ -19,7 +19,7 @@ use crate::controller::{
 use crate::resources::{
     ControllerRevision, Deployment, Job, Node, PersistentVolumeClaim, Pod, ReplicaSet, StatefulSet,
 };
-use crate::state::{Revision, StateView};
+use crate::state::{revision::Revision, StateView};
 
 pub fn app() -> Router {
     Router::new()

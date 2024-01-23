@@ -13,7 +13,7 @@ use crate::resources::{
     ConditionStatus, ControllerRevision, Deployment, Job, NodeConditionType, PersistentVolumeClaim,
     Pod, ReplicaSet, ResourceQuantities, StatefulSet,
 };
-use crate::state::{ConsistencySetup, Revision, State, StateView};
+use crate::state::{history::ConsistencySetup, revision::Revision, State, StateView};
 
 #[derive(derivative::Derivative)]
 #[derivative(Debug)]

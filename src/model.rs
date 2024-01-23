@@ -6,7 +6,7 @@ use crate::{
         client::ClientState, Controllers, DeploymentController, NodeController,
         ReplicaSetController, SchedulerController, StatefulSetController,
     },
-    state::{ConsistencySetup, State, StateView},
+    state::{history::ConsistencySetup, State, StateView},
 };
 
 #[derive(derivative::Derivative)]
