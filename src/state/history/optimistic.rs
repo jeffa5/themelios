@@ -36,7 +36,7 @@ impl History for OptimisticLinearHistory {
         let mut new_state_ref = Arc::clone(&self.states[index]);
         let new_state = Arc::make_mut(&mut new_state_ref);
         let new_revision = self.max_revision().increment();
-        new_state.apply_change(&change, new_revision);
+        new_state.apply_operation(change.operation, new_revision);
 
         if index + 1 == self.states.len() {
             // this was a mutation on the optimistic state

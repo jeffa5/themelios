@@ -282,9 +282,9 @@ impl DerefMut for StateView {
 }
 
 impl StateView {
-    pub fn apply_change(&mut self, change: &Change, new_revision: Revision) {
+    pub fn apply_operation(&mut self, operation: ControllerAction, new_revision: Revision) {
         let mut s = self.clone();
-        match s.apply_change_inner(change, new_revision.clone()) {
+        match s.apply_operation_inner(operation, new_revision.clone()) {
             Ok(()) => {
                 s.revision = new_revision;
                 *self = s;
@@ -295,8 +295,8 @@ impl StateView {
         }
     }
 
-    fn apply_change_inner(&mut self, change: &Change, new_revision: Revision) -> Result<(), ()> {
-        match &change.operation {
+    fn apply_operation_inner(&mut self, operation: ControllerAction, new_revision: Revision) -> Result<(), ()> {
+        match operation {
             ControllerAction::NodeJoin(name, capacity) => {
                 self.nodes.insert(
                     Node {
@@ -318,17 +318,15 @@ impl StateView {
                     new_revision,
                 )?;
             }
-            ControllerAction::CreatePod(pod) => {
-                let mut pod = pod.clone();
+            ControllerAction::CreatePod(mut pod) => {
                 pod.metadata.uid = self.revision.to_string();
                 self.fill_name(&mut pod);
                 self.pods.insert(pod, new_revision)?;
             }
             ControllerAction::UpdatePod(pod) => {
-                self.pods.insert(pod.clone(), new_revision)?;
+                self.pods.insert(pod, new_revision)?;
             }
-            ControllerAction::SoftDeletePod(pod) => {
-                let mut pod = pod.clone();
+            ControllerAction::SoftDeletePod(mut pod) => {
                 // marked for deletion
                 pod.metadata.deletion_timestamp = Some(now());
                 self.pods.insert(pod, new_revision)?;
@@ -337,13 +335,13 @@ impl StateView {
                 self.pods.remove(&pod.metadata.name);
             }
             ControllerAction::SchedulePod(pod, node) => {
-                if let Some(mut pod) = self.pods.get(pod).cloned() {
+                if let Some(mut pod) = self.pods.get(&pod).cloned() {
                     pod.spec.node_name = Some(node.clone());
                     self.pods.insert(pod, new_revision)?;
                 }
             }
             ControllerAction::NodeCrash(node_name) => {
-                if let Some(node) = self.nodes.remove(node_name) {
+                if let Some(node) = self.nodes.remove(&node_name) {
                     self.pods.retain(|pod| {
                         pod.spec
                             .node_name
@@ -353,45 +351,43 @@ impl StateView {
                 }
             }
             ControllerAction::UpdateDeployment(dep) => {
-                self.deployments.insert(dep.clone(), new_revision)?;
+                self.deployments.insert(dep, new_revision)?;
             }
             ControllerAction::RequeueDeployment(_dep) => {
                 // skip
             }
             ControllerAction::UpdateDeploymentStatus(dep) => {
-                self.deployments.insert(dep.clone(), new_revision)?;
+                self.deployments.insert(dep, new_revision)?;
             }
-            ControllerAction::CreateReplicaSet(rs) => {
-                let mut rs = rs.clone();
+            ControllerAction::CreateReplicaSet(mut rs) => {
                 rs.metadata.uid = self.revision.to_string();
                 self.fill_name(&mut rs);
                 self.replicasets.insert(rs, new_revision)?;
             }
             ControllerAction::UpdateReplicaSet(rs) => {
-                self.replicasets.insert(rs.clone(), new_revision)?;
+                self.replicasets.insert(rs, new_revision)?;
             }
             ControllerAction::UpdateReplicaSetStatus(rs) => {
-                self.replicasets.insert(rs.clone(), new_revision)?;
+                self.replicasets.insert(rs, new_revision)?;
             }
             ControllerAction::UpdateReplicaSets(rss) => {
                 for rs in rss {
-                    self.replicasets.insert(rs.clone(), new_revision.clone())?;
+                    self.replicasets.insert(rs, new_revision.clone())?;
                 }
             }
             ControllerAction::UpdateStatefulSet(sts) => {
-                self.statefulsets.insert(sts.clone(), new_revision)?;
+                self.statefulsets.insert(sts, new_revision)?;
             }
             ControllerAction::UpdateStatefulSetStatus(sts) => {
-                self.statefulsets.insert(sts.clone(), new_revision)?;
+                self.statefulsets.insert(sts, new_revision)?;
             }
-            ControllerAction::CreateControllerRevision(cr) => {
-                let mut cr = cr.clone();
+            ControllerAction::CreateControllerRevision(mut cr) => {
                 cr.metadata.uid = self.revision.to_string();
                 self.fill_name(&mut cr);
                 self.controller_revisions.insert(cr, new_revision)?;
             }
             ControllerAction::UpdateControllerRevision(cr) => {
-                self.controller_revisions.insert(cr.clone(), new_revision)?;
+                self.controller_revisions.insert(cr, new_revision)?;
             }
             ControllerAction::DeleteControllerRevision(cr) => {
                 self.controller_revisions.remove(&cr.metadata.name);
@@ -399,18 +395,17 @@ impl StateView {
             ControllerAction::DeleteReplicaSet(rs) => {
                 self.replicasets.remove(&rs.metadata.name);
             }
-            ControllerAction::CreatePersistentVolumeClaim(pvc) => {
-                let mut pvc = pvc.clone();
+            ControllerAction::CreatePersistentVolumeClaim(mut pvc) => {
                 pvc.metadata.uid = self.revision.to_string();
                 self.fill_name(&mut pvc);
                 self.persistent_volume_claims.insert(pvc, new_revision)?;
             }
             ControllerAction::UpdatePersistentVolumeClaim(pvc) => {
                 self.persistent_volume_claims
-                    .insert(pvc.clone(), new_revision)?;
+                    .insert(pvc, new_revision)?;
             }
             ControllerAction::UpdateJobStatus(job) => {
-                self.jobs.insert(job.clone(), new_revision)?;
+                self.jobs.insert(job, new_revision)?;
             }
         }
         Ok(())

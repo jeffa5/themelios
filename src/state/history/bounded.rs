@@ -27,7 +27,7 @@ impl History for BoundedHistory {
         let mut new_state_ref = Arc::clone(self.last_k_states.last().unwrap());
         let new_state = Arc::make_mut(&mut new_state_ref);
         let new_revision = self.max_revision().increment();
-        new_state.apply_change(&change, new_revision);
+        new_state.apply_operation(change.operation, new_revision);
         if self.last_k_states.len() > self.k {
             self.last_k_states.remove(0);
         }

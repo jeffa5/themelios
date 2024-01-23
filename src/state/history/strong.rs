@@ -23,7 +23,7 @@ impl StrongHistory {
 impl History for StrongHistory {
     fn add_change(&mut self, change: Change, _from: usize) -> Revision {
         let new_revision = self.max_revision().increment();
-        Arc::make_mut(&mut self.state).apply_change(&change, new_revision);
+        Arc::make_mut(&mut self.state).apply_operation(change.operation, new_revision);
         self.max_revision()
     }
 

@@ -44,7 +44,7 @@ impl History for CausalHistory {
             .unwrap();
         let mut new_state_ref = Arc::clone(&self.states[index].state);
         let new_state = Arc::make_mut(&mut new_state_ref);
-        new_state.apply_change(&change, self.max_revision().increment());
+        new_state.apply_operation(change.operation, self.max_revision().increment());
 
         // find the dependencies of the change
         let mut predecessors = Vec::new();
