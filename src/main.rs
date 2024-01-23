@@ -23,7 +23,7 @@ use model_checked_orchestration::resources::StatefulSet;
 use model_checked_orchestration::resources::StatefulSetSpec;
 use model_checked_orchestration::resources::StatefulSetStatus;
 use model_checked_orchestration::state::history::ConsistencySetup;
-use model_checked_orchestration::state::StateView;
+use model_checked_orchestration::state::RawState;
 use model_checked_orchestration::utils;
 use stateright::Checker;
 use stateright::Model;
@@ -51,7 +51,7 @@ fn main() {
         .with(log_filter)
         .init();
 
-    let initial_state = StateView::default()
+    let initial_state = RawState::default()
         .with_pods((0..opts.initial_pods).map(|i| Pod {
             metadata: utils::metadata(format!("pod-{i}")),
             spec: PodSpec {

@@ -13,7 +13,8 @@ use crate::resources::{
     ConditionStatus, ControllerRevision, Deployment, Job, NodeConditionType, PersistentVolumeClaim,
     Pod, ReplicaSet, ResourceQuantities, StatefulSet,
 };
-use crate::state::{history::ConsistencySetup, revision::Revision, State, StateView};
+use crate::state::RawState;
+use crate::state::{history::ConsistencySetup, revision::Revision, State};
 
 #[derive(derivative::Derivative)]
 #[derivative(Debug)]
@@ -23,7 +24,7 @@ pub struct AbstractModelCfg {
     /// The clients manipulating the system.
     pub clients: Vec<Client>,
     /// The initial state.
-    pub initial_state: StateView,
+    pub initial_state: RawState,
     /// The consistency level of the state.
     pub consistency_level: ConsistencySetup,
     #[derivative(Debug = "ignore")]

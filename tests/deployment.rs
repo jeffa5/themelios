@@ -17,7 +17,7 @@ use model_checked_orchestration::resources::PodSpec;
 use model_checked_orchestration::resources::PodTemplateSpec;
 use model_checked_orchestration::resources::ReplicaSet;
 use model_checked_orchestration::resources::RollingUpdate;
-use model_checked_orchestration::state::StateView;
+use model_checked_orchestration::state::RawState;
 use model_checked_orchestration::utils;
 use stateright::Expectation;
 use std::collections::BTreeMap;
@@ -26,7 +26,7 @@ use stdext::function_name;
 mod common;
 
 fn model(deployment: Deployment, client_state: ClientState) -> OrchestrationModelCfg {
-    let initial_state = StateView::default().with_deployment(deployment);
+    let initial_state = RawState::default().with_deployment(deployment);
     OrchestrationModelCfg {
         initial_state,
         deployment_controllers: 1,

@@ -6,7 +6,7 @@ use crate::{
         client::ClientState, Controllers, DeploymentController, NodeController,
         ReplicaSetController, SchedulerController, StatefulSetController,
     },
-    state::{history::ConsistencySetup, State, StateView},
+    state::{history::ConsistencySetup, RawState, State},
 };
 
 #[derive(derivative::Derivative)]
@@ -14,7 +14,7 @@ use crate::{
 #[derive(Clone, Default)]
 pub struct OrchestrationModelCfg {
     /// The initial state.
-    pub initial_state: StateView,
+    pub initial_state: RawState,
     /// The consistency level of the state.
     pub consistency_level: ConsistencySetup,
     /// The number of datastores to run.

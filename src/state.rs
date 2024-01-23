@@ -1,3 +1,5 @@
+use std::ops::{Deref, DerefMut};
+
 use crate::controller::client::ClientState;
 use crate::controller::ControllerStates;
 use crate::resources::{
@@ -30,7 +32,7 @@ pub struct State {
 }
 
 impl State {
-    pub fn new(initial_state: StateView, consistency_level: ConsistencySetup) -> Self {
+    pub fn new(initial_state: RawState, consistency_level: ConsistencySetup) -> Self {
         Self {
             states: StateHistory::new(consistency_level, initial_state),
             controller_states: Vec::new(),
@@ -111,6 +113,20 @@ pub struct StateView {
     // In reality this would be a UUID but randomness doesn't go very well in the checker.
     #[derivative(PartialEq = "ignore", Hash = "ignore")]
     pub next_uid: u64,
+    pub state: RawState,
+}
+
+impl From<RawState> for StateView {
+    fn from(value: RawState) -> Self {
+        StateView {
+            state: value,
+            ..Default::default()
+        }
+    }
+}
+
+#[derive(Default, Clone, Debug, Eq, PartialOrd, Ord, PartialEq, Hash)]
+pub struct RawState {
     pub nodes: Resources<Node>,
     pub pods: Resources<Pod>,
     pub replicasets: Resources<ReplicaSet>,
@@ -121,7 +137,7 @@ pub struct StateView {
     pub jobs: Resources<Job>,
 }
 
-impl StateView {
+impl RawState {
     pub fn with_pods(mut self, pods: impl Iterator<Item = Pod>) -> Self {
         self.set_pods(pods);
         self
@@ -205,6 +221,29 @@ impl StateView {
         self
     }
 
+    pub fn pods_for_node(&self, node: &str) -> Vec<&Pod> {
+        self.pods
+            .iter()
+            .filter(|p| p.spec.node_name.as_ref().map_or(false, |n| n == node))
+            .collect()
+    }
+}
+
+impl Deref for StateView {
+    type Target = RawState;
+
+    fn deref(&self) -> &Self::Target {
+        &self.state
+    }
+}
+
+impl DerefMut for StateView {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.state
+    }
+}
+
+impl StateView {
     pub fn apply_change(&mut self, change: &Change, new_revision: Revision) {
         match &change.operation {
             ControllerAction::NodeJoin(name, capacity) => {
@@ -323,13 +362,6 @@ impl StateView {
             }
         }
         self.revision = new_revision;
-    }
-
-    pub fn pods_for_node(&self, node: &str) -> Vec<&Pod> {
-        self.pods
-            .iter()
-            .filter(|p| p.spec.node_name.as_ref().map_or(false, |n| n == node))
-            .collect()
     }
 
     fn fill_name<T: Meta>(&self, res: &mut T) {

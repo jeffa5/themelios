@@ -8,8 +8,8 @@ use model_checked_orchestration::resources::PodSpec;
 use model_checked_orchestration::resources::PodTemplateSpec;
 use model_checked_orchestration::resources::StatefulSet;
 use model_checked_orchestration::resources::StatefulSetSpec;
-use model_checked_orchestration::state::ConsistencySetup;
-use model_checked_orchestration::state::StateView;
+use model_checked_orchestration::state::history::ConsistencySetup;
+use model_checked_orchestration::state::RawState;
 use model_checked_orchestration::utils;
 use stateright::Expectation;
 use std::collections::BTreeMap;
@@ -22,7 +22,7 @@ fn model(
     client_actions: ClientState,
     nodes: usize,
 ) -> OrchestrationModelCfg {
-    let initial_state = StateView::default().with_statefulset(statefulset);
+    let initial_state = RawState::default().with_statefulset(statefulset);
     OrchestrationModelCfg {
         initial_state,
         statefulset_controllers: 1,

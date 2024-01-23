@@ -19,7 +19,8 @@ use crate::controller::{
 use crate::resources::{
     ControllerRevision, Deployment, Job, Node, PersistentVolumeClaim, Pod, ReplicaSet, StatefulSet,
 };
-use crate::state::{revision::Revision, StateView};
+use crate::state::RawState;
+use crate::state::StateView;
 
 pub fn app() -> Router {
     Router::new()
@@ -193,10 +194,12 @@ async fn scheduler(
     let mut pods = payload.bound_pods;
     pods.push(payload.pod);
     let state_view = StateView {
-        revision: Revision::default(),
-        nodes: payload.nodes.into(),
-        pods: pods.into(),
-        persistent_volume_claims: payload.persistent_volume_claims.into(),
+        state: RawState {
+            nodes: payload.nodes.into(),
+            pods: pods.into(),
+            persistent_volume_claims: payload.persistent_volume_claims.into(),
+            ..Default::default()
+        },
         ..Default::default()
     };
     let mut local_state = SchedulerControllerState;
@@ -219,9 +222,11 @@ async fn deployment(
     println!("{}", serde_yaml::to_string(&payload).unwrap());
     let controller_id = 0;
     let state_view = StateView {
-        revision: Revision::default(),
-        deployments: vec![payload.deployment].into(),
-        replicasets: payload.replicasets.into(),
+        state: RawState {
+            deployments: vec![payload.deployment].into(),
+            replicasets: payload.replicasets.into(),
+            ..Default::default()
+        },
         ..Default::default()
     };
     let mut local_state = DeploymentControllerState;
@@ -283,9 +288,11 @@ async fn replicaset(
         replicasets.push(payload.replicaset);
     }
     let state_view = StateView {
-        revision: Revision::default(),
-        replicasets: replicasets.into(),
-        pods: payload.pods.into(),
+        state: RawState {
+            replicasets: replicasets.into(),
+            pods: payload.pods.into(),
+            ..Default::default()
+        },
         ..Default::default()
     };
     let mut local_state = ReplicaSetControllerState;
@@ -319,11 +326,13 @@ async fn statefulset(
     println!("{}", serde_yaml::to_string(&payload).unwrap());
     let controller_id = 0;
     let state_view = StateView {
-        revision: Revision::default(),
-        statefulsets: vec![payload.statefulset].into(),
-        controller_revisions: payload.controller_revisions.into(),
-        pods: payload.pods.into(),
-        persistent_volume_claims: payload.persistent_volume_claims.into(),
+        state: RawState {
+            statefulsets: vec![payload.statefulset].into(),
+            controller_revisions: payload.controller_revisions.into(),
+            pods: payload.pods.into(),
+            persistent_volume_claims: payload.persistent_volume_claims.into(),
+            ..Default::default()
+        },
         ..Default::default()
     };
     let mut local_state = StatefulSetControllerState;
@@ -380,9 +389,11 @@ async fn job(Json(payload): Json<JobRequest>) -> Result<Json<JobResponse>, Error
     println!("{}", serde_yaml::to_string(&payload).unwrap());
     let controller_id = 0;
     let state_view = StateView {
-        revision: Revision::default(),
-        jobs: vec![payload.job].into(),
-        pods: payload.pods.into(),
+        state: RawState {
+            jobs: vec![payload.job].into(),
+            pods: payload.pods.into(),
+            ..Default::default()
+        },
         ..Default::default()
     };
     let mut local_state = JobControllerState;

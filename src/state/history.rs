@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use crate::abstract_model::Change;
 
-use super::{revision::Revision, StateView};
+use super::{revision::Revision, RawState, StateView};
 
 /// Consistency level for viewing the state with.
 #[derive(Default, Clone, Debug, PartialEq, Eq, Hash)]
@@ -56,9 +56,9 @@ pub struct StrongHistory {
 }
 
 impl StrongHistory {
-    fn new(initial_state: StateView) -> Self {
+    fn new(initial_state: RawState) -> Self {
         Self {
-            state: Arc::new(initial_state),
+            state: Arc::new(initial_state.into()),
         }
     }
 }
@@ -95,10 +95,10 @@ pub struct BoundedHistory {
 }
 
 impl BoundedHistory {
-    fn new(initial_state: StateView, k: usize) -> Self {
+    fn new(initial_state: RawState, k: usize) -> Self {
         Self {
             k,
-            last_k_states: vec![Arc::new(initial_state)],
+            last_k_states: vec![Arc::new(initial_state.into())],
         }
     }
 }
@@ -147,10 +147,10 @@ pub struct SessionHistory {
 }
 
 impl SessionHistory {
-    fn new(initial_state: StateView) -> Self {
+    fn new(initial_state: RawState) -> Self {
         Self {
             sessions: imbl::OrdMap::new(),
-            states: imbl::vector![Arc::new(initial_state)],
+            states: imbl::vector![Arc::new(initial_state.into())],
         }
     }
 }
@@ -210,9 +210,9 @@ pub struct EventualHistory {
 }
 
 impl EventualHistory {
-    fn new(initial_state: StateView) -> Self {
+    fn new(initial_state: RawState) -> Self {
         Self {
-            states: vec![Arc::new(initial_state)],
+            states: vec![Arc::new(initial_state.into())],
         }
     }
 }
@@ -253,9 +253,9 @@ pub struct OptimisticLinearHistory {
 }
 
 impl OptimisticLinearHistory {
-    fn new(initial_state: StateView, commit_every: usize) -> Self {
+    fn new(initial_state: RawState, commit_every: usize) -> Self {
         Self {
-            states: vec![Arc::new(initial_state)],
+            states: vec![Arc::new(initial_state.into())],
             commit_every,
         }
     }
@@ -329,10 +329,10 @@ struct CausalState {
 }
 
 impl CausalHistory {
-    fn new(initial_state: StateView) -> Self {
+    fn new(initial_state: RawState) -> Self {
         Self {
             states: vec![CausalState {
-                state: Arc::new(initial_state),
+                state: Arc::new(initial_state.into()),
                 predecessors: Vec::new(),
                 successors: Vec::new(),
             }],
@@ -437,7 +437,7 @@ impl Default for StateHistory {
 }
 
 impl StateHistory {
-    pub fn new(consistency_level: ConsistencySetup, initial_state: StateView) -> Self {
+    pub fn new(consistency_level: ConsistencySetup, initial_state: RawState) -> Self {
         match consistency_level {
             ConsistencySetup::Strong => Self::Strong(StrongHistory::new(initial_state)),
             ConsistencySetup::BoundedStaleness(k) => {
