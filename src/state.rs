@@ -109,10 +109,6 @@ pub struct StateView {
     // Ignore the revision field as we just care whether the rest of the state is the same.
     #[derivative(PartialEq = "ignore", Hash = "ignore")]
     pub revision: Revision,
-    // Ignore the next_uid field as it is just for convenience in checking.
-    // In reality this would be a UUID but randomness doesn't go very well in the checker.
-    #[derivative(PartialEq = "ignore", Hash = "ignore")]
-    pub next_uid: u64,
     pub state: RawState,
 }
 
@@ -266,8 +262,7 @@ impl StateView {
             }
             ControllerAction::CreatePod(pod) => {
                 let mut pod = pod.clone();
-                pod.metadata.uid = self.next_uid.to_string();
-                self.next_uid += 1;
+                pod.metadata.uid = self.revision.to_string();
                 self.fill_name(&mut pod);
                 self.pods.insert(pod);
             }
@@ -309,8 +304,7 @@ impl StateView {
             }
             ControllerAction::CreateReplicaSet(rs) => {
                 let mut rs = rs.clone();
-                rs.metadata.uid = self.next_uid.to_string();
-                self.next_uid += 1;
+                rs.metadata.uid = self.revision.to_string();
                 self.fill_name(&mut rs);
                 self.replicasets.insert(rs);
             }
@@ -333,8 +327,7 @@ impl StateView {
             }
             ControllerAction::CreateControllerRevision(cr) => {
                 let mut cr = cr.clone();
-                cr.metadata.uid = self.next_uid.to_string();
-                self.next_uid += 1;
+                cr.metadata.uid = self.revision.to_string();
                 self.fill_name(&mut cr);
                 self.controller_revisions.insert(cr);
             }
@@ -349,8 +342,7 @@ impl StateView {
             }
             ControllerAction::CreatePersistentVolumeClaim(pvc) => {
                 let mut pvc = pvc.clone();
-                pvc.metadata.uid = self.next_uid.to_string();
-                self.next_uid += 1;
+                pvc.metadata.uid = self.revision.to_string();
                 self.fill_name(&mut pvc);
                 self.persistent_volume_claims.insert(pvc);
             }
