@@ -31,12 +31,7 @@ pub trait Controller {
     type Action: Into<ControllerAction>;
 
     /// Take a step, generating changes, based on the current view of the state.
-    fn step(
-        &self,
-        id: usize,
-        global_state: &RawState,
-        local_state: &mut Self::State,
-    ) -> Option<Self::Action>;
+    fn step(&self, global_state: &RawState, local_state: &mut Self::State) -> Option<Self::Action>;
 
     /// Name of this controller.
     fn name(&self) -> String;
@@ -75,28 +70,27 @@ impl Controller for Controllers {
 
     fn step(
         &self,
-        id: usize,
         global_state: &RawState,
         local_state: &mut Self::State,
     ) -> Option<ControllerAction> {
         match (self, local_state) {
             (Controllers::Node(c), ControllerStates::Node(s)) => {
-                c.step(id, global_state, s).map(|a| a.into())
+                c.step(global_state, s).map(|a| a.into())
             }
             (Controllers::Scheduler(c), ControllerStates::Scheduler(s)) => {
-                c.step(id, global_state, s).map(|a| a.into())
+                c.step(global_state, s).map(|a| a.into())
             }
             (Controllers::ReplicaSet(c), ControllerStates::ReplicaSet(s)) => {
-                c.step(id, global_state, s).map(|a| a.into())
+                c.step(global_state, s).map(|a| a.into())
             }
             (Controllers::Deployment(c), ControllerStates::Deployment(s)) => {
-                c.step(id, global_state, s).map(|a| a.into())
+                c.step(global_state, s).map(|a| a.into())
             }
             (Controllers::StatefulSet(c), ControllerStates::StatefulSet(s)) => {
-                c.step(id, global_state, s).map(|a| a.into())
+                c.step(global_state, s).map(|a| a.into())
             }
             (Controllers::Job(c), ControllerStates::Job(s)) => {
-                c.step(id, global_state, s).map(|a| a.into())
+                c.step(global_state, s).map(|a| a.into())
             }
             _ => unreachable!(),
         }

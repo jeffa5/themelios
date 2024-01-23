@@ -190,7 +190,6 @@ async fn scheduler(
     let s = SchedulerController;
     debug!("Got scheduler request");
     println!("{}", serde_yaml::to_string(&payload).unwrap());
-    let controller_id = 0;
     let mut pods = payload.bound_pods;
     pods.push(payload.pod);
     let state_view = StateView {
@@ -203,7 +202,7 @@ async fn scheduler(
         ..Default::default()
     };
     let mut local_state = SchedulerControllerState;
-    let operation = s.step(controller_id, &state_view, &mut local_state);
+    let operation = s.step(&state_view, &mut local_state);
     debug!(?operation, "Got operation");
     match operation {
         Some(SchedulerControllerAction::SchedulePod(_, node)) => {
@@ -220,7 +219,6 @@ async fn deployment(
     let s = DeploymentController;
     debug!("Got deployment controller request");
     println!("{}", serde_yaml::to_string(&payload).unwrap());
-    let controller_id = 0;
     let state_view = StateView {
         state: RawState {
             deployments: vec![payload.deployment].into(),
@@ -230,7 +228,7 @@ async fn deployment(
         ..Default::default()
     };
     let mut local_state = DeploymentControllerState;
-    let operation = s.step(controller_id, &state_view, &mut local_state);
+    let operation = s.step(&state_view, &mut local_state);
     debug!(?operation, "Got operation");
     match operation {
         Some(DeploymentControllerAction::UpdateDeployment(dep)) => {
@@ -279,7 +277,6 @@ async fn replicaset(
     let s = ReplicaSetController;
     debug!("Got replicaset controller request");
     println!("{}", serde_yaml::to_string(&payload).unwrap());
-    let controller_id = 0;
     let mut replicasets = payload.replicasets;
     if !replicasets
         .iter()
@@ -296,7 +293,7 @@ async fn replicaset(
         ..Default::default()
     };
     let mut local_state = ReplicaSetControllerState;
-    let operation = s.step(controller_id, &state_view, &mut local_state);
+    let operation = s.step(&state_view, &mut local_state);
     debug!(?operation, "Got operation");
     match operation {
         Some(ReplicaSetControllerAction::UpdatePod(pod)) => {
@@ -324,7 +321,6 @@ async fn statefulset(
     let s = StatefulSetController;
     debug!("Got statefulset controller request");
     println!("{}", serde_yaml::to_string(&payload).unwrap());
-    let controller_id = 0;
     let state_view = StateView {
         state: RawState {
             statefulsets: vec![payload.statefulset].into(),
@@ -336,7 +332,7 @@ async fn statefulset(
         ..Default::default()
     };
     let mut local_state = StatefulSetControllerState;
-    let operation = s.step(controller_id, &state_view, &mut local_state);
+    let operation = s.step(&state_view, &mut local_state);
     debug!(?operation, "Got operation");
     match operation {
         Some(StatefulSetControllerAction::UpdateStatefulSetStatus(sts)) => {
@@ -387,7 +383,6 @@ async fn job(Json(payload): Json<JobRequest>) -> Result<Json<JobResponse>, Error
     let s = JobController;
     debug!("Got job controller request");
     println!("{}", serde_yaml::to_string(&payload).unwrap());
-    let controller_id = 0;
     let state_view = StateView {
         state: RawState {
             jobs: vec![payload.job].into(),
@@ -397,7 +392,7 @@ async fn job(Json(payload): Json<JobRequest>) -> Result<Json<JobResponse>, Error
         ..Default::default()
     };
     let mut local_state = JobControllerState;
-    let operation = s.step(controller_id, &state_view, &mut local_state);
+    let operation = s.step(&state_view, &mut local_state);
     debug!(?operation, "Got operation");
     match operation {
         Some(JobControllerAction::UpdateJobStatus(job)) => {

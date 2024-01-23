@@ -84,7 +84,6 @@ impl Controller for JobController {
 
     fn step(
         &self,
-        _id: usize,
         global_state: &crate::state::RawState,
         _local_state: &mut Self::State,
     ) -> Option<Self::Action> {

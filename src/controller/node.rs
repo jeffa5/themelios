@@ -42,7 +42,6 @@ impl Controller for NodeController {
 
     fn step(
         &self,
-        _id: usize,
         global_state: &RawState,
         local_state: &mut Self::State,
     ) -> Option<NodeControllerAction> {

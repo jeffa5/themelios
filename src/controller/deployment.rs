@@ -132,7 +132,6 @@ impl Controller for DeploymentController {
 
     fn step(
         &self,
-        _id: usize,
         global_state: &RawState,
         _local_state: &mut Self::State,
     ) -> Option<DeploymentControllerAction> {
