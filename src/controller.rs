@@ -1,7 +1,7 @@
 use std::hash::Hash;
 
 use crate::abstract_model::ControllerAction;
-use crate::state::StateView;
+use crate::state::RawState;
 
 pub use deployment::DeploymentController;
 pub use node::NodeController;
@@ -34,7 +34,7 @@ pub trait Controller {
     fn step(
         &self,
         id: usize,
-        global_state: &StateView,
+        global_state: &RawState,
         local_state: &mut Self::State,
     ) -> Option<Self::Action>;
 
@@ -76,7 +76,7 @@ impl Controller for Controllers {
     fn step(
         &self,
         id: usize,
-        global_state: &StateView,
+        global_state: &RawState,
         local_state: &mut Self::State,
     ) -> Option<ControllerAction> {
         match (self, local_state) {

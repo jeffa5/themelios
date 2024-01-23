@@ -16,7 +16,7 @@ use crate::{
         StatefulSetPersistentVolumeClaimRetentionPolicyType, StatefulSetSpec, StatefulSetStatus,
         Volume,
     },
-    state::StateView,
+    state::RawState,
     utils::now,
 };
 
@@ -85,7 +85,7 @@ impl Controller for StatefulSetController {
     fn step(
         &self,
         _id: usize,
-        global_state: &StateView,
+        global_state: &RawState,
         _local_state: &mut Self::State,
     ) -> Option<StatefulSetControllerAction> {
         for statefulset in global_state.statefulsets.iter() {

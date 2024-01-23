@@ -9,7 +9,7 @@ use crate::{
         DeploymentStatus, DeploymentStrategyType, LabelSelector, Pod, PodTemplateSpec, ReplicaSet,
         ReplicaSetCondition, ReplicaSetConditionType,
     },
-    state::StateView,
+    state::RawState,
     utils::now,
 };
 use diff::Diff;
@@ -133,13 +133,12 @@ impl Controller for DeploymentController {
     fn step(
         &self,
         _id: usize,
-        global_state: &StateView,
+        global_state: &RawState,
         _local_state: &mut Self::State,
     ) -> Option<DeploymentControllerAction> {
         for deployment in global_state.deployments.iter() {
             let replicasets = global_state.replicasets.iter().collect::<Vec<_>>();
             let pod_map = BTreeMap::new();
-            debug!(rev = ?global_state.revision, "Reconciling state");
             if let Some(op) = reconcile(deployment, &replicasets, &pod_map) {
                 return Some(op);
             }

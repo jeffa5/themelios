@@ -5,7 +5,7 @@ use crate::controller::Controller;
 use crate::resources::{
     ConditionStatus, Pod, PodCondition, PodConditionType, PodPhase, ResourceQuantities,
 };
-use crate::state::StateView;
+use crate::state::RawState;
 
 #[derive(Clone, Debug)]
 pub struct NodeController {
@@ -43,7 +43,7 @@ impl Controller for NodeController {
     fn step(
         &self,
         _id: usize,
-        global_state: &StateView,
+        global_state: &RawState,
         local_state: &mut Self::State,
     ) -> Option<NodeControllerAction> {
         if let Some(_node) = global_state.nodes.get(&self.name) {

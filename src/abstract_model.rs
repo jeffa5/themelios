@@ -116,6 +116,7 @@ impl Model for AbstractModelCfg {
         for (i, controller) in self.controllers.iter().enumerate() {
             for view in state.views(i) {
                 let mut cstate = state.get_controller(i).clone();
+                debug!(rev = ?view.revision, "Reconciling state");
                 let action = controller.step(i, &view, &mut cstate);
                 debug!(
                     controller = controller.name(),

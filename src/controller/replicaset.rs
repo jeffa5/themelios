@@ -13,7 +13,7 @@ use crate::resources::{
     LabelSelector, Pod, PodConditionType, ReplicaSet, ReplicaSetCondition, ReplicaSetConditionType,
     ReplicaSetStatus, Time,
 };
-use crate::state::StateView;
+use crate::state::RawState;
 use crate::utils::now;
 
 use super::util;
@@ -58,7 +58,7 @@ impl Controller for ReplicaSetController {
     fn step(
         &self,
         _id: usize,
-        global_state: &StateView,
+        global_state: &RawState,
         _local_state: &mut Self::State,
     ) -> Option<Self::Action> {
         for replicaset in global_state.replicasets.iter() {
