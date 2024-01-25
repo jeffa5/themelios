@@ -141,7 +141,13 @@ impl RawState {
 
     pub fn set_pods(&mut self, pods: impl Iterator<Item = Pod>) -> &mut Self {
         for pod in pods {
-            self.pods.insert(pod);
+            let revision = pod
+                .metadata
+                .resource_version
+                .as_str()
+                .try_into()
+                .unwrap_or_default();
+            self.pods.insert(pod, revision).unwrap();
         }
         self
     }
@@ -153,7 +159,13 @@ impl RawState {
 
     pub fn set_replicasets(&mut self, replicasets: impl Iterator<Item = ReplicaSet>) -> &mut Self {
         for replicaset in replicasets {
-            self.replicasets.insert(replicaset);
+            let revision = replicaset
+                .metadata
+                .resource_version
+                .as_str()
+                .try_into()
+                .unwrap_or_default();
+            self.replicasets.insert(replicaset, revision).unwrap();
         }
         self
     }
@@ -165,7 +177,13 @@ impl RawState {
 
     pub fn set_deployments(&mut self, deployments: impl Iterator<Item = Deployment>) -> &mut Self {
         for deployment in deployments {
-            self.deployments.insert(deployment);
+            let revision = deployment
+                .metadata
+                .resource_version
+                .as_str()
+                .try_into()
+                .unwrap_or_default();
+            self.deployments.insert(deployment, revision).unwrap();
         }
         self
     }
@@ -176,7 +194,13 @@ impl RawState {
     }
 
     pub fn set_deployment(&mut self, deployment: Deployment) -> &mut Self {
-        self.deployments.insert(deployment);
+        let revision = deployment
+            .metadata
+            .resource_version
+            .as_str()
+            .try_into()
+            .unwrap_or_default();
+        self.deployments.insert(deployment, revision).unwrap();
         self
     }
 
@@ -190,7 +214,13 @@ impl RawState {
         statefulsets: impl Iterator<Item = StatefulSet>,
     ) -> &mut Self {
         for statefulset in statefulsets {
-            self.statefulsets.insert(statefulset);
+            let revision = statefulset
+                .metadata
+                .resource_version
+                .as_str()
+                .try_into()
+                .unwrap_or_default();
+            self.statefulsets.insert(statefulset, revision).unwrap();
         }
         self
     }
@@ -201,7 +231,13 @@ impl RawState {
     }
 
     pub fn set_statefulset(&mut self, statefulset: StatefulSet) -> &mut Self {
-        self.statefulsets.insert(statefulset);
+        let revision = statefulset
+            .metadata
+            .resource_version
+            .as_str()
+            .try_into()
+            .unwrap_or_default();
+        self.statefulsets.insert(statefulset, revision).unwrap();
         self
     }
 
@@ -212,7 +248,13 @@ impl RawState {
 
     pub fn set_nodes(&mut self, nodes: impl Iterator<Item = Node>) -> &mut Self {
         for node in nodes {
-            self.nodes.insert(node);
+            let revision = node
+                .metadata
+                .resource_version
+                .as_str()
+                .try_into()
+                .unwrap_or_default();
+            self.nodes.insert(node, revision).unwrap();
         }
         self
     }
@@ -241,46 +283,63 @@ impl DerefMut for StateView {
 
 impl StateView {
     pub fn apply_change(&mut self, change: &Change, new_revision: Revision) {
+        let mut s = self.clone();
+        match s.apply_change_inner(change, new_revision.clone()) {
+            Ok(()) => {
+                s.revision = new_revision;
+                *self = s;
+            }
+            Err(()) => {
+                // don't update our self, basically abort the transaction so no changes
+            }
+        }
+    }
+
+    fn apply_change_inner(&mut self, change: &Change, new_revision: Revision) -> Result<(), ()> {
         match &change.operation {
             ControllerAction::NodeJoin(name, capacity) => {
-                self.nodes.insert(Node {
-                    metadata: utils::metadata(name.clone()),
-                    spec: crate::resources::NodeSpec {
-                        taints: Vec::new(),
-                        unschedulable: false,
+                self.nodes.insert(
+                    Node {
+                        metadata: utils::metadata(name.clone()),
+                        spec: crate::resources::NodeSpec {
+                            taints: Vec::new(),
+                            unschedulable: false,
+                        },
+                        status: crate::resources::NodeStatus {
+                            capacity: capacity.clone(),
+                            allocatable: Some(capacity.clone()),
+                            conditions: vec![NodeCondition {
+                                r#type: NodeConditionType::Ready,
+                                status: ConditionStatus::True,
+                                ..Default::default()
+                            }],
+                        },
                     },
-                    status: crate::resources::NodeStatus {
-                        capacity: capacity.clone(),
-                        allocatable: Some(capacity.clone()),
-                        conditions: vec![NodeCondition {
-                            r#type: NodeConditionType::Ready,
-                            status: ConditionStatus::True,
-                            ..Default::default()
-                        }],
-                    },
-                });
+                    new_revision,
+                )?;
             }
             ControllerAction::CreatePod(pod) => {
                 let mut pod = pod.clone();
                 pod.metadata.uid = self.revision.to_string();
                 self.fill_name(&mut pod);
-                self.pods.insert(pod);
+                self.pods.insert(pod, new_revision)?;
             }
             ControllerAction::UpdatePod(pod) => {
-                self.pods.insert(pod.clone());
+                self.pods.insert(pod.clone(), new_revision)?;
             }
             ControllerAction::SoftDeletePod(pod) => {
                 let mut pod = pod.clone();
                 // marked for deletion
                 pod.metadata.deletion_timestamp = Some(now());
-                self.pods.insert(pod);
+                self.pods.insert(pod, new_revision)?;
             }
             ControllerAction::HardDeletePod(pod) => {
                 self.pods.remove(&pod.metadata.name);
             }
             ControllerAction::SchedulePod(pod, node) => {
-                if let Some(pod) = self.pods.get_mut(pod) {
+                if let Some(mut pod) = self.pods.get(pod).cloned() {
                     pod.spec.node_name = Some(node.clone());
+                    self.pods.insert(pod, new_revision)?;
                 }
             }
             ControllerAction::NodeCrash(node_name) => {
@@ -294,45 +353,45 @@ impl StateView {
                 }
             }
             ControllerAction::UpdateDeployment(dep) => {
-                self.deployments.insert(dep.clone());
+                self.deployments.insert(dep.clone(), new_revision)?;
             }
             ControllerAction::RequeueDeployment(_dep) => {
                 // skip
             }
             ControllerAction::UpdateDeploymentStatus(dep) => {
-                self.deployments.insert(dep.clone());
+                self.deployments.insert(dep.clone(), new_revision)?;
             }
             ControllerAction::CreateReplicaSet(rs) => {
                 let mut rs = rs.clone();
                 rs.metadata.uid = self.revision.to_string();
                 self.fill_name(&mut rs);
-                self.replicasets.insert(rs);
+                self.replicasets.insert(rs, new_revision)?;
             }
             ControllerAction::UpdateReplicaSet(rs) => {
-                self.replicasets.insert(rs.clone());
+                self.replicasets.insert(rs.clone(), new_revision)?;
             }
             ControllerAction::UpdateReplicaSetStatus(rs) => {
-                self.replicasets.insert(rs.clone());
+                self.replicasets.insert(rs.clone(), new_revision)?;
             }
             ControllerAction::UpdateReplicaSets(rss) => {
                 for rs in rss {
-                    self.replicasets.insert(rs.clone());
+                    self.replicasets.insert(rs.clone(), new_revision.clone())?;
                 }
             }
             ControllerAction::UpdateStatefulSet(sts) => {
-                self.statefulsets.insert(sts.clone());
+                self.statefulsets.insert(sts.clone(), new_revision)?;
             }
             ControllerAction::UpdateStatefulSetStatus(sts) => {
-                self.statefulsets.insert(sts.clone());
+                self.statefulsets.insert(sts.clone(), new_revision)?;
             }
             ControllerAction::CreateControllerRevision(cr) => {
                 let mut cr = cr.clone();
                 cr.metadata.uid = self.revision.to_string();
                 self.fill_name(&mut cr);
-                self.controller_revisions.insert(cr);
+                self.controller_revisions.insert(cr, new_revision)?;
             }
             ControllerAction::UpdateControllerRevision(cr) => {
-                self.controller_revisions.insert(cr.clone());
+                self.controller_revisions.insert(cr.clone(), new_revision)?;
             }
             ControllerAction::DeleteControllerRevision(cr) => {
                 self.controller_revisions.remove(&cr.metadata.name);
@@ -344,16 +403,17 @@ impl StateView {
                 let mut pvc = pvc.clone();
                 pvc.metadata.uid = self.revision.to_string();
                 self.fill_name(&mut pvc);
-                self.persistent_volume_claims.insert(pvc);
+                self.persistent_volume_claims.insert(pvc, new_revision)?;
             }
             ControllerAction::UpdatePersistentVolumeClaim(pvc) => {
-                self.persistent_volume_claims.insert(pvc.clone());
+                self.persistent_volume_claims
+                    .insert(pvc.clone(), new_revision)?;
             }
             ControllerAction::UpdateJobStatus(job) => {
-                self.jobs.insert(job.clone());
+                self.jobs.insert(job.clone(), new_revision)?;
             }
         }
-        self.revision = new_revision;
+        Ok(())
     }
 
     fn fill_name<T: Meta>(&self, res: &mut T) {
