@@ -295,7 +295,11 @@ impl StateView {
         }
     }
 
-    fn apply_operation_inner(&mut self, operation: ControllerAction, new_revision: Revision) -> Result<(), ()> {
+    fn apply_operation_inner(
+        &mut self,
+        operation: ControllerAction,
+        new_revision: Revision,
+    ) -> Result<(), ()> {
         match operation {
             ControllerAction::NodeJoin(name, capacity) => {
                 self.nodes.insert(
@@ -401,8 +405,7 @@ impl StateView {
                 self.persistent_volume_claims.insert(pvc, new_revision)?;
             }
             ControllerAction::UpdatePersistentVolumeClaim(pvc) => {
-                self.persistent_volume_claims
-                    .insert(pvc, new_revision)?;
+                self.persistent_volume_claims.insert(pvc, new_revision)?;
             }
             ControllerAction::UpdateJobStatus(job) => {
                 self.jobs.insert(job, new_revision)?;
