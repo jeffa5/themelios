@@ -34,6 +34,38 @@ impl_meta!(ControllerRevision);
 impl_meta!(PersistentVolumeClaim);
 impl_meta!(Node);
 
+/// Get the desired state of the resource, typically the `spec`.
+pub trait Spec {
+    type Spec: PartialEq;
+    fn spec(&self) -> &Self::Spec;
+}
+
+macro_rules! impl_spec {
+    ($r:ident, $spec:ident) => {
+        impl Spec for $r {
+            type Spec = $spec;
+            fn spec(&self) -> &Self::Spec {
+                &self.spec
+            }
+        }
+    };
+}
+
+impl_spec!(Pod, PodSpec);
+impl_spec!(Job, JobSpec);
+impl_spec!(Deployment, DeploymentSpec);
+impl_spec!(ReplicaSet, ReplicaSetSpec);
+impl_spec!(StatefulSet, StatefulSetSpec);
+impl_spec!(PersistentVolumeClaim, PersistentVolumeClaimSpec);
+impl_spec!(Node, NodeSpec);
+
+impl Spec for ControllerRevision {
+    type Spec = ();
+    fn spec(&self) -> &Self::Spec {
+        &()
+    }
+}
+
 #[derive(
     Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff,
 )]
@@ -92,7 +124,7 @@ pub struct Metadata {
     #[serde(default)]
     pub annotations: BTreeMap<String, String>,
 
-    // A sequence number representing a specific generation of the desired state. Populated by the system. Read-only.
+    // A sequence number representing a specific generation of the desired state (spec). Populated by the system. Read-only.
     #[serde(default)]
     pub generation: u64,
 

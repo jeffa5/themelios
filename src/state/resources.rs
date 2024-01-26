@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use tracing::warn;
 
-use crate::resources::{LabelSelector, Meta};
+use crate::resources::{LabelSelector, Meta, Spec};
 
 use super::revision::Revision;
 
@@ -19,7 +19,7 @@ impl<T> Default for Resources<T> {
     }
 }
 
-impl<T: Meta + Clone> Resources<T> {
+impl<T: Meta + Spec + Clone> Resources<T> {
     /// Insert the resource into the resources set.
     /// Returns whether the insertion succeeded or not.
     ///
@@ -47,6 +47,10 @@ impl<T: Meta + Clone> Resources<T> {
             } else {
                 // set resource version to mod revision as per https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#concurrency-control-and-consistency
                 res.metadata_mut().resource_version = revision.to_string();
+                // Update the generation of the resource if the spec (desired state) has changed.
+                if res.spec() != existing.spec() {
+                    res.metadata_mut().generation += 1;
+                }
                 *existing = res;
                 Ok(())
             }
@@ -128,7 +132,7 @@ impl<T: Meta + Clone> Resources<T> {
     }
 }
 
-impl<T: Meta + Clone> From<Vec<T>> for Resources<T> {
+impl<T: Meta + Spec + Clone> From<Vec<T>> for Resources<T> {
     fn from(value: Vec<T>) -> Self {
         let mut rv = Resources::default();
         for v in value {
