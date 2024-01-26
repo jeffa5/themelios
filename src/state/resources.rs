@@ -120,7 +120,7 @@ impl<T: Meta + Spec + Clone> Resources<T> {
             .map(|r| r.as_ref())
     }
 
-    pub fn matching(&self, selector: LabelSelector) -> impl Iterator<Item = &T> {
+    pub fn matching<'a>(&'a self, selector: &'a LabelSelector) -> impl Iterator<Item = &T> + 'a {
         self.0
             .iter()
             .filter(move |t| selector.matches(&t.metadata().labels))
