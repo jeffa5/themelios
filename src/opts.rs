@@ -91,4 +91,9 @@ pub enum SubCmd {
         #[clap(long, default_value = "7070")]
         port: u16,
     },
+    /// Deploy as API server, interactable with kubectl.
+    ServeCluster {
+        #[clap(long, default_value = "8080")]
+        port: u16,
+    }
 }

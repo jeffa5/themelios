@@ -1,4 +1,5 @@
 use diff::Diff;
+use k8s_openapi::NamespaceResourceScope;
 use serde::{Deserialize, Serialize};
 use std::{
     collections::BTreeMap,
@@ -65,6 +66,44 @@ impl Spec for ControllerRevision {
         &()
     }
 }
+
+macro_rules! impl_resource {
+    ($r:ident, $scope:ident, $apiversion:expr, $group:expr, $kind:expr, $version:expr, $urlpathsegment:expr) => {
+        impl k8s_openapi::Resource for $r {
+            type Scope = $scope;
+
+            const API_VERSION: &'static str = $apiversion;
+            const GROUP: &'static str = $group;
+            const KIND: &'static str = $kind;
+            const VERSION: &'static str = $version;
+            const URL_PATH_SEGMENT: &'static str = $urlpathsegment;
+        }
+    };
+}
+
+impl_resource!(Pod, NamespaceResourceScope, "v1", "core", "Pod", "v1", "pods");
+// impl_resource!(Job, "JobList");
+// impl_resource!(Deployment, "DeploymentList");
+// impl_resource!(ReplicaSet, "ReplicaSetList");
+// impl_resource!(StatefulSet, "StatefulSetList");
+// impl_resource!(PersistentVolumeClaim, "PersistentVolumeClaimList");
+// impl_resource!(Node, "NodeList");
+
+macro_rules! impl_listable {
+    ($r:ident, $kind:expr) => {
+        impl k8s_openapi::ListableResource for $r {
+            const LIST_KIND: &'static str = $kind;
+        }
+    };
+}
+
+impl_listable!(Pod, "PodList");
+// impl_listable!(Job, "JobList");
+// impl_listable!(Deployment, "DeploymentList");
+// impl_listable!(ReplicaSet, "ReplicaSetList");
+// impl_listable!(StatefulSet, "StatefulSetList");
+// impl_listable!(PersistentVolumeClaim, "PersistentVolumeClaimList");
+// impl_listable!(Node, "NodeList");
 
 #[derive(
     Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff,

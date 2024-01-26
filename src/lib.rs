@@ -5,5 +5,6 @@ pub mod model;
 pub mod report;
 pub mod resources;
 pub mod serve_test;
+pub mod serve_cluster;
 pub mod state;
 pub mod utils;

@@ -227,5 +227,18 @@ where
                     .unwrap();
             });
         }
+        opts::SubCmd::ServeCluster { port } => {
+            let rt = Runtime::new().unwrap();
+            rt.block_on(async {
+                let trace_layer = TraceLayer::new_for_http();
+                let app = model_checked_orchestration::serve_cluster::app().layer(trace_layer);
+                let address = format!("127.0.0.1:{port}");
+                info!("Serving cluster API on {address}");
+                axum::Server::bind(&address.parse().unwrap())
+                    .serve(app.into_make_service())
+                    .await
+                    .unwrap();
+            });
+        }
     }
 }

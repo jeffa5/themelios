@@ -43,6 +43,8 @@
           pkgs.clippy
 
           pkgs.cargo-flamegraph
+
+          pkgs.kubectl
         ];
       };
     });
