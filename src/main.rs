@@ -214,13 +214,13 @@ where
                 .report(&mut reporter)
                 .join();
         }
-        opts::SubCmd::Serve { port } => {
+        opts::SubCmd::ServeTest { port } => {
             let rt = Runtime::new().unwrap();
             rt.block_on(async {
                 let trace_layer = TraceLayer::new_for_http();
-                let app = model_checked_orchestration::serve::app().layer(trace_layer);
+                let app = model_checked_orchestration::serve_test::app().layer(trace_layer);
                 let address = format!("127.0.0.1:{port}");
-                info!("Serving on {address}");
+                info!("Serving test API on {address}");
                 axum::Server::bind(&address.parse().unwrap())
                     .serve(app.into_make_service())
                     .await

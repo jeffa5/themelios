@@ -4,6 +4,6 @@ pub mod hasher;
 pub mod model;
 pub mod report;
 pub mod resources;
-pub mod serve;
+pub mod serve_test;
 pub mod state;
 pub mod utils;

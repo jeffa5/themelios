@@ -86,7 +86,8 @@ pub enum SubCmd {
         #[clap(long)]
         seed: Option<u64>,
     },
-    Serve {
+    /// Serve an integration test suitable API.
+    ServeTest {
         #[clap(long, default_value = "7070")]
         port: u16,
     },
