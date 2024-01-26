@@ -89,9 +89,12 @@ fn check(model: OrchestrationModelCfg, default_check_mode: CheckMode) {
     }
 }
 
-fn explore(model: OrchestrationModelCfg, path: String) {
+fn explore(model: OrchestrationModelCfg, mut path: String) {
     let host = "127.0.0.1";
     let port = 8080;
+    if !path.is_empty() {
+        path = format!("#/steps/{path}");
+    }
     println!(
         "Exploring model, served on http://{}:{}/{}",
         host, port, path
