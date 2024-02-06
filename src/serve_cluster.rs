@@ -1,7 +1,6 @@
+use crate::api::APIObject;
 use crate::resources::Deployment;
 use crate::resources::Pod;
-use axum::body::Body;
-use axum::http::Request;
 use axum::{
     http::{Method, StatusCode, Uri},
     routing::get,
@@ -9,7 +8,7 @@ use axum::{
     Json, Router,
 };
 use k8s_openapi::apimachinery::pkg::apis::meta::v1::{
-    APIResource, APIResourceList, APIVersions, ListMeta, ServerAddressByClientCIDR,
+    APIResourceList, APIVersions, ListMeta, ServerAddressByClientCIDR,
 };
 use k8s_openapi::List;
 use tracing::{info, warn};
@@ -100,24 +99,7 @@ async fn list_core_v1() -> (StatusCode, Json<APIResourceList>) {
     info!("Got request for api v1 versions");
     let apiversions = APIResourceList {
         group_version: "v1".to_owned(),
-        resources: vec![APIResource {
-            categories: None,
-            group: None,
-            kind: "Pod".to_owned(),
-            name: "pods".to_owned(),
-            namespaced: true,
-            short_names: None,
-            singular_name: "pod".to_owned(),
-            storage_version_hash: None,
-            verbs: vec![
-                "get".to_owned(),
-                "list".to_owned(),
-                "create".to_owned(),
-                "update".to_owned(),
-                "delete".to_owned(),
-            ],
-            version: None,
-        }],
+        resources: vec![Pod::api_resource()],
     };
     (StatusCode::OK, Json(apiversions))
 }
@@ -127,24 +109,7 @@ async fn list_apps_v1() -> (StatusCode, Json<APIResourceList>) {
     info!("Got request for api apps/v1 versions");
     let apiversions = APIResourceList {
         group_version: "apps/v1".to_owned(),
-        resources: vec![APIResource {
-            categories: None,
-            group: Some("apps".to_owned()),
-            kind: "Deployment".to_owned(),
-            name: "deployments".to_owned(),
-            namespaced: true,
-            short_names: None,
-            singular_name: "deployment".to_owned(),
-            storage_version_hash: None,
-            verbs: vec![
-                "get".to_owned(),
-                "list".to_owned(),
-                "create".to_owned(),
-                "update".to_owned(),
-                "delete".to_owned(),
-            ],
-            version: None,
-        }],
+        resources: vec![Deployment::api_resource()],
     };
     (StatusCode::OK, Json(apiversions))
 }

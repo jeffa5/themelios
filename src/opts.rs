@@ -95,5 +95,5 @@ pub enum SubCmd {
     ServeCluster {
         #[clap(long, default_value = "8080")]
         port: u16,
-    }
+    },
 }

@@ -1,10 +1,11 @@
 pub mod abstract_model;
+pub mod api;
 pub mod controller;
 pub mod hasher;
 pub mod model;
 pub mod report;
 pub mod resources;
-pub mod serve_test;
 pub mod serve_cluster;
+pub mod serve_test;
 pub mod state;
 pub mod utils;
