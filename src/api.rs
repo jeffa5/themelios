@@ -1,6 +1,7 @@
 use k8s_openapi::apimachinery::pkg::apis::meta::v1::APIResource;
 use k8s_openapi::NamespaceResourceScope;
 use k8s_openapi::Resource;
+use serde::Serialize;
 
 use crate::resources::Deployment;
 use crate::resources::Pod;
@@ -71,7 +72,8 @@ macro_rules! impl_api_object {
                 let plural_name = format!("{singular_name}s");
                 APIResource {
                     categories: None,
-                    group: Some($r::GROUP.to_owned()),
+                    // group: Some($r::GROUP.to_owned()),
+                    group: None,
                     kind: $r::KIND.to_owned(),
                     name: plural_name,
                     namespaced: true,
@@ -83,7 +85,9 @@ macro_rules! impl_api_object {
                         "list".to_owned(),
                         "create".to_owned(),
                         "update".to_owned(),
+                        "patch".to_owned(),
                         "delete".to_owned(),
+                        "deletecollection".to_owned(),
                     ],
                     version: None,
                 }
@@ -99,3 +103,37 @@ impl_api_object!(Deployment);
 // impl_api_object!(StatefulSet);
 // impl_api_object!(PersistentVolumeClaim);
 // impl_api_object!(Node);
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SerializableResource<R: Resource> {
+    api_version: String,
+    kind: String,
+    #[serde(flatten)]
+    resource: R,
+}
+
+impl<R: Resource> SerializableResource<R> {
+    pub fn new(resource: R) -> Self {
+        Self {
+            api_version: R::API_VERSION.to_owned(),
+            kind: R::KIND.to_owned(),
+            resource,
+        }
+    }
+}
+
+impl<R: Resource> k8s_openapi::Resource for SerializableResource<R> {
+    const API_VERSION: &'static str = R::API_VERSION;
+    const GROUP: &'static str = R::GROUP;
+    const KIND: &'static str = R::KIND;
+    const VERSION: &'static str = R::VERSION;
+    const URL_PATH_SEGMENT: &'static str = R::URL_PATH_SEGMENT;
+    type Scope = R::Scope;
+}
+
+impl<R: Resource + k8s_openapi::ListableResource> k8s_openapi::ListableResource
+    for SerializableResource<R>
+{
+    const LIST_KIND: &'static str = R::LIST_KIND;
+}
