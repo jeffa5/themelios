@@ -79,7 +79,7 @@ pub struct Metadata {
     // Name is primarily intended for creation idempotence and configuration definition. Cannot be
     // updated. More info:
     // https://kubernetes.io/docs/concepts/overview/working-with-objects/names#names
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "String::is_empty")]
     pub name: String,
 
     // GenerateName is an optional prefix, used by the server, to generate a unique name ONLY IF the Name field has not been provided. If this field is used, the name returned to the client will be different than the name passed. This value will also be combined with a unique suffix. The provided value has the same validation rules as the Name field, and may be truncated by the length of the suffix required to make the value unique on the server.
@@ -128,7 +128,7 @@ pub struct Metadata {
     pub annotations: BTreeMap<String, String>,
 
     // A sequence number representing a specific generation of the desired state (spec). Populated by the system. Read-only.
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "u64_is_zero")]
     pub generation: u64,
 
     // An opaque value that represents the internal version of this object that can be used by clients to determine when objects have changed. May be used for optimistic concurrency, change detection, and the watch operation on a resource or set of resources. Clients must treat these values as opaque and passed unmodified back to the server. They may only be valid for a particular resource or set of resources.
@@ -137,6 +137,10 @@ pub struct Metadata {
 
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub finalizers: Vec<String>,
+}
+
+fn u64_is_zero(val: &u64) -> bool {
+    *val == 0
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff)]
@@ -223,31 +227,37 @@ impl Pod {
 ))]
 #[serde(rename_all = "camelCase")]
 pub struct PodSpec {
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub node_name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub scheduler_name: Option<String>,
 
+    #[serde(skip_serializing_if = "Vec::is_empty")]
     pub containers: Vec<Container>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub init_containers: Vec<Container>,
 
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub termination_grace_period_seconds: Option<u64>,
 
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub restart_policy: Option<PodRestartPolicy>,
 
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub active_deadline_seconds: Option<u64>,
 
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub volumes: Vec<Volume>,
 
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "String::is_empty")]
     pub hostname: String,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "String::is_empty")]
     pub subdomain: String,
 
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub tolerations: Vec<Toleration>,
 
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub node_selector: BTreeMap<String, String>,
 }
 
@@ -334,12 +344,18 @@ pub struct PersistentVolumeClaimVolumeSource {
     #[derive(Debug, PartialEq)]
 ))]
 pub struct Container {
+    #[serde(skip_serializing_if = "String::is_empty")]
     pub name: String,
+    #[serde(skip_serializing_if = "String::is_empty")]
     pub image: String,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "is_default")]
     pub resources: ResourceRequirements,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub env: Vec<EnvVar>,
+}
+
+fn is_default<D: Default + PartialEq>(val: &D) -> bool {
+    val == &D::default()
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff)]
@@ -540,10 +556,12 @@ pub struct ContainerStateTerminated {
 ))]
 pub struct ResourceRequirements {
     /// What a pod/container is guaranteed to have (minimums).
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub requests: Option<ResourceQuantities>,
     /// What a pod/container cannot use more than (maximums).
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub limits: Option<ResourceQuantities>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub claims: Vec<ResourceClaim>,
 }
 
@@ -961,6 +979,7 @@ pub struct DeploymentSpec {
     pub template: PodTemplateSpec,
 
     // The maximum time in seconds for a deployment to make progress before it is considered to be failed. The deployment controller will continue to process failed deployments and a condition with a ProgressDeadlineExceeded reason will be surfaced in the deployment status. Note that progress will not be estimated during the time a deployment is paused. Defaults to 600s.
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub progress_deadline_seconds: Option<u32>,
 
     // Minimum number of seconds for which a newly created pod should be ready without any of its container crashing, for it to be considered available. Defaults to 0 (pod will be considered available as soon as it is ready)
@@ -968,14 +987,23 @@ pub struct DeploymentSpec {
     pub min_ready_seconds: u32,
 
     // The number of old ReplicaSets to retain to allow rollback. This is a pointer to distinguish between explicit zero and not specified. Defaults to 10.
-    #[serde(default)]
+    #[serde(default = "default_revision_history_limit")]
     pub revision_history_limit: u32,
 
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "bool_is_false")]
     pub paused: bool,
 
     // The deployment strategy to use to replace existing pods with new ones.
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub strategy: Option<DeploymentStrategy>,
+}
+
+fn default_revision_history_limit() -> u32 {
+    10
+}
+
+fn bool_is_false(val: &bool) -> bool {
+    !val
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff)]
@@ -986,6 +1014,7 @@ pub struct DeploymentSpec {
 pub struct DeploymentStrategy {
     #[serde(default)]
     pub r#type: DeploymentStrategyType,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub rolling_update: Option<RollingUpdate>,
 }
 
