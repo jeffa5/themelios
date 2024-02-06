@@ -78,10 +78,9 @@ async fn list_deployments(
 ) -> (StatusCode, Json<List<SerializableResource<Deployment>>>) {
     info!("Got list request for deployments");
     dbg!(headers);
+    let state = state.lock().await;
     let deployments = List {
         items: state
-            .lock()
-            .await
             .deployments
             .iter()
             .map(|d| SerializableResource::new(d.clone()))
@@ -89,11 +88,11 @@ async fn list_deployments(
         metadata: ListMeta {
             continue_: None,
             remaining_item_count: None,
-            resource_version: None,
+            resource_version: Some(state.revision.to_string()),
             self_link: None,
         },
     };
-    dbg!(serde_json::to_string(&deployments));
+    println!("{}", serde_json::to_string_pretty(&deployments).unwrap());
     (StatusCode::OK, Json(deployments))
 }
 
