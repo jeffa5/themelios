@@ -221,10 +221,8 @@ where
                 let app = model_checked_orchestration::serve_test::app().layer(trace_layer);
                 let address = format!("127.0.0.1:{port}");
                 info!("Serving test API on {address}");
-                axum::Server::bind(&address.parse().unwrap())
-                    .serve(app.into_make_service())
-                    .await
-                    .unwrap();
+                let listener = tokio::net::TcpListener::bind(address).await.unwrap();
+                axum::serve(listener, app).await.unwrap();
             });
         }
         opts::SubCmd::ServeCluster { port } => {
@@ -234,10 +232,8 @@ where
                 let app = model_checked_orchestration::serve_cluster::app().layer(trace_layer);
                 let address = format!("127.0.0.1:{port}");
                 info!("Serving cluster API on {address}");
-                axum::Server::bind(&address.parse().unwrap())
-                    .serve(app.into_make_service())
-                    .await
-                    .unwrap();
+                let listener = tokio::net::TcpListener::bind(address).await.unwrap();
+                axum::serve(listener, app).await.unwrap();
             });
         }
     }

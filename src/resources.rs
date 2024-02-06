@@ -1,5 +1,5 @@
 use diff::Diff;
-use k8s_openapi::NamespaceResourceScope;
+use k8s_openapi::{NamespaceResourceScope, apimachinery::pkg::apis::meta::v1::APIResource};
 use serde::{Deserialize, Serialize};
 use std::{
     collections::BTreeMap,
@@ -83,7 +83,7 @@ macro_rules! impl_resource {
 
 impl_resource!(Pod, NamespaceResourceScope, "v1", "core", "Pod", "v1", "pods");
 // impl_resource!(Job, "JobList");
-// impl_resource!(Deployment, "DeploymentList");
+impl_resource!(Deployment, NamespaceResourceScope, "apps/v1", "apps", "Deployment", "v1", "deployments");
 // impl_resource!(ReplicaSet, "ReplicaSetList");
 // impl_resource!(StatefulSet, "StatefulSetList");
 // impl_resource!(PersistentVolumeClaim, "PersistentVolumeClaimList");
@@ -99,7 +99,7 @@ macro_rules! impl_listable {
 
 impl_listable!(Pod, "PodList");
 // impl_listable!(Job, "JobList");
-// impl_listable!(Deployment, "DeploymentList");
+impl_listable!(Deployment, "DeploymentList");
 // impl_listable!(ReplicaSet, "ReplicaSetList");
 // impl_listable!(StatefulSet, "StatefulSetList");
 // impl_listable!(PersistentVolumeClaim, "PersistentVolumeClaimList");
@@ -1020,6 +1020,7 @@ pub struct DeploymentSpec {
 ))]
 #[serde(rename_all = "camelCase")]
 pub struct DeploymentStrategy {
+    #[serde(default)]
     pub r#type: DeploymentStrategyType,
     pub rolling_update: Option<RollingUpdate>,
 }
