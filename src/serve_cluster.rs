@@ -33,6 +33,7 @@ pub fn app() -> Router {
     Router::new()
         .route("/apis", get(api_groups))
         .nest("/apis", apis())
+        .nest("/api", apis())
         .fallback(fallback)
         .with_state(state)
 }
@@ -56,7 +57,14 @@ fn namespaces_core_v1() -> Router<AppState> {
 }
 
 fn resources_core_v1() -> Router<AppState> {
-    Router::new().route("/pods", get(list_pods))
+    Router::new().nest("/pods", pods_router())
+}
+
+fn pods_router() -> Router<AppState> {
+    Router::new()
+        .route("/", get(list_pods))
+        .route("/:name", get(get_pod))
+        .route("/:name", delete(delete_pod))
 }
 
 fn apps_v1() -> Router<AppState> {
@@ -336,10 +344,17 @@ async fn list_apps_v1() -> (StatusCode, Json<APIResourceList>) {
 }
 
 #[tracing::instrument(skip_all)]
-async fn list_pods() -> (StatusCode, Json<List<Pod>>) {
+async fn list_pods(
+    State(state): State<AppState>,
+) -> (StatusCode, Json<List<SerializableResource<Pod>>>) {
     info!("Got list request for pods");
+    let state = state.lock().await;
     let pods = List {
-        items: vec![],
+        items: state
+            .pods
+            .iter()
+            .map(|p| SerializableResource::new(p.clone()))
+            .collect(),
         metadata: ListMeta {
             continue_: None,
             remaining_item_count: None,
@@ -348,6 +363,45 @@ async fn list_pods() -> (StatusCode, Json<List<Pod>>) {
         },
     };
     (StatusCode::OK, Json(pods))
+}
+
+#[tracing::instrument(skip_all)]
+async fn get_pod(
+    State(state): State<AppState>,
+    Path(name): Path<String>,
+) -> (StatusCode, Json<SerializableResource<Pod>>) {
+    info!("Got get request for pods");
+    let state = state.lock().await;
+    if let Some(pod) = state.pods.get(&name) {
+        (StatusCode::OK, Json(SerializableResource::new(pod.clone())))
+    } else {
+        (
+            StatusCode::NOT_FOUND,
+            Json(SerializableResource::new(Pod::default())),
+        )
+    }
+}
+
+#[tracing::instrument(skip_all)]
+async fn delete_pod(
+    State(state): State<AppState>,
+    Path(name): Path<String>,
+) -> (StatusCode, Json<Status>) {
+    info!("Got delete request for pods");
+    let mut state = state.lock().await;
+    state.revision = state.revision.clone().increment();
+    state.pods.remove(&name);
+    (
+        StatusCode::OK,
+        Json(Status {
+            code: None,
+            details: None,
+            message: None,
+            metadata: ListMeta::default(),
+            reason: None,
+            status: Some("Success".to_owned()),
+        }),
+    )
 }
 
 #[tracing::instrument(skip_all)]
