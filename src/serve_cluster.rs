@@ -4,6 +4,7 @@ use crate::api::APIObject;
 use crate::api::SerializableResource;
 use crate::resources::Deployment;
 use crate::resources::Pod;
+use crate::resources::ReplicaSet;
 use crate::state::StateView;
 use axum::extract::Path;
 use axum::extract::State;
@@ -70,11 +71,17 @@ fn namespaces_apps_v1() -> Router<AppState> {
 
 fn resources_apps_v1() -> Router<AppState> {
     Router::new()
-        .route("/deployments", get(list_deployments))
-        .route("/deployments/:name", get(get_deployment))
-        .route("/deployments", post(create_deployment))
-        .route("/deployments/:name", put(update_deployment))
-        .route("/deployments/:name", delete(delete_deployment))
+        .nest("/deployments", deployments_router())
+        .nest("/replicasets", replicasets_router())
+}
+
+fn deployments_router() -> Router<AppState> {
+    Router::new()
+        .route("/", get(list_deployments))
+        .route("/:name", get(get_deployment))
+        .route("/", post(create_deployment))
+        .route("/:name", put(update_deployment))
+        .route("/:name", delete(delete_deployment))
 }
 
 #[tracing::instrument(skip_all)]
@@ -174,6 +181,112 @@ async fn delete_deployment(
     )
 }
 
+fn replicasets_router() -> Router<AppState> {
+    Router::new()
+        .route("/", get(list_replicasets))
+        .route("/:name", get(get_replicaset))
+        .route("/", post(create_replicaset))
+        .route("/:name", put(update_replicaset))
+        .route("/:name", delete(delete_replicaset))
+}
+
+#[tracing::instrument(skip_all)]
+async fn list_replicasets(
+    headers: HeaderMap,
+    State(state): State<AppState>,
+) -> (StatusCode, Json<List<SerializableResource<ReplicaSet>>>) {
+    info!("Got list request for replicasets");
+    dbg!(headers);
+    let state = state.lock().await;
+    let replicasets = List {
+        items: state
+            .replicasets
+            .iter()
+            .map(|d| SerializableResource::new(d.clone()))
+            .collect(),
+        metadata: ListMeta {
+            continue_: None,
+            remaining_item_count: None,
+            resource_version: Some(state.revision.to_string()),
+            self_link: None,
+        },
+    };
+    println!("{}", serde_json::to_string(&replicasets).unwrap());
+    (StatusCode::OK, Json(replicasets))
+}
+
+#[tracing::instrument(skip_all)]
+async fn get_replicaset(
+    State(state): State<AppState>,
+    Path(name): Path<String>,
+) -> (StatusCode, Json<SerializableResource<ReplicaSet>>) {
+    info!("Got get request for replicaset");
+    let state = state.lock().await;
+    if let Some(replicaset) = state.replicasets.get(&name) {
+        (
+            StatusCode::OK,
+            Json(SerializableResource::new(replicaset.clone())),
+        )
+    } else {
+        (
+            StatusCode::NOT_FOUND,
+            Json(SerializableResource::new(ReplicaSet::default())),
+        )
+    }
+}
+
+#[tracing::instrument(skip_all)]
+async fn create_replicaset(
+    State(state): State<AppState>,
+    Json(replicaset): Json<ReplicaSet>,
+) -> (StatusCode, Json<ReplicaSet>) {
+    info!("Got create request for replicaset");
+    let mut s = state.lock().await;
+    s.revision = s.revision.clone().increment();
+    let revision = s.revision.clone();
+    let replicaset_name = replicaset.metadata.name.clone();
+    s.replicasets.insert(replicaset, revision).unwrap();
+    let replicaset = s.replicasets.get(&replicaset_name).unwrap().clone();
+    (StatusCode::OK, Json(replicaset))
+}
+
+#[tracing::instrument(skip_all)]
+async fn update_replicaset(
+    State(state): State<AppState>,
+    Json(replicaset): Json<ReplicaSet>,
+) -> (StatusCode, Json<ReplicaSet>) {
+    info!("Got create request for replicaset");
+    let mut s = state.lock().await;
+    s.revision = s.revision.clone().increment();
+    let revision = s.revision.clone();
+    let replicaset_name = replicaset.metadata.name.clone();
+    s.replicasets.insert(replicaset, revision).unwrap();
+    let replicaset = s.replicasets.get(&replicaset_name).unwrap().clone();
+    (StatusCode::OK, Json(replicaset))
+}
+
+#[tracing::instrument(skip_all)]
+async fn delete_replicaset(
+    State(state): State<AppState>,
+    Path(name): Path<String>,
+) -> (StatusCode, Json<Status>) {
+    info!("Got create request for replicaset");
+    let mut s = state.lock().await;
+    s.revision = s.revision.clone().increment();
+    s.replicasets.remove(&name);
+    (
+        StatusCode::OK,
+        Json(Status {
+            code: None,
+            details: None,
+            message: None,
+            metadata: ListMeta::default(),
+            reason: None,
+            status: Some("Success".to_owned()),
+        }),
+    )
+}
+
 #[tracing::instrument(skip_all)]
 async fn api_groups() -> (StatusCode, Json<APIGroupList>) {
     info!("Got request for api groups");
@@ -217,7 +330,7 @@ async fn list_apps_v1() -> (StatusCode, Json<APIResourceList>) {
     info!("Got request for api apps/v1 versions");
     let apiversions = APIResourceList {
         group_version: "apps/v1".to_owned(),
-        resources: vec![Deployment::api_resource()],
+        resources: vec![Deployment::api_resource(), ReplicaSet::api_resource()],
     };
     (StatusCode::OK, Json(apiversions))
 }

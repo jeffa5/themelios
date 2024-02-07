@@ -5,6 +5,7 @@ use serde::Serialize;
 
 use crate::resources::Deployment;
 use crate::resources::Pod;
+use crate::resources::ReplicaSet;
 
 pub trait APIObject: Resource {
     fn api_resource() -> APIResource;
@@ -43,7 +44,15 @@ impl_resource!(
     "v1",
     "deployments"
 );
-// impl_resource!(ReplicaSet, "ReplicaSetList");
+impl_resource!(
+    ReplicaSet,
+    NamespaceResourceScope,
+    "apps/v1",
+    "apps",
+    "ReplicaSet",
+    "v1",
+    "replicasets"
+);
 // impl_resource!(StatefulSet, "StatefulSetList");
 // impl_resource!(PersistentVolumeClaim, "PersistentVolumeClaimList");
 // impl_resource!(Node, "NodeList");
@@ -59,7 +68,7 @@ macro_rules! impl_listable {
 impl_listable!(Pod, "PodList");
 // impl_listable!(Job, "JobList");
 impl_listable!(Deployment, "DeploymentList");
-// impl_listable!(ReplicaSet, "ReplicaSetList");
+impl_listable!(ReplicaSet, "ReplicaSetList");
 // impl_listable!(StatefulSet, "StatefulSetList");
 // impl_listable!(PersistentVolumeClaim, "PersistentVolumeClaimList");
 // impl_listable!(Node, "NodeList");
@@ -99,7 +108,7 @@ macro_rules! impl_api_object {
 impl_api_object!(Pod);
 // impl_api_object!(Job);
 impl_api_object!(Deployment);
-// impl_api_object!(ReplicaSet);
+impl_api_object!(ReplicaSet);
 // impl_api_object!(StatefulSet);
 // impl_api_object!(PersistentVolumeClaim);
 // impl_api_object!(Node);
