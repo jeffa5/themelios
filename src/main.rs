@@ -214,17 +214,29 @@ where
                 .report(&mut reporter)
                 .join();
         }
-        opts::SubCmd::Serve { port } => {
+        opts::SubCmd::ServeTest { port } => {
             let rt = Runtime::new().unwrap();
             rt.block_on(async {
                 let trace_layer = TraceLayer::new_for_http();
-                let app = model_checked_orchestration::serve::app().layer(trace_layer);
+                let app = model_checked_orchestration::serve_test::app().layer(trace_layer);
                 let address = format!("127.0.0.1:{port}");
-                info!("Serving on {address}");
-                axum::Server::bind(&address.parse().unwrap())
-                    .serve(app.into_make_service())
-                    .await
-                    .unwrap();
+                info!("Serving test API on {address}");
+                let listener = tokio::net::TcpListener::bind(address).await.unwrap();
+                axum::serve(listener, app).await.unwrap();
+            });
+        }
+        opts::SubCmd::ServeCluster { port } => {
+            let rt = Runtime::new().unwrap();
+            rt.block_on(async {
+                let address = format!("127.0.0.1:{port}");
+                info!("Serving cluster API on {address}");
+                let (shutdown, handles) =
+                    model_checked_orchestration::serve_cluster::run(address).await;
+                tokio::signal::ctrl_c().await.unwrap();
+                shutdown.store(true, std::sync::atomic::Ordering::Relaxed);
+                for handle in handles {
+                    handle.await.unwrap();
+                }
             });
         }
     }
