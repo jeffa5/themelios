@@ -9,7 +9,6 @@ use crate::resources::ReplicaSet;
 use crate::state::StateView;
 use axum::extract::Path;
 use axum::extract::State;
-use axum::http::HeaderMap;
 use axum::routing::delete;
 use axum::routing::put;
 use axum::{
@@ -102,11 +101,9 @@ fn deployments_router() -> Router<AppState> {
 
 #[tracing::instrument(skip_all)]
 async fn list_deployments(
-    headers: HeaderMap,
     State(state): State<AppState>,
 ) -> (StatusCode, Json<List<SerializableResource<Deployment>>>) {
     info!("Got list request for deployments");
-    dbg!(headers);
     let state = state.lock().await;
     let deployments = List {
         items: state
@@ -208,11 +205,9 @@ fn replicasets_router() -> Router<AppState> {
 
 #[tracing::instrument(skip_all)]
 async fn list_replicasets(
-    headers: HeaderMap,
     State(state): State<AppState>,
 ) -> (StatusCode, Json<List<SerializableResource<ReplicaSet>>>) {
     info!("Got list request for replicasets");
-    dbg!(headers);
     let state = state.lock().await;
     let replicasets = List {
         items: state
