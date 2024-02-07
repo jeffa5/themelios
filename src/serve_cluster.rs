@@ -1,7 +1,15 @@
+use std::sync::atomic::AtomicBool;
+use std::sync::atomic::Ordering;
 use std::sync::Arc;
+use std::time::Duration;
 
 use crate::api::APIObject;
 use crate::api::SerializableResource;
+use crate::controller::Controller;
+use crate::controller::DeploymentController;
+use crate::controller::NodeController;
+use crate::controller::ReplicaSetController;
+use crate::controller::SchedulerController;
 use crate::resources::Deployment;
 use crate::resources::Node;
 use crate::resources::Pod;
@@ -24,20 +32,98 @@ use k8s_openapi::apimachinery::pkg::apis::meta::v1::Status;
 use k8s_openapi::apimachinery::pkg::apis::meta::v1::{APIResourceList, ListMeta};
 use k8s_openapi::List;
 use tokio::sync::Mutex;
+use tokio::task::JoinHandle;
 use tower_http::trace::TraceLayer;
 use tracing::{info, warn};
 
 type AppState = Arc<Mutex<StateView>>;
 
-pub async fn run(address: String) {
+pub async fn run(address: String) -> (Arc<AtomicBool>, Vec<JoinHandle<()>>) {
     let trace_layer = TraceLayer::new_for_http();
-    let app = app().layer(trace_layer);
+    let state = Arc::new(Mutex::new(StateView::default()));
+    let shutdown = Arc::new(AtomicBool::new(false));
+    let mut handles = Vec::new();
+
+    // spawn async future that runs the controllers
+    let state2 = Arc::clone(&state);
+    let sd = Arc::clone(&shutdown);
+    handles.push(tokio::spawn(async move {
+        controller_loop(state2, DeploymentController, sd).await;
+    }));
+    let state2 = Arc::clone(&state);
+    let sd = Arc::clone(&shutdown);
+    handles.push(tokio::spawn(async move {
+        controller_loop(state2, ReplicaSetController, sd).await;
+    }));
+    let state2 = Arc::clone(&state);
+    let sd = Arc::clone(&shutdown);
+    handles.push(tokio::spawn(async move {
+        controller_loop(state2, SchedulerController, sd).await;
+    }));
+    let state2 = Arc::clone(&state);
+    let sd = Arc::clone(&shutdown);
+    handles.push(tokio::spawn(async move {
+        controller_loop(
+            state2,
+            NodeController {
+                name: "node1".to_owned(),
+            },
+            sd,
+        )
+        .await;
+    }));
+
+    let app = app(state).layer(trace_layer);
     let listener = tokio::net::TcpListener::bind(address).await.unwrap();
-    axum::serve(listener, app).await.unwrap();
+    let sd = Arc::clone(&shutdown);
+    handles.push(tokio::spawn(async move {
+        axum::serve(listener, app)
+            .with_graceful_shutdown(async move {
+                loop {
+                    tokio::time::sleep(Duration::from_millis(500)).await;
+                    if sd.load(Ordering::Relaxed) {
+                        break;
+                    }
+                }
+                info!("Stopping serving api");
+            })
+            .await
+            .unwrap()
+    }));
+    (shutdown, handles)
 }
 
-fn app() -> Router {
-    let state = Arc::new(Mutex::new(StateView::default()));
+async fn controller_loop<C: Controller>(state: AppState, controller: C, shutdown: Arc<AtomicBool>) {
+    info!(name = controller.name(), "Starting controller");
+    let mut cstate = C::State::default();
+    let mut last_revision = state.lock().await.revision.clone();
+    let rate_limit = Duration::from_millis(500);
+    loop {
+        if shutdown.load(Ordering::Relaxed) {
+            break;
+        }
+
+        tokio::time::sleep(rate_limit).await;
+
+        let mut s = state.lock().await;
+
+        if s.revision == last_revision {
+            continue;
+        }
+
+        info!(name = controller.name(), "Checking for steps");
+        if let Some(operation) = controller.step(&s.state, &mut cstate) {
+            info!(name = controller.name(), "Got operation to perform");
+            let revision = s.revision.clone();
+            s.apply_operation(operation.into(), revision.increment());
+        }
+        last_revision = s.revision.clone();
+        info!(name = controller.name(), "Finished processing step");
+    }
+    info!(name = controller.name(), "Stopping controller");
+}
+
+fn app(state: AppState) -> Router {
     Router::new()
         .route("/apis", get(api_groups))
         .nest("/apis", apis())

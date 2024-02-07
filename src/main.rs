@@ -230,7 +230,13 @@ where
             rt.block_on(async {
                 let address = format!("127.0.0.1:{port}");
                 info!("Serving cluster API on {address}");
-                model_checked_orchestration::serve_cluster::run(address).await;
+                let (shutdown, handles) =
+                    model_checked_orchestration::serve_cluster::run(address).await;
+                tokio::signal::ctrl_c().await.unwrap();
+                shutdown.store(true, std::sync::atomic::Ordering::Relaxed);
+                for handle in handles {
+                    handle.await.unwrap();
+                }
             });
         }
     }
