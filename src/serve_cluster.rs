@@ -13,9 +13,10 @@ use axum::{
     routing::post,
     Json, Router,
 };
-use k8s_openapi::apimachinery::pkg::apis::meta::v1::{
-    APIResourceList, APIVersions, ListMeta, ServerAddressByClientCIDR,
-};
+use k8s_openapi::apimachinery::pkg::apis::meta::v1::APIGroup;
+use k8s_openapi::apimachinery::pkg::apis::meta::v1::APIGroupList;
+use k8s_openapi::apimachinery::pkg::apis::meta::v1::GroupVersionForDiscovery;
+use k8s_openapi::apimachinery::pkg::apis::meta::v1::{APIResourceList, ListMeta};
 use k8s_openapi::List;
 use tokio::sync::Mutex;
 use tracing::{info, warn};
@@ -25,9 +26,7 @@ type AppState = Arc<Mutex<StateView>>;
 pub fn app() -> Router {
     let state = Arc::new(Mutex::new(StateView::default()));
     Router::new()
-        .route("/api", get(api))
-        .route("/apis", get(api))
-        .nest("/api", apis())
+        .route("/apis", get(api_groups))
         .nest("/apis", apis())
         .fallback(fallback)
         .with_state(state)
@@ -112,14 +111,29 @@ async fn create_deployment(
 }
 
 #[tracing::instrument(skip_all)]
-async fn api() -> (StatusCode, Json<APIVersions>) {
-    info!("Got request for api versions");
-    let apiversions = APIVersions {
-        server_address_by_client_cidrs: vec![ServerAddressByClientCIDR {
-            client_cidr: "0.0.0.0".to_owned(),
-            server_address: "127.0.0.1:8000".to_owned(),
-        }],
-        versions: vec!["v1".to_owned(), "apps/v1".to_owned()],
+async fn api_groups() -> (StatusCode, Json<APIGroupList>) {
+    info!("Got request for api groups");
+    let apiversions = APIGroupList {
+        groups: vec![
+            APIGroup {
+                name: "".to_owned(),
+                preferred_version: None,
+                server_address_by_client_cidrs: None,
+                versions: vec![GroupVersionForDiscovery {
+                    group_version: "v1".to_owned(),
+                    version: "v1".to_owned(),
+                }],
+            },
+            APIGroup {
+                name: "apps".to_owned(),
+                preferred_version: None,
+                server_address_by_client_cidrs: None,
+                versions: vec![GroupVersionForDiscovery {
+                    group_version: "apps/v1".to_owned(),
+                    version: "v1".to_owned(),
+                }],
+            },
+        ],
     };
     (StatusCode::OK, Json(apiversions))
 }
