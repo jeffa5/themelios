@@ -118,7 +118,6 @@ async fn list_deployments(
             self_link: None,
         },
     };
-    println!("{}", serde_json::to_string(&deployments).unwrap());
     (StatusCode::OK, Json(deployments))
 }
 
@@ -222,7 +221,6 @@ async fn list_replicasets(
             self_link: None,
         },
     };
-    println!("{}", serde_json::to_string(&replicasets).unwrap());
     (StatusCode::OK, Json(replicasets))
 }
 
