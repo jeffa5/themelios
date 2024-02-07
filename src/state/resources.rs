@@ -2,7 +2,10 @@ use std::sync::Arc;
 
 use tracing::warn;
 
-use crate::resources::{LabelSelector, Meta, Spec};
+use crate::{
+    resources::{LabelSelector, Meta, Spec},
+    utils::now,
+};
 
 use super::revision::Revision;
 
@@ -55,6 +58,22 @@ impl<T: Meta + Spec + Clone> Resources<T> {
                 Ok(())
             }
         } else {
+            // set the uid if not set already
+            if res.metadata().uid.is_empty() {
+                res.metadata_mut().uid = revision.to_string();
+            }
+            // default the generation to 1
+            if res.metadata().generation == 0 {
+                res.metadata_mut().generation = 1;
+            }
+            // set the creation timestamp
+            if res.metadata().creation_timestamp.is_none() {
+                res.metadata_mut().creation_timestamp = Some(now());
+            }
+            // set the namespace
+            if res.metadata().namespace.is_empty() {
+                res.metadata_mut().namespace = "default".to_owned();
+            }
             // set resource version to mod revision as per https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#concurrency-control-and-consistency
             res.metadata_mut().resource_version = revision.to_string();
             let pos = self.get_insertion_pos(&res.metadata().name);

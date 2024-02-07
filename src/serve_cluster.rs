@@ -92,7 +92,7 @@ async fn list_deployments(
             self_link: None,
         },
     };
-    println!("{}", serde_json::to_string_pretty(&deployments).unwrap());
+    println!("{}", serde_json::to_string(&deployments).unwrap());
     (StatusCode::OK, Json(deployments))
 }
 
@@ -105,7 +105,9 @@ async fn create_deployment(
     let mut s = state.lock().await;
     s.revision = s.revision.clone().increment();
     let revision = s.revision.clone();
-    s.deployments.insert(deployment.clone(), revision).unwrap();
+    let deployment_name = deployment.metadata.name.clone();
+    s.deployments.insert(deployment, revision).unwrap();
+    let deployment = s.deployments.get(&deployment_name).unwrap().clone();
     (StatusCode::OK, Json(deployment))
 }
 
