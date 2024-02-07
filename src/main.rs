@@ -228,12 +228,9 @@ where
         opts::SubCmd::ServeCluster { port } => {
             let rt = Runtime::new().unwrap();
             rt.block_on(async {
-                let trace_layer = TraceLayer::new_for_http();
-                let app = model_checked_orchestration::serve_cluster::app().layer(trace_layer);
                 let address = format!("127.0.0.1:{port}");
                 info!("Serving cluster API on {address}");
-                let listener = tokio::net::TcpListener::bind(address).await.unwrap();
-                axum::serve(listener, app).await.unwrap();
+                model_checked_orchestration::serve_cluster::run(address).await;
             });
         }
     }

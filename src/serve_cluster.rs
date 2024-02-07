@@ -24,11 +24,19 @@ use k8s_openapi::apimachinery::pkg::apis::meta::v1::Status;
 use k8s_openapi::apimachinery::pkg::apis::meta::v1::{APIResourceList, ListMeta};
 use k8s_openapi::List;
 use tokio::sync::Mutex;
+use tower_http::trace::TraceLayer;
 use tracing::{info, warn};
 
 type AppState = Arc<Mutex<StateView>>;
 
-pub fn app() -> Router {
+pub async fn run(address: String) {
+    let trace_layer = TraceLayer::new_for_http();
+    let app = app().layer(trace_layer);
+    let listener = tokio::net::TcpListener::bind(address).await.unwrap();
+    axum::serve(listener, app).await.unwrap();
+}
+
+fn app() -> Router {
     let state = Arc::new(Mutex::new(StateView::default()));
     Router::new()
         .route("/apis", get(api_groups))
@@ -38,7 +46,7 @@ pub fn app() -> Router {
         .with_state(state)
 }
 
-pub fn apis() -> Router<AppState> {
+fn apis() -> Router<AppState> {
     Router::new()
         .route("/v1", get(list_core_v1))
         .nest("/v1", core_v1())
