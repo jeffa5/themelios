@@ -5,11 +5,13 @@ use std::time::Duration;
 
 use crate::api::APIObject;
 use crate::api::SerializableResource;
+use crate::controller::job::JobController;
 use crate::controller::Controller;
 use crate::controller::DeploymentController;
 use crate::controller::NodeController;
 use crate::controller::ReplicaSetController;
 use crate::controller::SchedulerController;
+use crate::controller::StatefulSetController;
 use crate::resources::Deployment;
 use crate::resources::Node;
 use crate::resources::Pod;
@@ -44,22 +46,22 @@ pub async fn run(address: String) -> (Arc<AtomicBool>, Vec<JoinHandle<()>>) {
     let shutdown = Arc::new(AtomicBool::new(false));
     let mut handles = Vec::new();
 
-    // spawn async future that runs the controllers
-    let state2 = Arc::clone(&state);
-    let sd = Arc::clone(&shutdown);
-    handles.push(tokio::spawn(async move {
-        controller_loop(state2, DeploymentController, sd).await;
-    }));
-    let state2 = Arc::clone(&state);
-    let sd = Arc::clone(&shutdown);
-    handles.push(tokio::spawn(async move {
-        controller_loop(state2, ReplicaSetController, sd).await;
-    }));
-    let state2 = Arc::clone(&state);
-    let sd = Arc::clone(&shutdown);
-    handles.push(tokio::spawn(async move {
-        controller_loop(state2, SchedulerController, sd).await;
-    }));
+    macro_rules! run_controller {
+        ($cont:ident) => {
+            let state2 = Arc::clone(&state);
+            let sd = Arc::clone(&shutdown);
+            handles.push(tokio::spawn(async move {
+                controller_loop(state2, $cont, sd).await;
+            }));
+        };
+    }
+
+    run_controller!(DeploymentController);
+    run_controller!(StatefulSetController);
+    run_controller!(JobController);
+    run_controller!(ReplicaSetController);
+    run_controller!(SchedulerController);
+
     let state2 = Arc::clone(&state);
     let sd = Arc::clone(&shutdown);
     handles.push(tokio::spawn(async move {
