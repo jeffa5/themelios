@@ -3,6 +3,7 @@ use std::sync::Arc;
 use crate::api::APIObject;
 use crate::api::SerializableResource;
 use crate::resources::Deployment;
+use crate::resources::Node;
 use crate::resources::Pod;
 use crate::resources::ReplicaSet;
 use crate::state::StateView;
@@ -57,7 +58,9 @@ fn namespaces_core_v1() -> Router<AppState> {
 }
 
 fn resources_core_v1() -> Router<AppState> {
-    Router::new().nest("/pods", pods_router())
+    Router::new()
+        .nest("/pods", pods_router())
+        .nest("/nodes", nodes_router())
 }
 
 fn pods_router() -> Router<AppState> {
@@ -65,6 +68,11 @@ fn pods_router() -> Router<AppState> {
         .route("/", get(list_pods))
         .route("/:name", get(get_pod))
         .route("/:name", delete(delete_pod))
+}
+fn nodes_router() -> Router<AppState> {
+    Router::new()
+        .route("/", get(list_nodes))
+        .route("/:name", get(get_node))
 }
 
 fn apps_v1() -> Router<AppState> {
@@ -328,7 +336,7 @@ async fn list_core_v1() -> (StatusCode, Json<APIResourceList>) {
     info!("Got request for api v1 versions");
     let apiversions = APIResourceList {
         group_version: "v1".to_owned(),
-        resources: vec![Pod::api_resource()],
+        resources: vec![Pod::api_resource(), Node::api_resource()],
     };
     (StatusCode::OK, Json(apiversions))
 }
@@ -402,6 +410,48 @@ async fn delete_pod(
             status: Some("Success".to_owned()),
         }),
     )
+}
+
+#[tracing::instrument(skip_all)]
+async fn list_nodes(
+    State(state): State<AppState>,
+) -> (StatusCode, Json<List<SerializableResource<Node>>>) {
+    info!("Got list request for nodes");
+    let state = state.lock().await;
+    let nodes = List {
+        items: state
+            .nodes
+            .iter()
+            .map(|p| SerializableResource::new(p.clone()))
+            .collect(),
+        metadata: ListMeta {
+            continue_: None,
+            remaining_item_count: None,
+            resource_version: None,
+            self_link: None,
+        },
+    };
+    (StatusCode::OK, Json(nodes))
+}
+
+#[tracing::instrument(skip_all)]
+async fn get_node(
+    State(state): State<AppState>,
+    Path(name): Path<String>,
+) -> (StatusCode, Json<SerializableResource<Node>>) {
+    info!("Got get request for nodes");
+    let state = state.lock().await;
+    if let Some(node) = state.nodes.get(&name) {
+        (
+            StatusCode::OK,
+            Json(SerializableResource::new(node.clone())),
+        )
+    } else {
+        (
+            StatusCode::NOT_FOUND,
+            Json(SerializableResource::new(Node::default())),
+        )
+    }
 }
 
 #[tracing::instrument(skip_all)]

@@ -4,6 +4,7 @@ use k8s_openapi::Resource;
 use serde::Serialize;
 
 use crate::resources::Deployment;
+use crate::resources::Node;
 use crate::resources::Pod;
 use crate::resources::ReplicaSet;
 
@@ -55,7 +56,15 @@ impl_resource!(
 );
 // impl_resource!(StatefulSet, "StatefulSetList");
 // impl_resource!(PersistentVolumeClaim, "PersistentVolumeClaimList");
-// impl_resource!(Node, "NodeList");
+impl_resource!(
+    Node,
+    NamespaceResourceScope,
+    "v1",
+    "core",
+    "Node",
+    "v1",
+    "nodes"
+);
 
 macro_rules! impl_listable {
     ($r:ident, $kind:expr) => {
@@ -71,7 +80,7 @@ impl_listable!(Deployment, "DeploymentList");
 impl_listable!(ReplicaSet, "ReplicaSetList");
 // impl_listable!(StatefulSet, "StatefulSetList");
 // impl_listable!(PersistentVolumeClaim, "PersistentVolumeClaimList");
-// impl_listable!(Node, "NodeList");
+impl_listable!(Node, "NodeList");
 //
 macro_rules! impl_api_object {
     ($r:ident) => {
@@ -111,7 +120,7 @@ impl_api_object!(Deployment);
 impl_api_object!(ReplicaSet);
 // impl_api_object!(StatefulSet);
 // impl_api_object!(PersistentVolumeClaim);
-// impl_api_object!(Node);
+impl_api_object!(Node);
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
