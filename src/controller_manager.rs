@@ -17,10 +17,8 @@ use tracing::info;
 
 use crate::{
     abstract_model::ControllerAction,
-    controller::{
-        job::JobController, Controller, DeploymentController, ReplicaSetController,
-        StatefulSetController,
-    },
+    controller::{job::JobController, Controller, DeploymentController, ReplicaSetController},
+    state::revision::Revision,
     state::StateView,
 };
 
@@ -48,12 +46,15 @@ pub async fn run() -> (Arc<AtomicBool>, Vec<JoinHandle<()>>) {
                                     "resource applied {}",
                                     dep.metadata.name.as_ref().unwrap()
                                 );
+                                let mut state = state2.lock().await;
+                                let revision = Revision::try_from(
+                                    dep.metadata.resource_version.as_ref().unwrap().as_str(),
+                                )
+                                .unwrap();
+                                state.revision = std::cmp::max(state.revision.clone(), revision.clone());
                                 let local_dep =
                                     serde_json::from_value(serde_json::to_value(dep).unwrap())
                                         .unwrap();
-                                let mut state = state2.lock().await;
-                                let revision = state.revision.clone().increment();
-                                state.revision = revision.clone();
                                 state.$field.insert(local_dep, revision).unwrap();
                             }
                             Event::Deleted(dep) => {
@@ -62,15 +63,23 @@ pub async fn run() -> (Arc<AtomicBool>, Vec<JoinHandle<()>>) {
                                     dep.metadata.name.as_ref().unwrap()
                                 );
                                 let mut state = state2.lock().await;
-                                let revision = state.revision.clone().increment();
-                                state.revision = revision.clone();
+                                let revision = Revision::try_from(
+                                    dep.metadata.resource_version.as_ref().unwrap().as_str(),
+                                )
+                                .unwrap();
+                                state.revision = std::cmp::max(state.revision.clone(), revision);
                                 state.$field.remove(dep.metadata.name.as_ref().unwrap());
                             }
                             Event::Restarted(deps) => {
                                 println!("resource watch restarted {:?}", deps);
                                 let mut state = state2.lock().await;
-                                let revision = state.revision.clone();
                                 for dep in deps {
+                                    let revision = Revision::try_from(
+                                        dep.metadata.resource_version.as_ref().unwrap().as_str(),
+                                    )
+                                    .unwrap();
+                                    state.revision =
+                                        std::cmp::max(state.revision.clone(), revision.clone());
                                     let local_dep =
                                         serde_json::from_value(serde_json::to_value(dep).unwrap())
                                             .unwrap();
@@ -89,11 +98,11 @@ pub async fn run() -> (Arc<AtomicBool>, Vec<JoinHandle<()>>) {
     watch_resource!(k8s_openapi::api::apps::v1::ReplicaSet, replicasets);
     watch_resource!(k8s_openapi::api::core::v1::Pod, pods);
     watch_resource!(k8s_openapi::api::batch::v1::Job, jobs);
-    watch_resource!(k8s_openapi::api::apps::v1::StatefulSet, statefulsets);
-    watch_resource!(
-        k8s_openapi::api::apps::v1::ControllerRevision,
-        controller_revisions
-    );
+    // watch_resource!(k8s_openapi::api::apps::v1::StatefulSet, statefulsets);
+    // watch_resource!(
+    //     k8s_openapi::api::apps::v1::ControllerRevision,
+    //     controller_revisions
+    // );
     watch_resource!(
         k8s_openapi::api::core::v1::PersistentVolumeClaim,
         persistent_volume_claims
@@ -111,7 +120,7 @@ pub async fn run() -> (Arc<AtomicBool>, Vec<JoinHandle<()>>) {
         };
     }
     run_controller!(DeploymentController);
-    run_controller!(StatefulSetController);
+    // run_controller!(StatefulSetController);
     run_controller!(JobController);
     run_controller!(ReplicaSetController);
 
@@ -157,7 +166,18 @@ async fn controller_loop<C: Controller>(
 async fn handle_action(action: ControllerAction, client: Client) {
     match action {
         ControllerAction::NodeJoin(_, _) => todo!(),
-        ControllerAction::CreatePod(_) => todo!(),
+        ControllerAction::CreatePod(mut pod) => {
+            if pod.metadata.namespace.is_empty() {
+                pod.metadata.namespace = "default".to_owned();
+            }
+            let api =
+                Api::<k8s_openapi::api::core::v1::Pod>::namespaced(client, &pod.metadata.namespace);
+            let remote_pod: k8s_openapi::api::core::v1::Pod =
+                serde_json::from_value(serde_json::to_value(pod).unwrap()).unwrap();
+            api.create(&PostParams::default(), &remote_pod)
+                .await
+                .unwrap();
+        }
         ControllerAction::SoftDeletePod(_) => todo!(),
         ControllerAction::HardDeletePod(_) => todo!(),
         ControllerAction::SchedulePod(_, _) => todo!(),
@@ -181,7 +201,22 @@ async fn handle_action(action: ControllerAction, client: Client) {
             .unwrap();
         }
         ControllerAction::RequeueDeployment(_) => todo!(),
-        ControllerAction::UpdateDeploymentStatus(_) => todo!(),
+        ControllerAction::UpdateDeploymentStatus(mut dep) => {
+            if dep.metadata.namespace.is_empty() {
+                dep.metadata.namespace = "default".to_owned();
+            }
+            let api = Api::<k8s_openapi::api::apps::v1::Deployment>::namespaced(
+                client,
+                &dep.metadata.namespace,
+            );
+            api.replace_status(
+                &dep.metadata.name.clone(),
+                &PostParams::default(),
+                serde_json::to_vec(&dep).unwrap(),
+            )
+            .await
+            .unwrap();
+        }
         ControllerAction::CreateReplicaSet(mut rs) => {
             if rs.metadata.namespace.is_empty() {
                 rs.metadata.namespace = "default".to_owned();
@@ -214,7 +249,22 @@ async fn handle_action(action: ControllerAction, client: Client) {
             .await
             .unwrap();
         }
-        ControllerAction::UpdateReplicaSetStatus(_) => todo!(),
+        ControllerAction::UpdateReplicaSetStatus(mut rs) => {
+            if rs.metadata.namespace.is_empty() {
+                rs.metadata.namespace = "default".to_owned();
+            }
+            let api = Api::<k8s_openapi::api::apps::v1::ReplicaSet>::namespaced(
+                client,
+                &rs.metadata.namespace,
+            );
+            api.replace_status(
+                &rs.metadata.name.clone(),
+                &PostParams::default(),
+                serde_json::to_vec(&rs).unwrap(),
+            )
+            .await
+            .unwrap();
+        }
         ControllerAction::UpdateReplicaSets(_) => todo!(),
         ControllerAction::DeleteReplicaSet(_) => todo!(),
         ControllerAction::UpdateStatefulSet(_) => todo!(),
