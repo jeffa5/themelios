@@ -1,6 +1,7 @@
 pub mod abstract_model;
 pub mod api;
 pub mod controller;
+pub mod controller_manager;
 pub mod hasher;
 pub mod model;
 pub mod report;

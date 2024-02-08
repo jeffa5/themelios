@@ -42,10 +42,13 @@ impl<T: Meta + Spec + Clone> Resources<T> {
                 );
                 Err(())
             } else if !res.metadata().resource_version.is_empty()
-                && existing.metadata().resource_version != res.metadata().resource_version
+                && existing.metadata().resource_version > res.metadata().resource_version
             {
-                // ignore changes to resources when resource version is specified but unequal
-                warn!("Different resource versions");
+                // ignore changes to resources when resource version is specified but the resource
+                // being inserted is old
+                let existing = &existing.metadata().resource_version;
+                let new = &res.metadata().resource_version;
+                warn!(existing, new, "Old resource");
                 Err(())
             } else {
                 // set resource version to mod revision as per https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#concurrency-control-and-consistency

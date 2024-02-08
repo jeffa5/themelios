@@ -239,5 +239,18 @@ where
                 }
             });
         }
+        opts::SubCmd::ControllerManager {} => {
+            let rt = Runtime::new().unwrap();
+            rt.block_on(async {
+                info!("Serving controllers");
+                let (shutdown, handles) =
+                    model_checked_orchestration::controller_manager::run().await;
+                tokio::signal::ctrl_c().await.unwrap();
+                shutdown.store(true, std::sync::atomic::Ordering::Relaxed);
+                for handle in handles {
+                    handle.await.unwrap();
+                }
+            });
+        }
     }
 }
