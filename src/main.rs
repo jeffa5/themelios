@@ -239,5 +239,19 @@ where
                 }
             });
         }
+        opts::SubCmd::ServeControllers { kube_port, kube_host } => {
+            let rt = Runtime::new().unwrap();
+            rt.block_on(async {
+                let address = format!("{kube_host}:{kube_port}");
+                info!("Serving controllers against API on {address}");
+                let (shutdown, handles) =
+                    model_checked_orchestration::serve_controllers::run().await;
+                tokio::signal::ctrl_c().await.unwrap();
+                shutdown.store(true, std::sync::atomic::Ordering::Relaxed);
+                for handle in handles {
+                    handle.await.unwrap();
+                }
+            });
+        }
     }
 }

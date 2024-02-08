@@ -96,4 +96,6 @@ pub enum SubCmd {
         #[clap(long, default_value = "8080")]
         port: u16,
     },
+    /// Deploy as controller-manager.
+    ServeControllers {},
 }
