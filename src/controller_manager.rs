@@ -17,7 +17,10 @@ use tracing::info;
 
 use crate::{
     abstract_model::ControllerAction,
-    controller::{Controller, DeploymentController},
+    controller::{
+        job::JobController, Controller, DeploymentController, ReplicaSetController,
+        StatefulSetController,
+    },
     state::StateView,
 };
 
@@ -84,17 +87,34 @@ pub async fn run() -> (Arc<AtomicBool>, Vec<JoinHandle<()>>) {
     }
     watch_resource!(k8s_openapi::api::apps::v1::Deployment, deployments);
     watch_resource!(k8s_openapi::api::apps::v1::ReplicaSet, replicasets);
+    watch_resource!(k8s_openapi::api::core::v1::Pod, pods);
+    watch_resource!(k8s_openapi::api::batch::v1::Job, jobs);
+    watch_resource!(k8s_openapi::api::apps::v1::StatefulSet, statefulsets);
+    watch_resource!(
+        k8s_openapi::api::apps::v1::ControllerRevision,
+        controller_revisions
+    );
+    watch_resource!(
+        k8s_openapi::api::core::v1::PersistentVolumeClaim,
+        persistent_volume_claims
+    );
+    watch_resource!(k8s_openapi::api::core::v1::Node, nodes);
 
     macro_rules! run_controller {
         ($cont:ident) => {
             let state2 = Arc::clone(&state);
             let sd = Arc::clone(&shutdown);
+            let client2 = client.clone();
             handles.push(tokio::spawn(async move {
-                controller_loop(state2, $cont, sd, client.clone()).await;
+                controller_loop(state2, $cont, sd, client2).await;
             }));
         };
     }
     run_controller!(DeploymentController);
+    run_controller!(StatefulSetController);
+    run_controller!(JobController);
+    run_controller!(ReplicaSetController);
+
     (shutdown, handles)
 }
 
