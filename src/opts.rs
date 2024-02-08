@@ -97,5 +97,5 @@ pub enum SubCmd {
         port: u16,
     },
     /// Deploy as controller-manager.
-    ServeControllers {},
+    ControllerManager {},
 }

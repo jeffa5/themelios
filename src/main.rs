@@ -239,13 +239,12 @@ where
                 }
             });
         }
-        opts::SubCmd::ServeControllers { kube_port, kube_host } => {
+        opts::SubCmd::ControllerManager {} => {
             let rt = Runtime::new().unwrap();
             rt.block_on(async {
-                let address = format!("{kube_host}:{kube_port}");
-                info!("Serving controllers against API on {address}");
+                info!("Serving controllers");
                 let (shutdown, handles) =
-                    model_checked_orchestration::serve_controllers::run().await;
+                    model_checked_orchestration::controller_manager::run().await;
                 tokio::signal::ctrl_c().await.unwrap();
                 shutdown.store(true, std::sync::atomic::Ordering::Relaxed);
                 for handle in handles {

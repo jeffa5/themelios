@@ -69,3 +69,15 @@ May be able to mitigate this through persistent data-structures or just paramete
 
 Some forms of state-space reduction will be needed.
 The stateright actor model already helps with this but we can still have cases where sending messages to different nodes ends in the same result so could be elided.
+
+## Controller manager
+
+To test the controller manager locally:
+```sh
+# create a cluster
+kind create cluster
+# remove the existing controller manager
+docker exec kind-control-plane rm /etc/kubernetes/manifests/kube-controller-manager.yaml
+# start our controller-manager
+cargo run -- controller-manager
+```

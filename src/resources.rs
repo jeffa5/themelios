@@ -284,12 +284,12 @@ pub struct Toleration {
     #[serde(default)]
     pub key: String,
     #[serde(default)]
-    pub operator: Operator,
+    pub operator: Option<Operator>,
     #[serde(default)]
-    pub value: String,
+    pub value: Option<String>,
     pub effect: Option<TaintEffect>,
     #[serde(default)]
-    pub toleration_seconds: u64,
+    pub toleration_seconds: Option<u64>,
 }
 
 #[derive(
