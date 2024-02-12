@@ -51,7 +51,8 @@ pub async fn run() -> (Arc<AtomicBool>, Vec<JoinHandle<()>>) {
                                     dep.metadata.resource_version.as_ref().unwrap().as_str(),
                                 )
                                 .unwrap();
-                                state.revision = std::cmp::max(state.revision.clone(), revision.clone());
+                                state.revision =
+                                    std::cmp::max(state.revision.clone(), revision.clone());
                                 let local_dep =
                                     serde_json::from_value(serde_json::to_value(dep).unwrap())
                                         .unwrap();

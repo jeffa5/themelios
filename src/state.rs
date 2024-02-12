@@ -445,7 +445,7 @@ impl StateView {
                     && self.revision == resource.metadata().resource_version.as_str().try_into().unwrap()
     }
 
-    pub fn resources_stable<'a , T: Meta + ObservedGeneration+'a>(
+    pub fn resources_stable<'a, T: Meta + ObservedGeneration + 'a>(
         &self,
         resources: impl IntoIterator<Item = &'a T>,
     ) -> bool {
