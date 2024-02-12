@@ -115,8 +115,10 @@ impl<T: Meta + Spec + Clone> Resources<T> {
             .and_then(|p| self.0.get_mut(p).map(|r| Arc::make_mut(r)))
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = &T> {
-        self.0.iter().map(|r| r.as_ref())
+    pub fn iter(&self) -> ResourcesIter<'_, T> {
+        ResourcesIter {
+            iter: self.0.iter(),
+        }
     }
 
     pub fn remove(&mut self, name: &str) -> Option<T> {
@@ -167,5 +169,28 @@ impl<T: Meta + Spec + Clone> From<Vec<T>> for Resources<T> {
             rv.insert(v, revision).unwrap();
         }
         rv
+    }
+}
+
+pub struct ResourcesIter<'a, T> {
+    iter: imbl::vector::Iter<'a, Arc<T>>,
+}
+
+impl<'a, T> Iterator for ResourcesIter<'a, T> {
+    type Item = &'a T;
+    fn next(&mut self) -> Option<Self::Item> {
+        self.iter.next().map(|v| v.as_ref())
+    }
+}
+
+impl<'a, T> IntoIterator for &'a Resources<T> {
+    type Item = &'a T;
+
+    type IntoIter = ResourcesIter<'a, T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        ResourcesIter {
+            iter: self.0.iter(),
+        }
     }
 }

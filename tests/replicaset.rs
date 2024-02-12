@@ -123,7 +123,7 @@ fn test_overlapping_rss() {
     );
     m.add_property(Expectation::Always, "when stable, all pods are created", |_model, s| {
         let s = s.latest();
-        let all_stable = s.resources_stable(s.replicasets.iter());
+        let all_stable = s.resources_stable(&s.replicasets);
         let expected_count = s.replicasets.iter().map(|r| r.status.replicas).sum::<u32>();
         all_stable.implies(expected_count == s.pods.len() as u32)
     });
