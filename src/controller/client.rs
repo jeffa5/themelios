@@ -153,6 +153,7 @@ impl Client {
     pub fn apply(&self, view: &StateView, action: ClientAction) -> ControllerAction {
         let deployment = view.deployments.get(&self.name).cloned();
         let statefulset = view.statefulsets.get(&self.name).cloned();
+        let replicaset = view.replicasets.get(&self.name).cloned();
 
         match action {
             ClientAction::ScaleUp => {
@@ -162,6 +163,9 @@ impl Client {
                 } else if let Some(mut s) = statefulset {
                     s.spec.replicas = Some(s.spec.replicas.unwrap_or(1) + 1);
                     ControllerAction::UpdateStatefulSet(s)
+                } else if let Some(mut r) = replicaset {
+                    r.spec.replicas = Some(r.spec.replicas.unwrap_or(1) + 1);
+                    ControllerAction::UpdateReplicaSet(r)
                 } else {
                     unreachable!()
                 }
@@ -173,6 +177,9 @@ impl Client {
                 } else if let Some(mut s) = statefulset {
                     s.spec.replicas = s.spec.replicas.map(|r| r.saturating_sub(1));
                     ControllerAction::UpdateStatefulSet(s)
+                } else if let Some(mut r) = replicaset {
+                    r.spec.replicas = r.spec.replicas.map(|r| r.saturating_sub(1));
+                    ControllerAction::UpdateReplicaSet(r)
                 } else {
                     unreachable!()
                 }
@@ -190,6 +197,8 @@ impl Client {
                     d.spec.template.spec.containers[0].image.clone()
                 } else if let Some(s) = &statefulset {
                     s.spec.template.spec.containers[0].image.clone()
+                } else if let Some(r) = &replicaset {
+                    r.spec.template.spec.containers[0].image.clone()
                 } else {
                     unreachable!()
                 };
@@ -206,6 +215,9 @@ impl Client {
                 } else if let Some(mut s) = statefulset {
                     s.spec.template.spec.containers[0].image = new_image;
                     ControllerAction::UpdateStatefulSet(s)
+                } else if let Some(mut r) = replicaset {
+                    r.spec.template.spec.containers[0].image = new_image;
+                    ControllerAction::UpdateReplicaSet(r)
                 } else {
                     unreachable!()
                 }

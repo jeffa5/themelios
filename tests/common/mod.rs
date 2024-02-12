@@ -102,3 +102,14 @@ fn explore(model: OrchestrationModelCfg, mut path: String) {
     let am = model.into_abstract_model();
     am.checker().serve((host, port));
 }
+
+pub trait LogicalBoolExt {
+    fn implies(self, other: bool) -> bool;
+}
+
+impl LogicalBoolExt for bool {
+    fn implies(self, other: bool) -> bool {
+        // P => Q == not(P) \/ Q
+        !self || other
+    }
+}

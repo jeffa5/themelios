@@ -34,6 +34,29 @@ impl_meta!(ControllerRevision);
 impl_meta!(PersistentVolumeClaim);
 impl_meta!(Node);
 
+pub trait ObservedGeneration {
+    fn observed_generation(&self) -> u64;
+}
+
+macro_rules! impl_observed_generation {
+    ($r:ident) => {
+        impl ObservedGeneration for $r {
+            fn observed_generation(&self) -> u64 {
+                self.status.observed_generation
+            }
+        }
+    };
+}
+
+// impl_observed_generation!(Pod);
+// impl_observed_generation!(Job);
+impl_observed_generation!(Deployment);
+impl_observed_generation!(ReplicaSet);
+impl_observed_generation!(StatefulSet);
+// impl_observed_generation!(ControllerRevision);
+// impl_observed_generation!(PersistentVolumeClaim);
+// impl_observed_generation!(Node);
+
 /// Get the desired state of the resource, typically the `spec`.
 pub trait Spec {
     type Spec: PartialEq;

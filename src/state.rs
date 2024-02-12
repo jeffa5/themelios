@@ -4,7 +4,7 @@ use crate::controller::client::ClientState;
 use crate::controller::ControllerStates;
 use crate::resources::{
     ConditionStatus, ControllerRevision, Job, Meta, NodeCondition, NodeConditionType,
-    PersistentVolumeClaim,
+    ObservedGeneration, PersistentVolumeClaim,
 };
 use crate::utils::{self, now};
 use crate::{
@@ -201,6 +201,22 @@ impl RawState {
             .try_into()
             .unwrap_or_default();
         self.deployments.insert(deployment, revision).unwrap();
+        self
+    }
+
+    pub fn with_replicaset(mut self, replicaset: ReplicaSet) -> Self {
+        self.set_replicaset(replicaset);
+        self
+    }
+
+    pub fn set_replicaset(&mut self, replicaset: ReplicaSet) -> &mut Self {
+        let revision = replicaset
+            .metadata
+            .resource_version
+            .as_str()
+            .try_into()
+            .unwrap_or_default();
+        self.replicasets.insert(replicaset, revision).unwrap();
         self
     }
 
@@ -419,5 +435,13 @@ impl StateView {
             let rev = &self.revision;
             res.metadata_mut().name = format!("{}{}", res.metadata().generate_name, rev);
         }
+    }
+
+    pub fn resource_stable<T: Meta + ObservedGeneration>(&self, resource: &T) -> bool {
+        // the controller has finished processing its updates
+        resource.observed_generation() >= resource.metadata().generation
+                    // and no other things have happened in the cluster since the update (e.g. a
+                    // node dying which happens to remove pods)
+                    && self.revision == resource.metadata().resource_version.as_str().try_into().unwrap()
     }
 }
