@@ -71,6 +71,7 @@ fn new_deployment(name: &str, _namespace: &str, replicas: u32) -> Deployment {
     d
 }
 
+// TestNewDeployment
 #[test_log::test]
 fn test_new_deployment() {
     // initial state: deployment with some annotations, 2 replicas, another controller that marks pods as ready immediately
@@ -147,6 +148,7 @@ fn test_new_deployment() {
     run(m, common::CheckMode::Bfs, function_name!())
 }
 
+// TestDeploymentRollingUpdate
 #[test_log::test]
 fn test_deployment_rolling_update() {
     // initial state: deployment with some annotations, 2 replicas, another controller that marks pods as ready immediately
@@ -203,6 +205,7 @@ fn test_deployment_rolling_update() {
     run(m, common::CheckMode::Bfs, function_name!())
 }
 
+// TestPausedDeployment
 #[test_log::test]
 fn test_paused_deployment() {
     // initial state: deployment with some annotations, 2 replicas, another controller that marks pods as ready immediately
@@ -277,3 +280,16 @@ fn check_pods_hash_label<'a>(pods: impl Iterator<Item = &'a Pod>) -> bool {
     }
     true
 }
+
+// TESTS TO DO
+// TestDeploymentSelectorImmutability
+// TestScalePausedDeployment
+// TestDeploymentHashCollision
+// TestFailedDeployment
+// TestOverlappingDeployments
+// TestScaledRolloutDeployment
+// TestSpecReplicasChange
+// TestDeploymentAvailableCondition
+// TestGeneralReplicaSetAdoption
+// TestDeploymentScaleSubresource
+// TestReplicaSetOrphaningAndAdoptionWhenLabelsChange
