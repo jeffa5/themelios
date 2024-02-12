@@ -154,7 +154,7 @@ fn test_overlapping_rss() {
 // TestPodOrphaningAndAdoptionWhenLabelsChange
 // TestGeneralPodAdoption
 // TestReadyAndAvailableReplicas
-// TestRSScaleSubresource
+// TestRSScaleSubresource: subresources aren't supported
 // TestExtraPodsAdoptionAndDeletion
 // TestFullyLabeledReplicas
 // TestReplicaSetsAppsV1DefaultGCPolicy
