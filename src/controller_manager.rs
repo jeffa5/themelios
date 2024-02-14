@@ -275,6 +275,7 @@ async fn handle_action(action: ControllerAction, client: Client) {
         ControllerAction::DeleteControllerRevision(_) => todo!(),
         ControllerAction::CreatePersistentVolumeClaim(_) => todo!(),
         ControllerAction::UpdatePersistentVolumeClaim(_) => todo!(),
+        ControllerAction::UpdateJob(_) => todo!(),
         ControllerAction::UpdateJobStatus(_) => todo!(),
         ControllerAction::NodeCrash(_) => todo!(),
     }

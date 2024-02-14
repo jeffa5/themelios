@@ -460,6 +460,9 @@ impl StateView {
             ControllerAction::UpdateJobStatus(job) => {
                 self.jobs.insert(job, new_revision)?;
             }
+            ControllerAction::UpdateJob(job) => {
+                self.jobs.insert(job, new_revision)?;
+            }
         }
         Ok(())
     }

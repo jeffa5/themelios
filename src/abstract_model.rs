@@ -4,6 +4,7 @@ use tracing::debug;
 
 use stateright::{Model, Property};
 
+use crate::arbitrary_client::ArbitraryClient;
 use crate::controller::client::Client;
 use crate::controller::client::ClientAction;
 use crate::controller::client::ClientState;
@@ -81,6 +82,7 @@ pub enum ControllerAction {
     UpdatePersistentVolumeClaim(PersistentVolumeClaim),
 
     // Jobs
+    UpdateJob(Job),
     UpdateJobStatus(Job),
 
     // Environmental
@@ -91,6 +93,7 @@ pub enum ControllerAction {
 #[derive(Debug, PartialEq, Eq, Hash)]
 pub enum Action {
     ControllerStep(usize, ControllerStates, Change),
+    ArbitraryStep(Change),
     Client(usize, ClientState, ClientAction),
     /// The node with the given controller index, and name, crashes.
     NodeCrash(usize, String),
@@ -132,6 +135,16 @@ impl Model for AbstractModelCfg {
                 }
             }
         }
+
+        // arbitrary client
+        let latest_view = state.latest();
+        let arbitrary_actions = ArbitraryClient.actions(&latest_view).into_iter().map(|a| {
+            Action::ArbitraryStep(Change {
+                revision: latest_view.revision.clone(),
+                operation: a,
+            })
+        });
+        actions.extend(arbitrary_actions);
 
         for (i, client) in self.clients.iter().enumerate() {
             for view in state.views(i) {
@@ -177,6 +190,15 @@ impl Model for AbstractModelCfg {
                 let mut state = last_state.clone();
                 state.push_changes(std::iter::once(change), from);
                 state.update_controller(from, cstate);
+                Some(state)
+            }
+            Action::ArbitraryStep(change) => {
+                let mut state = last_state.clone();
+                // TODO: sort out the `from` parameter here, they aren't from a client that should
+                // have session state associated.
+                // Maybe we can drop this if we actually move session tokens to the controllers.
+                // Could use something like controller.min_revision_accepted()
+                state.push_changes(std::iter::once(change), usize::MAX);
                 Some(state)
             }
             Action::Client(from, cstate, action) => {
