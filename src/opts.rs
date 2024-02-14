@@ -40,6 +40,9 @@ pub struct Opts {
     #[clap(long, global = true, default_value = "1")]
     pub job_controllers: usize,
 
+    #[clap(long, global = true, default_value = "1")]
+    pub podgc_controllers: usize,
+
     #[clap(long, short, global = true, default_value = "1")]
     pub schedulers: usize,
 

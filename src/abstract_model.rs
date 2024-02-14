@@ -84,10 +84,6 @@ pub enum ControllerAction {
     // Jobs
     UpdateJob(Job),
     UpdateJobStatus(Job),
-
-    // Environmental
-    /// Name of the crashed node.
-    NodeCrash(String),
 }
 
 #[derive(Debug, PartialEq, Eq, Hash)]
@@ -98,8 +94,8 @@ pub enum Action {
 
     /// The controller at the given index restarts, losing its state.
     ControllerRestart(usize),
-    /// The node with the given controller index, and name, crashes.
-    NodeCrash(usize, String),
+    /// The node with the given controller index crashes.
+    NodeCrash(usize),
 }
 
 impl Model for AbstractModelCfg {
@@ -182,21 +178,15 @@ impl Model for AbstractModelCfg {
                 get_node_condition(&node.status.conditions, NodeConditionType::Ready)
             {
                 if cond.status == ConditionStatus::True {
-                    let mut controller_index = None;
                     // find the controller index for the corresponding node
                     for (i, controller) in self.controllers.iter().enumerate() {
                         if let Controllers::Node(n) = controller {
                             if n.name == node.metadata.name {
                                 // match
-                                controller_index = Some(i);
-                                break;
+                                actions.push(Action::NodeCrash(i));
                             }
                         }
                     }
-                    actions.push(Action::NodeCrash(
-                        controller_index.unwrap(),
-                        node.metadata.name.clone(),
-                    ));
                 }
             }
         }
@@ -234,12 +224,8 @@ impl Model for AbstractModelCfg {
                 state.update_controller(controller_index, controller_state);
                 Some(state)
             }
-            Action::NodeCrash(controller_index, node_name) => {
+            Action::NodeCrash(controller_index) => {
                 let mut state = last_state.clone();
-                state.push_change(Change {
-                    revision: last_state.max_revision(),
-                    operation: ControllerAction::NodeCrash(node_name),
-                });
                 // reset the node's local state
                 state.update_controller(
                     controller_index,

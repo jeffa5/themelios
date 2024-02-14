@@ -13,6 +13,7 @@ pub use statefulset::StatefulSetController;
 pub use self::deployment::DeploymentControllerState;
 use self::job::{JobController, JobControllerState};
 pub use self::node::NodeControllerState;
+use self::podgc::{PodGCController, PodGCControllerState};
 pub use self::replicaset::ReplicaSetControllerState;
 pub use self::scheduler::SchedulerControllerState;
 pub use self::statefulset::StatefulSetControllerState;
@@ -21,6 +22,7 @@ pub mod client;
 pub mod deployment;
 pub mod job;
 pub mod node;
+pub mod podgc;
 pub mod replicaset;
 pub mod scheduler;
 pub mod statefulset;
@@ -50,6 +52,7 @@ pub enum Controllers {
     Deployment(DeploymentController),
     StatefulSet(StatefulSetController),
     Job(JobController),
+    PodGC(PodGCController),
 }
 
 #[derive(Debug, Hash, Clone, PartialEq, Eq)]
@@ -60,6 +63,7 @@ pub enum ControllerStates {
     Deployment(DeploymentControllerState),
     StatefulSet(StatefulSetControllerState),
     Job(JobControllerState),
+    PodGC(PodGCControllerState),
 }
 
 impl Default for ControllerStates {
@@ -97,6 +101,9 @@ impl Controller for Controllers {
             (Controllers::Job(c), ControllerStates::Job(s)) => {
                 c.step(global_state, s).map(|a| a.into())
             }
+            (Controllers::PodGC(c), ControllerStates::PodGC(s)) => {
+                c.step(global_state, s).map(|a| a.into())
+            }
             _ => unreachable!(),
         }
     }
@@ -109,6 +116,7 @@ impl Controller for Controllers {
             Controllers::Deployment(c) => c.name(),
             Controllers::StatefulSet(c) => c.name(),
             Controllers::Job(c) => c.name(),
+            Controllers::PodGC(c) => c.name(),
         }
     }
 
@@ -128,6 +136,7 @@ impl Controller for Controllers {
                 c.min_revision_accepted(s)
             }
             (Controllers::Job(c), ControllerStates::Job(s)) => c.min_revision_accepted(s),
+            (Controllers::PodGC(c), ControllerStates::PodGC(s)) => c.min_revision_accepted(s),
             _ => unreachable!(),
         }
     }
@@ -150,6 +159,7 @@ impl Controllers {
                 ControllerStates::StatefulSet(StatefulSetControllerState::default())
             }
             Controllers::Job(_) => ControllerStates::Job(JobControllerState::default()),
+            Controllers::PodGC(_) => ControllerStates::PodGC(PodGCControllerState::default()),
         }
     }
 }

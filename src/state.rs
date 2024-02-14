@@ -389,17 +389,6 @@ impl StateView {
                     self.pods.insert(pod, new_revision)?;
                 }
             }
-            // TODO: add a podgc controller then we can remove this special case
-            ControllerAction::NodeCrash(node_name) => {
-                if let Some(node) = self.nodes.remove(&node_name) {
-                    self.pods.retain(|pod| {
-                        pod.spec
-                            .node_name
-                            .as_ref()
-                            .map_or(true, |n| n != &node.metadata.name)
-                    });
-                }
-            }
             ControllerAction::UpdateDeployment(dep) => {
                 self.deployments.insert(dep, new_revision)?;
             }

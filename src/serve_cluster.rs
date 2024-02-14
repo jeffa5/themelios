@@ -6,6 +6,7 @@ use std::time::Duration;
 use crate::api::APIObject;
 use crate::api::SerializableResource;
 use crate::controller::job::JobController;
+use crate::controller::podgc::PodGCController;
 use crate::controller::Controller;
 use crate::controller::DeploymentController;
 use crate::controller::NodeController;
@@ -61,6 +62,7 @@ pub async fn run(address: String) -> (Arc<AtomicBool>, Vec<JoinHandle<()>>) {
     run_controller!(JobController);
     run_controller!(ReplicaSetController);
     run_controller!(SchedulerController);
+    run_controller!(PodGCController);
 
     let state2 = Arc::clone(&state);
     let sd = Arc::clone(&shutdown);

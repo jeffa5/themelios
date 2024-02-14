@@ -171,6 +171,7 @@ fn main() {
         deployment_controllers: opts.deployment_controllers,
         statefulset_controllers: opts.statefulset_controllers,
         job_controllers: opts.job_controllers,
+        podgc_controllers: opts.podgc_controllers,
         client_state: ClientState::new_ordered(),
         properties: Vec::new(),
     };
