@@ -122,7 +122,13 @@ impl Model for AbstractModelCfg {
         for (i, controller) in self.controllers.iter().enumerate() {
             let cstate = state.get_controller(i);
             let min_revision = controller.min_revision_accepted(cstate);
-            for view in state.views(min_revision) {
+            for view in state.views(min_revision.clone()) {
+                if view.revision <= min_revision {
+                    panic!(
+                        "Tried to give a controller an old revision! {} vs {}",
+                        view.revision, min_revision
+                    );
+                }
                 debug!(rev = ?view.revision, "Reconciling state");
                 let mut cstate = cstate.clone();
                 let action = controller.step(&view, &mut cstate);
@@ -162,7 +168,6 @@ impl Model for AbstractModelCfg {
             actions.extend(&mut changes);
         }
 
-        let latest_view = state.latest();
         for (i, controller) in self.controllers.iter().enumerate() {
             if matches!(controller, Controllers::Node(_)) {
                 // skip nodes for now

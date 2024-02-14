@@ -27,8 +27,7 @@ impl History for SessionHistory {
         let new_revision = self.max_revision().increment();
         new_state.apply_operation(change.operation, new_revision);
         self.states.push_back(new_state_ref);
-        let max = self.max_revision();
-        max
+        self.max_revision()
     }
 
     fn max_revision(&self) -> Revision {
