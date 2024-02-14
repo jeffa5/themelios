@@ -5,7 +5,8 @@ use crate::controller::Controller;
 use crate::resources::{
     ConditionStatus, Pod, PodCondition, PodConditionType, PodPhase, ResourceQuantities,
 };
-use crate::state::RawState;
+use crate::state::revision::Revision;
+use crate::state::StateView;
 
 #[derive(Clone, Debug)]
 pub struct NodeController {
@@ -15,6 +16,7 @@ pub struct NodeController {
 #[derive(Debug, Default, Hash, Clone, PartialEq, Eq)]
 pub struct NodeControllerState {
     pub running: Vec<String>,
+    revision: Revision,
 }
 
 #[derive(Debug)]
@@ -42,9 +44,10 @@ impl Controller for NodeController {
 
     fn step(
         &self,
-        global_state: &RawState,
+        global_state: &StateView,
         local_state: &mut Self::State,
     ) -> Option<NodeControllerAction> {
+        local_state.revision = global_state.revision.clone();
         if let Some(_node) = global_state.nodes.get(&self.name) {
             let pods_for_this_node = global_state
                 .pods
@@ -106,5 +109,9 @@ impl Controller for NodeController {
 
     fn name(&self) -> String {
         "Node".to_owned()
+    }
+
+    fn min_revision_accepted(&self, state: &Self::State) -> Revision {
+        state.revision.clone()
     }
 }

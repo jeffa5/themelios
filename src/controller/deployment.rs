@@ -9,7 +9,7 @@ use crate::{
         DeploymentStatus, DeploymentStrategyType, LabelSelector, Pod, PodTemplateSpec, ReplicaSet,
         ReplicaSetCondition, ReplicaSetConditionType,
     },
-    state::RawState,
+    state::{revision::Revision, StateView},
     utils::now,
 };
 use diff::Diff;
@@ -81,7 +81,9 @@ const MAX_REV_HISTORY_LENGTH_IN_CHARS: usize = 2000;
 pub struct DeploymentController;
 
 #[derive(Debug, Default, Hash, Clone, PartialEq, Eq)]
-pub struct DeploymentControllerState;
+pub struct DeploymentControllerState {
+    revision: Revision,
+}
 
 #[derive(Debug)]
 pub enum DeploymentControllerAction {
@@ -132,27 +134,26 @@ impl Controller for DeploymentController {
 
     fn step(
         &self,
-        global_state: &RawState,
-        _local_state: &mut Self::State,
+        global_state: &StateView,
+        local_state: &mut Self::State,
     ) -> Option<DeploymentControllerAction> {
+        local_state.revision = global_state.revision.clone();
         for deployment in global_state.deployments.iter() {
             let replicasets = global_state.replicasets.iter().collect::<Vec<_>>();
             let pod_map = BTreeMap::new();
             if let Some(op) = reconcile(deployment, &replicasets, &pod_map) {
                 return Some(op);
             }
-
-            // for replicaset in deployment.replicasets() {
-            //     if !global_state.replicasets.contains_key(&replicaset) {
-            //         return Some(Operation::NewReplicaset(replicaset));
-            //     }
-            // }
         }
         None
     }
 
     fn name(&self) -> String {
         "Deployment".to_owned()
+    }
+
+    fn min_revision_accepted(&self, state: &Self::State) -> Revision {
+        state.revision.clone()
     }
 }
 

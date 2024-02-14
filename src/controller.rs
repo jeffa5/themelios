@@ -1,7 +1,8 @@
 use std::hash::Hash;
 
 use crate::abstract_model::ControllerAction;
-use crate::state::RawState;
+use crate::state::revision::Revision;
+use crate::state::StateView;
 
 pub use deployment::DeploymentController;
 pub use node::NodeController;
@@ -31,10 +32,14 @@ pub trait Controller {
     type Action: Into<ControllerAction>;
 
     /// Take a step, generating changes, based on the current view of the state.
-    fn step(&self, global_state: &RawState, local_state: &mut Self::State) -> Option<Self::Action>;
+    fn step(&self, global_state: &StateView, local_state: &mut Self::State)
+        -> Option<Self::Action>;
 
     /// Name of this controller.
     fn name(&self) -> String;
+
+    /// The minimum revision that this controller will accept state at.
+    fn min_revision_accepted(&self, state: &Self::State) -> Revision;
 }
 
 #[derive(Clone, Debug)]
@@ -70,7 +75,7 @@ impl Controller for Controllers {
 
     fn step(
         &self,
-        global_state: &RawState,
+        global_state: &StateView,
         local_state: &mut Self::State,
     ) -> Option<ControllerAction> {
         match (self, local_state) {
@@ -106,19 +111,45 @@ impl Controller for Controllers {
             Controllers::Job(c) => c.name(),
         }
     }
+
+    fn min_revision_accepted(&self, state: &Self::State) -> Revision {
+        match (self, state) {
+            (Controllers::Node(c), ControllerStates::Node(s)) => c.min_revision_accepted(s),
+            (Controllers::Scheduler(c), ControllerStates::Scheduler(s)) => {
+                c.min_revision_accepted(s)
+            }
+            (Controllers::ReplicaSet(c), ControllerStates::ReplicaSet(s)) => {
+                c.min_revision_accepted(s)
+            }
+            (Controllers::Deployment(c), ControllerStates::Deployment(s)) => {
+                c.min_revision_accepted(s)
+            }
+            (Controllers::StatefulSet(c), ControllerStates::StatefulSet(s)) => {
+                c.min_revision_accepted(s)
+            }
+            (Controllers::Job(c), ControllerStates::Job(s)) => c.min_revision_accepted(s),
+            _ => unreachable!(),
+        }
+    }
 }
 
 impl Controllers {
     pub fn new_state(&self) -> ControllerStates {
         match self {
             Controllers::Node(_) => ControllerStates::Node(NodeControllerState::default()),
-            Controllers::Scheduler(_) => ControllerStates::Scheduler(SchedulerControllerState),
-            Controllers::ReplicaSet(_) => ControllerStates::ReplicaSet(ReplicaSetControllerState),
-            Controllers::Deployment(_) => ControllerStates::Deployment(DeploymentControllerState),
-            Controllers::StatefulSet(_) => {
-                ControllerStates::StatefulSet(StatefulSetControllerState)
+            Controllers::Scheduler(_) => {
+                ControllerStates::Scheduler(SchedulerControllerState::default())
             }
-            Controllers::Job(_) => ControllerStates::Job(JobControllerState),
+            Controllers::ReplicaSet(_) => {
+                ControllerStates::ReplicaSet(ReplicaSetControllerState::default())
+            }
+            Controllers::Deployment(_) => {
+                ControllerStates::Deployment(DeploymentControllerState::default())
+            }
+            Controllers::StatefulSet(_) => {
+                ControllerStates::StatefulSet(StatefulSetControllerState::default())
+            }
+            Controllers::Job(_) => ControllerStates::Job(JobControllerState::default()),
         }
     }
 }

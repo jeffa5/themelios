@@ -13,7 +13,8 @@ use crate::resources::{
     LabelSelector, Pod, PodConditionType, ReplicaSet, ReplicaSetCondition, ReplicaSetConditionType,
     ReplicaSetStatus, Time,
 };
-use crate::state::RawState;
+use crate::state::revision::Revision;
+use crate::state::StateView;
 use crate::utils::now;
 
 use super::util;
@@ -28,7 +29,9 @@ const POD_DELETION_COST: &str = "controller.kubernetes.io/pod-deletion-cost";
 pub struct ReplicaSetController;
 
 #[derive(Debug, Default, Hash, Clone, PartialEq, Eq)]
-pub struct ReplicaSetControllerState;
+pub struct ReplicaSetControllerState {
+    revision: Revision,
+}
 
 #[derive(Debug, Hash, Clone, PartialEq, Eq)]
 pub enum ReplicaSetControllerAction {
@@ -57,9 +60,10 @@ impl Controller for ReplicaSetController {
     type Action = ReplicaSetControllerAction;
     fn step(
         &self,
-        global_state: &RawState,
-        _local_state: &mut Self::State,
+        global_state: &StateView,
+        local_state: &mut Self::State,
     ) -> Option<Self::Action> {
+        local_state.revision = global_state.revision.clone();
         for replicaset in global_state.replicasets.iter() {
             let pods = global_state.pods.iter().collect::<Vec<_>>();
             if let Some(op) = reconcile(replicaset, &pods) {
@@ -71,6 +75,10 @@ impl Controller for ReplicaSetController {
 
     fn name(&self) -> String {
         "ReplicaSet".to_owned()
+    }
+
+    fn min_revision_accepted(&self, state: &Self::State) -> crate::state::revision::Revision {
+        state.revision.clone()
     }
 }
 

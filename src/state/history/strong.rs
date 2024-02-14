@@ -21,14 +21,10 @@ impl StrongHistory {
 }
 
 impl History for StrongHistory {
-    fn add_change(&mut self, change: Change, _from: usize) -> Revision {
+    fn add_change(&mut self, change: Change) -> Revision {
         let new_revision = self.max_revision().increment();
         Arc::make_mut(&mut self.state).apply_operation(change.operation, new_revision);
         self.max_revision()
-    }
-
-    fn reset_session(&mut self, _from: usize) {
-        // nothing to do
     }
 
     fn max_revision(&self) -> Revision {
@@ -40,7 +36,7 @@ impl History for StrongHistory {
         (*self.state).clone()
     }
 
-    fn valid_revisions(&self, _from: usize) -> Vec<Revision> {
+    fn valid_revisions(&self, _min_revision: Revision) -> Vec<Revision> {
         vec![self.state.revision.clone()]
     }
 }

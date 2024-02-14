@@ -40,20 +40,15 @@ impl State {
         }
     }
 
-    /// Reset the session for the given connection.
-    pub fn reset_session(&mut self, from: usize) {
-        self.states.reset_session(from)
-    }
-
     /// Record a change for this state from a given controller.
-    pub fn push_change(&mut self, change: Change, from: usize) -> Revision {
-        self.states.add_change(change, from)
+    pub fn push_change(&mut self, change: Change) -> Revision {
+        self.states.add_change(change)
     }
 
     /// Record changes for this state.
-    pub fn push_changes(&mut self, changes: impl Iterator<Item = Change>, from: usize) -> Revision {
+    pub fn push_changes(&mut self, changes: impl Iterator<Item = Change>) -> Revision {
         for change in changes {
-            self.push_change(change, from);
+            self.push_change(change);
         }
         self.max_revision()
     }
@@ -69,8 +64,8 @@ impl State {
     }
 
     /// Get all the possible views under the given consistency level.
-    pub fn views(&self, from: usize) -> Vec<StateView> {
-        self.states.states_for(from)
+    pub fn views(&self, min_revision: Revision) -> Vec<StateView> {
+        self.states.states_for(min_revision)
     }
 
     pub fn add_controller(&mut self, controller_state: ControllerStates) {
@@ -394,6 +389,7 @@ impl StateView {
                     self.pods.insert(pod, new_revision)?;
                 }
             }
+            // TODO: add a podgc controller then we can remove this special case
             ControllerAction::NodeCrash(node_name) => {
                 if let Some(node) = self.nodes.remove(&node_name) {
                     self.pods.retain(|pod| {

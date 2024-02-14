@@ -23,7 +23,7 @@ impl BoundedHistory {
 }
 
 impl History for BoundedHistory {
-    fn add_change(&mut self, change: Change, _from: usize) -> Revision {
+    fn add_change(&mut self, change: Change) -> Revision {
         let mut new_state_ref = Arc::clone(self.last_k_states.last().unwrap());
         let new_state = Arc::make_mut(&mut new_state_ref);
         let new_revision = self.max_revision().increment();
@@ -33,10 +33,6 @@ impl History for BoundedHistory {
         }
         self.last_k_states.push(new_state_ref);
         self.max_revision()
-    }
-
-    fn reset_session(&mut self, _from: usize) {
-        // nothing to do
     }
 
     fn max_revision(&self) -> Revision {
@@ -51,7 +47,7 @@ impl History for BoundedHistory {
         (*self.last_k_states[index]).clone()
     }
 
-    fn valid_revisions(&self, _from: usize) -> Vec<Revision> {
+    fn valid_revisions(&self, _min_revision: Revision) -> Vec<Revision> {
         self.last_k_states
             .iter()
             .map(|s| s.revision.clone())

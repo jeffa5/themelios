@@ -44,18 +44,16 @@ pub enum ConsistencySetup {
 }
 
 pub trait History {
-    fn add_change(&mut self, change: Change, from: usize) -> Revision;
-
-    fn reset_session(&mut self, from: usize);
+    fn add_change(&mut self, change: Change) -> Revision;
 
     fn max_revision(&self) -> Revision;
 
     fn state_at(&self, revision: Revision) -> StateView;
 
-    fn valid_revisions(&self, from: usize) -> Vec<Revision>;
+    fn valid_revisions(&self, min_revision: Revision) -> Vec<Revision>;
 
-    fn states_for(&self, from: usize) -> Vec<StateView> {
-        let revisions = self.valid_revisions(from);
+    fn states_for(&self, min_revision: Revision) -> Vec<StateView> {
+        let revisions = self.valid_revisions(min_revision);
         revisions.into_iter().map(|r| self.state_at(r)).collect()
     }
 }
@@ -102,25 +100,14 @@ impl StateHistory {
         }
     }
 
-    pub fn add_change(&mut self, change: Change, from: usize) -> Revision {
+    pub fn add_change(&mut self, change: Change) -> Revision {
         match self {
-            StateHistory::Strong(s) => s.add_change(change, from),
-            StateHistory::Bounded(s) => s.add_change(change, from),
-            StateHistory::Session(s) => s.add_change(change, from),
-            StateHistory::Eventual(s) => s.add_change(change, from),
-            StateHistory::OptimisticLinear(s) => s.add_change(change, from),
-            StateHistory::Causal(s) => s.add_change(change, from),
-        }
-    }
-
-    pub fn reset_session(&mut self, from: usize) {
-        match self {
-            StateHistory::Strong(s) => s.reset_session(from),
-            StateHistory::Bounded(s) => s.reset_session(from),
-            StateHistory::Session(s) => s.reset_session(from),
-            StateHistory::Eventual(s) => s.reset_session(from),
-            StateHistory::OptimisticLinear(s) => s.reset_session(from),
-            StateHistory::Causal(s) => s.reset_session(from),
+            StateHistory::Strong(s) => s.add_change(change),
+            StateHistory::Bounded(s) => s.add_change(change),
+            StateHistory::Session(s) => s.add_change(change),
+            StateHistory::Eventual(s) => s.add_change(change),
+            StateHistory::OptimisticLinear(s) => s.add_change(change),
+            StateHistory::Causal(s) => s.add_change(change),
         }
     }
 
@@ -146,14 +133,14 @@ impl StateHistory {
         }
     }
 
-    pub fn states_for(&self, from: usize) -> Vec<StateView> {
+    pub fn states_for(&self, min_revision: Revision) -> Vec<StateView> {
         match self {
-            StateHistory::Strong(s) => s.states_for(from),
-            StateHistory::Bounded(s) => s.states_for(from),
-            StateHistory::Session(s) => s.states_for(from),
-            StateHistory::Eventual(s) => s.states_for(from),
-            StateHistory::OptimisticLinear(s) => s.states_for(from),
-            StateHistory::Causal(s) => s.states_for(from),
+            StateHistory::Strong(s) => s.states_for(min_revision),
+            StateHistory::Bounded(s) => s.states_for(min_revision),
+            StateHistory::Session(s) => s.states_for(min_revision),
+            StateHistory::Eventual(s) => s.states_for(min_revision),
+            StateHistory::OptimisticLinear(s) => s.states_for(min_revision),
+            StateHistory::Causal(s) => s.states_for(min_revision),
         }
     }
 }

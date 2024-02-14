@@ -17,6 +17,7 @@ use crate::{
         PodCondition, PodPhase, PodRestartPolicy, PodStatus, PodTemplateSpec, Time,
     },
     resources::{Job, PodConditionType},
+    state::{revision::Revision, StateView},
     utils::now,
 };
 
@@ -46,7 +47,9 @@ const MAX_UNCOUNTED_PODS: u32 = 500;
 pub struct JobController;
 
 #[derive(Debug, Default, Hash, Clone, PartialEq, Eq)]
-pub struct JobControllerState;
+pub struct JobControllerState {
+    revision: Revision,
+}
 
 #[derive(Debug, Hash, Clone, PartialEq, Eq)]
 #[must_use]
@@ -84,9 +87,10 @@ impl Controller for JobController {
 
     fn step(
         &self,
-        global_state: &crate::state::RawState,
-        _local_state: &mut Self::State,
+        global_state: &StateView,
+        local_state: &mut Self::State,
     ) -> Option<Self::Action> {
+        local_state.revision = global_state.revision.clone();
         for job in global_state.jobs.iter() {
             let mut pods = global_state
                 .pods
@@ -103,6 +107,10 @@ impl Controller for JobController {
 
     fn name(&self) -> String {
         "Job".to_owned()
+    }
+
+    fn min_revision_accepted(&self, state: &Self::State) -> Revision {
+        state.revision.clone()
     }
 }
 

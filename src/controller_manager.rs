@@ -152,7 +152,7 @@ async fn controller_loop<C: Controller>(
         }
 
         info!(name = controller.name(), "Checking for steps");
-        if let Some(operation) = controller.step(&s.state, &mut cstate) {
+        if let Some(operation) = controller.step(&s, &mut cstate) {
             info!(name = controller.name(), "Got operation to perform");
             // let revision = s.revision.clone();
             // s.apply_operation(operation.into(), revision.increment());

@@ -3,13 +3,16 @@ use tracing::debug;
 use crate::abstract_model::ControllerAction;
 use crate::controller::Controller;
 use crate::resources::{Node, PersistentVolumeClaim, Pod, ResourceQuantities};
-use crate::state::RawState;
+use crate::state::revision::Revision;
+use crate::state::StateView;
 
 #[derive(Clone, Debug)]
 pub struct SchedulerController;
 
 #[derive(Debug, Default, Hash, Clone, PartialEq, Eq)]
-pub struct SchedulerControllerState;
+pub struct SchedulerControllerState {
+    revision: Revision,
+}
 
 #[derive(Debug)]
 pub enum SchedulerControllerAction {
@@ -31,9 +34,10 @@ impl Controller for SchedulerController {
 
     fn step(
         &self,
-        global_state: &RawState,
-        _local_state: &mut Self::State,
+        global_state: &StateView,
+        local_state: &mut Self::State,
     ) -> Option<SchedulerControllerAction> {
+        local_state.revision = global_state.revision.clone();
         let mut nodes = global_state
             .nodes
             .iter()
@@ -62,6 +66,10 @@ impl Controller for SchedulerController {
 
     fn name(&self) -> String {
         "Scheduler".to_owned()
+    }
+
+    fn min_revision_accepted(&self, state: &Self::State) -> Revision {
+        state.revision.clone()
     }
 }
 

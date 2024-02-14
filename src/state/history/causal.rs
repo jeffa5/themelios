@@ -33,7 +33,7 @@ impl CausalHistory {
 }
 
 impl History for CausalHistory {
-    fn add_change(&mut self, change: Change, _from: usize) -> Revision {
+    fn add_change(&mut self, change: Change) -> Revision {
         // TODO: do a more fine-grained merge of the states from the revisions
         // for now just use the highest revision number (last writer wins)
         let target_revision =
@@ -66,9 +66,6 @@ impl History for CausalHistory {
 
         self.max_revision()
     }
-    fn reset_session(&mut self, _from: usize) {
-        // nothing to do
-    }
 
     fn max_revision(&self) -> Revision {
         self.states.last().unwrap().state.revision.clone()
@@ -88,7 +85,7 @@ impl History for CausalHistory {
         s
     }
 
-    fn valid_revisions(&self, _from: usize) -> Vec<Revision> {
+    fn valid_revisions(&self, _min_revision: Revision) -> Vec<Revision> {
         // all individual revisions are valid to work from
         let base_revisions = self
             .states

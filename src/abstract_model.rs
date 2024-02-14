@@ -95,6 +95,9 @@ pub enum Action {
     ControllerStep(usize, ControllerStates, Change),
     ArbitraryStep(Change),
     Client(usize, ClientState, ClientAction),
+
+    /// The controller at the given index restarts, losing its state.
+    ControllerRestart(usize),
     /// The node with the given controller index, and name, crashes.
     NodeCrash(usize, String),
 }
@@ -117,9 +120,11 @@ impl Model for AbstractModelCfg {
 
     fn actions(&self, state: &Self::State, actions: &mut Vec<Self::Action>) {
         for (i, controller) in self.controllers.iter().enumerate() {
-            for view in state.views(i) {
-                let mut cstate = state.get_controller(i).clone();
+            let cstate = state.get_controller(i);
+            let min_revision = controller.min_revision_accepted(cstate);
+            for view in state.views(min_revision) {
                 debug!(rev = ?view.revision, "Reconciling state");
+                let mut cstate = cstate.clone();
                 let action = controller.step(&view, &mut cstate);
                 debug!(
                     controller = controller.name(),
@@ -147,15 +152,23 @@ impl Model for AbstractModelCfg {
         actions.extend(arbitrary_actions);
 
         for (i, client) in self.clients.iter().enumerate() {
-            for view in state.views(i) {
-                let cstate = state.get_client(i);
-                let cactions = client.actions(i, &view, cstate);
-                debug!(?cactions, "Client step completed");
-                let mut changes = cactions
-                    .into_iter()
-                    .map(|(state, action)| Action::Client(i, state, action));
-                actions.extend(&mut changes);
+            let view = state.latest();
+            let cstate = state.get_client(i);
+            let cactions = client.actions(i, &view, cstate);
+            debug!(?cactions, "Client step completed");
+            let mut changes = cactions
+                .into_iter()
+                .map(|(state, action)| Action::Client(i, state, action));
+            actions.extend(&mut changes);
+        }
+
+        let latest_view = state.latest();
+        for (i, controller) in self.controllers.iter().enumerate() {
+            if matches!(controller, Controllers::Node(_)) {
+                // skip nodes for now
+                continue;
             }
+            actions.push(Action::ControllerRestart(i));
         }
 
         // at max revision as this isn't a controller event
@@ -188,17 +201,13 @@ impl Model for AbstractModelCfg {
         match action {
             Action::ControllerStep(from, cstate, change) => {
                 let mut state = last_state.clone();
-                state.push_changes(std::iter::once(change), from);
+                state.push_changes(std::iter::once(change));
                 state.update_controller(from, cstate);
                 Some(state)
             }
             Action::ArbitraryStep(change) => {
                 let mut state = last_state.clone();
-                // TODO: sort out the `from` parameter here, they aren't from a client that should
-                // have session state associated.
-                // Maybe we can drop this if we actually move session tokens to the controllers.
-                // Could use something like controller.min_revision_accepted()
-                state.push_changes(std::iter::once(change), usize::MAX);
+                state.push_changes(std::iter::once(change));
                 Some(state)
             }
             Action::Client(from, cstate, action) => {
@@ -210,20 +219,22 @@ impl Model for AbstractModelCfg {
                     revision: sv.revision,
                     operation: action,
                 };
-                state.push_changes(std::iter::once(change), from);
+                state.push_changes(std::iter::once(change));
                 state.update_client(from, cstate);
+                Some(state)
+            }
+            Action::ControllerRestart(controller_index) => {
+                let mut state = last_state.clone();
+                let controller_state = self.controllers[controller_index].new_state();
+                state.update_controller(controller_index, controller_state);
                 Some(state)
             }
             Action::NodeCrash(controller_index, node_name) => {
                 let mut state = last_state.clone();
-                state.push_change(
-                    Change {
-                        revision: last_state.max_revision(),
-                        operation: ControllerAction::NodeCrash(node_name),
-                    },
-                    controller_index,
-                );
-                state.reset_session(controller_index);
+                state.push_change(Change {
+                    revision: last_state.max_revision(),
+                    operation: ControllerAction::NodeCrash(node_name),
+                });
                 // reset the node's local state
                 state.update_controller(
                     controller_index,

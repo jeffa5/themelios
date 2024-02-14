@@ -201,7 +201,7 @@ async fn scheduler(
         },
         ..Default::default()
     };
-    let mut local_state = SchedulerControllerState;
+    let mut local_state = SchedulerControllerState::default();
     let operation = s.step(&state_view, &mut local_state);
     debug!(?operation, "Got operation");
     match operation {
@@ -227,7 +227,7 @@ async fn deployment(
         },
         ..Default::default()
     };
-    let mut local_state = DeploymentControllerState;
+    let mut local_state = DeploymentControllerState::default();
     let operation = s.step(&state_view, &mut local_state);
     debug!(?operation, "Got operation");
     match operation {
@@ -292,7 +292,7 @@ async fn replicaset(
         },
         ..Default::default()
     };
-    let mut local_state = ReplicaSetControllerState;
+    let mut local_state = ReplicaSetControllerState::default();
     let operation = s.step(&state_view, &mut local_state);
     debug!(?operation, "Got operation");
     match operation {
@@ -331,7 +331,7 @@ async fn statefulset(
         },
         ..Default::default()
     };
-    let mut local_state = StatefulSetControllerState;
+    let mut local_state = StatefulSetControllerState::default();
     let operation = s.step(&state_view, &mut local_state);
     debug!(?operation, "Got operation");
     match operation {
@@ -391,7 +391,7 @@ async fn job(Json(payload): Json<JobRequest>) -> Result<Json<JobResponse>, Error
         },
         ..Default::default()
     };
-    let mut local_state = JobControllerState;
+    let mut local_state = JobControllerState::default();
     let operation = s.step(&state_view, &mut local_state);
     debug!(?operation, "Got operation");
     match operation {

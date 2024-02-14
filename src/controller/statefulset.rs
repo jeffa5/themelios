@@ -16,7 +16,7 @@ use crate::{
         StatefulSetPersistentVolumeClaimRetentionPolicyType, StatefulSetSpec, StatefulSetStatus,
         Volume,
     },
-    state::RawState,
+    state::{revision::Revision, StateView},
     utils::now,
 };
 
@@ -29,7 +29,9 @@ const CONTROLLER_REVISION_HASH_LABEL: &str = "controller.kubernetes.io/hash";
 pub struct StatefulSetController;
 
 #[derive(Debug, Default, Hash, Clone, PartialEq, Eq)]
-pub struct StatefulSetControllerState;
+pub struct StatefulSetControllerState {
+    revision: Revision,
+}
 
 #[derive(Debug)]
 pub enum StatefulSetControllerAction {
@@ -84,9 +86,10 @@ impl Controller for StatefulSetController {
 
     fn step(
         &self,
-        global_state: &RawState,
-        _local_state: &mut Self::State,
+        global_state: &StateView,
+        local_state: &mut Self::State,
     ) -> Option<StatefulSetControllerAction> {
+        local_state.revision = global_state.revision.clone();
         for statefulset in global_state.statefulsets.iter() {
             let pods = global_state.pods.iter().collect::<Vec<_>>();
             let revisions = global_state.controller_revisions.iter().collect::<Vec<_>>();
@@ -103,6 +106,10 @@ impl Controller for StatefulSetController {
 
     fn name(&self) -> String {
         "StatefulSet".to_owned()
+    }
+
+    fn min_revision_accepted(&self, state: &Self::State) -> Revision {
+        state.revision.clone()
     }
 }
 

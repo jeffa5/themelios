@@ -26,7 +26,7 @@ impl OptimisticLinearHistory {
 }
 
 impl History for OptimisticLinearHistory {
-    fn add_change(&mut self, change: Change, _from: usize) -> Revision {
+    fn add_change(&mut self, change: Change) -> Revision {
         // find the state for the revision that the change operated on, we'll treat this as the
         // committed one if they didn't operate on the latest (optimistic)
         let index = self
@@ -58,9 +58,6 @@ impl History for OptimisticLinearHistory {
 
         self.max_revision()
     }
-    fn reset_session(&mut self, _from: usize) {
-        // nothing to do
-    }
 
     fn max_revision(&self) -> Revision {
         self.states.last().unwrap().revision.clone()
@@ -74,7 +71,7 @@ impl History for OptimisticLinearHistory {
         (*self.states[index]).clone()
     }
 
-    fn valid_revisions(&self, _from: usize) -> Vec<Revision> {
+    fn valid_revisions(&self, _min_revision: Revision) -> Vec<Revision> {
         self.states.iter().map(|s| s.revision.clone()).collect()
     }
 }
