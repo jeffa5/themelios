@@ -650,7 +650,9 @@ impl SubAssign for ResourceQuantities {
     }
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff)]
+#[derive(
+    Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff,
+)]
 #[diff(attr(
     #[derive(Debug, PartialEq)]
 ))]
@@ -669,14 +671,21 @@ impl Job {
     };
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff)]
+fn u32_one() -> u32 {
+    1
+}
+
+#[derive(
+    Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff,
+)]
 #[diff(attr(
     #[derive(Debug, PartialEq)]
 ))]
 #[serde(rename_all = "camelCase")]
 pub struct JobSpec {
     pub template: PodTemplateSpec,
-    pub parallelism: Option<u32>,
+    #[serde(default = "u32_one")]
+    pub parallelism: u32,
     pub completions: Option<u32>,
     #[serde(default)]
     pub completion_mode: JobCompletionMode,
