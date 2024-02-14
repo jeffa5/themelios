@@ -79,6 +79,9 @@ impl ArbitraryClient {
             ($kind:ident, $update:expr) => {
                 for res in view.$kind.iter() {
                     let mut res = res.clone();
+                    if res.spec.template.spec.containers.is_empty() {
+                        continue
+                    }
                     let image = &res.spec.template.spec.containers[0].image;
                     let new_image = format!("{}1", image);
                     res.spec.template.spec.containers[0].image = new_image;
