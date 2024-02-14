@@ -177,7 +177,7 @@ impl Model for AbstractModelCfg {
         }
 
         // at max revision as this isn't a controller event
-        for node in state.view_at(state.max_revision()).nodes.iter() {
+        for node in state.latest().nodes.iter() {
             if let Some(cond) =
                 get_node_condition(&node.status.conditions, NodeConditionType::Ready)
             {
@@ -254,7 +254,7 @@ impl Model for AbstractModelCfg {
         let mut p = self.properties.clone();
         p.append(&mut vec![
             Property::<Self>::always("all resources have unique names", |_model, state| {
-                let state = state.view_at(state.max_revision());
+                let state = state.latest();
                 all_unique(state.nodes.iter().map(|n| &n.metadata.name))
                     && all_unique(state.pods.iter().map(|n| &n.metadata.name))
                     && all_unique(state.replicasets.iter().map(|n| &n.metadata.name))
@@ -270,7 +270,7 @@ impl Model for AbstractModelCfg {
                     && all_unique(state.jobs.iter().map(|n| &n.metadata.name))
             }),
             Property::<Self>::eventually("every pod gets scheduled", |_model, state| {
-                let state = state.view_at(state.max_revision());
+                let state = state.latest();
                 let mut pods_iter = state.pods.iter();
                 pods_iter.all(|pod| pod.spec.node_name.is_some())
             }),
@@ -292,7 +292,7 @@ impl Model for AbstractModelCfg {
                 "statefulsets always have consecutive pods",
                 |_model, state| {
                     // point one and two from https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/#deployment-and-scaling-guarantees
-                    let state = state.view_at(state.max_revision());
+                    let state = state.latest();
                     for sts in state.statefulsets.iter() {
                         let mut ordinals = Vec::new();
                         for pod in state.pods.iter() {
