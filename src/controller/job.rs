@@ -888,7 +888,7 @@ fn manage_job(
     succeeded_indexes: &OrderedIntervals,
 ) -> OptionalJobControllerAction {
     let active = active_pods.len();
-    let parallelism = job.spec.parallelism.unwrap_or_default() as usize;
+    let parallelism = job.spec.parallelism as usize;
 
     if job.spec.suspend {
         debug!("Deleting all active pods in suspended job");
@@ -905,6 +905,7 @@ fn manage_job(
     }
 
     let mut want_active;
+    debug!(parallelism, ?job.spec.completions, "working out want_active");
     if let Some(completions) = job.spec.completions {
         // Job specifies a specific number of completions.  Therefore, number
         // active should not ever exceed number of remaining completions.
@@ -944,6 +945,10 @@ fn manage_job(
     let mut diff = want_active
         .saturating_sub(terminating)
         .saturating_sub(active);
+    debug!(
+        want_active,
+        terminating, active, diff, "Caluculated number of pods to create"
+    );
     if diff > 0 {
         if diff > MAX_POD_CREATE_DELETE_PER_SYNC {
             diff = MAX_POD_CREATE_DELETE_PER_SYNC

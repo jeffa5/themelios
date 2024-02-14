@@ -109,7 +109,11 @@ fn test_non_parallel_job() {
                 s.pods
                     .for_controller(&r.metadata.uid)
                     .filter(|p| matches!(p.status.phase, PodPhase::Pending | PodPhase::Running))
-                    .all(|p| p.metadata.finalizers.contains(&JOB_TRACKING_FINALIZER.to_string()))
+                    .all(|p| {
+                        p.metadata
+                            .finalizers
+                            .contains(&JOB_TRACKING_FINALIZER.to_string())
+                    })
             })
         },
     );

@@ -482,9 +482,9 @@ pub enum PodConditionType {
 ))]
 pub enum PodPhase {
     // Pending: The pod has been accepted by the Kubernetes system, but one or more of the container images has not been created. This includes time before being scheduled as well as time spent downloading images over the network, which could take a while.
+    #[default]
     Pending,
     // Unknown: For some reason the state of the pod could not be obtained, typically due to an error in communicating with the host of the pod.
-    #[default]
     Unknown,
     // Running: The pod has been bound to a node, and all of the containers have been created. At least one container is still running, or is in the process of starting or restarting.
     Running,
@@ -675,9 +675,7 @@ fn u32_one() -> u32 {
     1
 }
 
-#[derive(
-    Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff,
-)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff)]
 #[diff(attr(
     #[derive(Debug, PartialEq)]
 ))]
@@ -697,6 +695,23 @@ pub struct JobSpec {
     pub selector: LabelSelector,
 
     pub pod_failure_policy: Option<JobPodFailurePolicy>,
+}
+
+impl Default for JobSpec {
+    fn default() -> Self {
+        Self {
+            template: Default::default(),
+            parallelism: 1,
+            completions: Default::default(),
+            completion_mode: Default::default(),
+            backoff_limit: Default::default(),
+            active_deadline_seconds: Default::default(),
+            ttl_seconds_after_finished: Default::default(),
+            suspend: Default::default(),
+            selector: Default::default(),
+            pod_failure_policy: Default::default(),
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff)]
