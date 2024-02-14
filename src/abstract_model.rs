@@ -94,8 +94,6 @@ pub enum Action {
 
     /// The controller at the given index restarts, losing its state.
     ControllerRestart(usize),
-    /// The node with the given controller index crashes.
-    NodeCrash(usize),
 }
 
 impl Model for AbstractModelCfg {
@@ -183,7 +181,7 @@ impl Model for AbstractModelCfg {
                         if let Controllers::Node(n) = controller {
                             if n.name == node.metadata.name {
                                 // match
-                                actions.push(Action::NodeCrash(i));
+                                actions.push(Action::ControllerRestart(i));
                             }
                         }
                     }
@@ -222,15 +220,6 @@ impl Model for AbstractModelCfg {
                 let mut state = last_state.clone();
                 let controller_state = self.controllers[controller_index].new_state();
                 state.update_controller(controller_index, controller_state);
-                Some(state)
-            }
-            Action::NodeCrash(controller_index) => {
-                let mut state = last_state.clone();
-                // reset the node's local state
-                state.update_controller(
-                    controller_index,
-                    ControllerStates::Node(NodeControllerState::default()),
-                );
                 Some(state)
             }
         }
