@@ -26,13 +26,13 @@
 
       commonArgs = {inherit src;};
       cargoArtifacts = craneLib.buildDepsOnly commonArgs;
-      model-checked-orchestration = craneLib.buildPackage (commonArgs
+      themelios = craneLib.buildPackage (commonArgs
         // {
           inherit cargoArtifacts;
         });
     in {
       packages = {
-        inherit model-checked-orchestration;
+        inherit themelios;
       };
 
       devShells.default = pkgs.mkShell {
