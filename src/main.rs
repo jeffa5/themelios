@@ -170,6 +170,7 @@ fn main() {
         replicaset_controllers: opts.replicaset_controllers,
         deployment_controllers: opts.deployment_controllers,
         statefulset_controllers: opts.statefulset_controllers,
+        job_controllers: opts.job_controllers,
         client_state: ClientState::new_ordered(),
         properties: Vec::new(),
     };

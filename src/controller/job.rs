@@ -28,7 +28,7 @@ use super::{
 };
 
 const JOB_COMPLETION_INDEX_ANNOTATION: &str = "batch.kubernetes.io/job-completion-index";
-const JOB_TRACKING_FINALIZER: &str = "batch.kubernetes.io/job-tracking";
+pub const JOB_TRACKING_FINALIZER: &str = "batch.kubernetes.io/job-tracking";
 
 const JOB_COMPLETION_INDEX_ENV_NAME: &str = "JOB_COMPLETION_INDEX";
 

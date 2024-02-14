@@ -257,6 +257,43 @@ impl RawState {
         self
     }
 
+    pub fn with_jobs(mut self, jobs: impl Iterator<Item = Job>) -> Self {
+        self.set_jobs(jobs);
+        self
+    }
+
+    pub fn set_jobs(
+        &mut self,
+        jobs: impl Iterator<Item = Job>,
+    ) -> &mut Self {
+        for job in jobs {
+            let revision = job
+                .metadata
+                .resource_version
+                .as_str()
+                .try_into()
+                .unwrap_or_default();
+            self.jobs.insert(job, revision).unwrap();
+        }
+        self
+    }
+
+    pub fn with_job(mut self, job: Job) -> Self {
+        self.set_job(job);
+        self
+    }
+
+    pub fn set_job(&mut self, job: Job) -> &mut Self {
+        let revision = job
+            .metadata
+            .resource_version
+            .as_str()
+            .try_into()
+            .unwrap_or_default();
+        self.jobs.insert(job, revision).unwrap();
+        self
+    }
+
     pub fn with_nodes(mut self, nodes: impl Iterator<Item = Node>) -> Self {
         self.set_nodes(nodes);
         self

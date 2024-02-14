@@ -650,7 +650,7 @@ impl SubAssign for ResourceQuantities {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff)]
 #[diff(attr(
     #[derive(Debug, PartialEq)]
 ))]
@@ -669,7 +669,7 @@ impl Job {
     };
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff)]
 #[diff(attr(
     #[derive(Debug, PartialEq)]
 ))]

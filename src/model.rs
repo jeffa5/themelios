@@ -3,7 +3,7 @@ use stateright::{Expectation, Property};
 use crate::{
     abstract_model::AbstractModelCfg,
     controller::{
-        client::ClientState, Controllers, DeploymentController, NodeController,
+        client::ClientState, job::JobController, Controllers, DeploymentController, NodeController,
         ReplicaSetController, SchedulerController, StatefulSetController,
     },
     state::{history::ConsistencySetup, RawState, State},
@@ -27,6 +27,7 @@ pub struct OrchestrationModelCfg {
     pub replicaset_controllers: usize,
     pub deployment_controllers: usize,
     pub statefulset_controllers: usize,
+    pub job_controllers: usize,
 
     /// Set up clients with specific actions to perform.
     pub client_state: ClientState,
@@ -89,6 +90,10 @@ impl OrchestrationModelCfg {
                     })
                 }
             }
+        }
+
+        for _ in 0..self.job_controllers {
+            model.controllers.push(Controllers::Job(JobController));
         }
 
         model
