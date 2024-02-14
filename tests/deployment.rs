@@ -1,5 +1,8 @@
 use common::annotations_subset;
 use common::run;
+use stateright::Expectation;
+use std::collections::BTreeMap;
+use stdext::function_name;
 use themelios::controller::client::ClientState;
 use themelios::controller::deployment::deployment_complete;
 use themelios::controller::deployment::find_old_replicasets;
@@ -19,9 +22,6 @@ use themelios::resources::ReplicaSet;
 use themelios::resources::RollingUpdate;
 use themelios::state::RawState;
 use themelios::utils;
-use stateright::Expectation;
-use std::collections::BTreeMap;
-use stdext::function_name;
 
 mod common;
 

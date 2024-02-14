@@ -1,5 +1,8 @@
 use common::run;
 use common::LogicalBoolExt;
+use stateright::Expectation;
+use std::collections::BTreeMap;
+use stdext::function_name;
 use themelios::controller::client::ClientState;
 use themelios::model::OrchestrationModelCfg;
 use themelios::resources::Container;
@@ -10,9 +13,6 @@ use themelios::resources::ReplicaSet;
 use themelios::resources::ReplicaSetSpec;
 use themelios::state::RawState;
 use themelios::utils;
-use stateright::Expectation;
-use std::collections::BTreeMap;
-use stdext::function_name;
 
 mod common;
 

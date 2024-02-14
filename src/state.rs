@@ -262,10 +262,7 @@ impl RawState {
         self
     }
 
-    pub fn set_jobs(
-        &mut self,
-        jobs: impl Iterator<Item = Job>,
-    ) -> &mut Self {
+    pub fn set_jobs(&mut self, jobs: impl Iterator<Item = Job>) -> &mut Self {
         for job in jobs {
             let revision = job
                 .metadata

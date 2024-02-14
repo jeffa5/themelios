@@ -1,5 +1,8 @@
 use common::run;
 use common::LogicalBoolExt;
+use stateright::Expectation;
+use std::collections::BTreeMap;
+use stdext::function_name;
 use themelios::controller::client::ClientState;
 use themelios::controller::job::JOB_TRACKING_FINALIZER;
 use themelios::model::OrchestrationModelCfg;
@@ -12,9 +15,6 @@ use themelios::resources::PodSpec;
 use themelios::resources::PodTemplateSpec;
 use themelios::state::RawState;
 use themelios::utils;
-use stateright::Expectation;
-use std::collections::BTreeMap;
-use stdext::function_name;
 
 mod common;
 

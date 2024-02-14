@@ -1,11 +1,11 @@
-use themelios::model::OrchestrationModelCfg;
-use themelios::report::Reporter;
 use stateright::Checker;
 use stateright::HasDiscoveries;
 use stateright::Model;
 use stateright::UniformChooser;
 use std::collections::BTreeMap;
 use std::time::Duration;
+use themelios::model::OrchestrationModelCfg;
+use themelios::report::Reporter;
 
 use themelios::resources::Meta;
 

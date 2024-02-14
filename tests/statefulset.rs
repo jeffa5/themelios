@@ -1,4 +1,7 @@
 use common::run;
+use stateright::Expectation;
+use std::collections::BTreeMap;
+use stdext::function_name;
 use themelios::controller::client::ClientState;
 use themelios::controller::util::is_pod_active;
 use themelios::controller::util::is_pod_ready;
@@ -13,9 +16,6 @@ use themelios::resources::StatefulSetSpec;
 use themelios::state::history::ConsistencySetup;
 use themelios::state::RawState;
 use themelios::utils;
-use stateright::Expectation;
-use std::collections::BTreeMap;
-use stdext::function_name;
 
 mod common;
 

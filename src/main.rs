@@ -2,6 +2,9 @@ use std::collections::BTreeMap;
 use std::io::IsTerminal;
 
 use clap::Parser;
+use stateright::Checker;
+use stateright::Model;
+use stateright::UniformChooser;
 use themelios::controller::client::ClientState;
 use themelios::model;
 use themelios::report::Reporter;
@@ -25,9 +28,6 @@ use themelios::resources::StatefulSetStatus;
 use themelios::state::history::ConsistencySetup;
 use themelios::state::RawState;
 use themelios::utils;
-use stateright::Checker;
-use stateright::Model;
-use stateright::UniformChooser;
 use tokio::runtime::Runtime;
 use tower_http::trace::TraceLayer;
 use tracing::info;
@@ -231,8 +231,7 @@ where
             rt.block_on(async {
                 let address = format!("127.0.0.1:{port}");
                 info!("Serving cluster API on {address}");
-                let (shutdown, handles) =
-                    themelios::serve_cluster::run(address).await;
+                let (shutdown, handles) = themelios::serve_cluster::run(address).await;
                 tokio::signal::ctrl_c().await.unwrap();
                 shutdown.store(true, std::sync::atomic::Ordering::Relaxed);
                 for handle in handles {
@@ -244,8 +243,7 @@ where
             let rt = Runtime::new().unwrap();
             rt.block_on(async {
                 info!("Serving controllers");
-                let (shutdown, handles) =
-                    themelios::controller_manager::run().await;
+                let (shutdown, handles) = themelios::controller_manager::run().await;
                 tokio::signal::ctrl_c().await.unwrap();
                 shutdown.store(true, std::sync::atomic::Ordering::Relaxed);
                 for handle in handles {
