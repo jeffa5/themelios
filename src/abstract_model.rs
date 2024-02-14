@@ -9,7 +9,7 @@ use crate::controller::client::Client;
 use crate::controller::client::ClientAction;
 use crate::controller::client::ClientState;
 use crate::controller::util::get_node_condition;
-use crate::controller::{Controller, ControllerStates, Controllers, NodeControllerState};
+use crate::controller::{Controller, ControllerStates, Controllers};
 use crate::resources::{
     ConditionStatus, ControllerRevision, Deployment, Job, NodeConditionType, PersistentVolumeClaim,
     Pod, ReplicaSet, ResourceQuantities, StatefulSet,
