@@ -257,7 +257,7 @@ pub struct PodSpec {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub scheduler_name: Option<String>,
 
-    #[serde(skip_serializing_if = "Vec::is_empty")]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub containers: Vec<Container>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub init_containers: Vec<Container>,
