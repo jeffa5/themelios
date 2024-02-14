@@ -1,5 +1,5 @@
-use model_checked_orchestration::model::OrchestrationModelCfg;
-use model_checked_orchestration::report::Reporter;
+use themelios::model::OrchestrationModelCfg;
+use themelios::report::Reporter;
 use stateright::Checker;
 use stateright::HasDiscoveries;
 use stateright::Model;
@@ -7,7 +7,7 @@ use stateright::UniformChooser;
 use std::collections::BTreeMap;
 use std::time::Duration;
 
-use model_checked_orchestration::resources::Meta;
+use themelios::resources::Meta;
 
 // Check that the annotations on resource `a` are all set on resource `b`.
 #[allow(dead_code)]

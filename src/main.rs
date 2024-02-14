@@ -2,29 +2,29 @@ use std::collections::BTreeMap;
 use std::io::IsTerminal;
 
 use clap::Parser;
-use model_checked_orchestration::controller::client::ClientState;
-use model_checked_orchestration::model;
-use model_checked_orchestration::report::Reporter;
-use model_checked_orchestration::resources::Deployment;
-use model_checked_orchestration::resources::DeploymentSpec;
-use model_checked_orchestration::resources::DeploymentStatus;
-use model_checked_orchestration::resources::LabelSelector;
-use model_checked_orchestration::resources::Node;
-use model_checked_orchestration::resources::NodeSpec;
-use model_checked_orchestration::resources::NodeStatus;
-use model_checked_orchestration::resources::Pod;
-use model_checked_orchestration::resources::PodSpec;
-use model_checked_orchestration::resources::PodStatus;
-use model_checked_orchestration::resources::PodTemplateSpec;
-use model_checked_orchestration::resources::ReplicaSet;
-use model_checked_orchestration::resources::ReplicaSetSpec;
-use model_checked_orchestration::resources::ReplicaSetStatus;
-use model_checked_orchestration::resources::StatefulSet;
-use model_checked_orchestration::resources::StatefulSetSpec;
-use model_checked_orchestration::resources::StatefulSetStatus;
-use model_checked_orchestration::state::history::ConsistencySetup;
-use model_checked_orchestration::state::RawState;
-use model_checked_orchestration::utils;
+use themelios::controller::client::ClientState;
+use themelios::model;
+use themelios::report::Reporter;
+use themelios::resources::Deployment;
+use themelios::resources::DeploymentSpec;
+use themelios::resources::DeploymentStatus;
+use themelios::resources::LabelSelector;
+use themelios::resources::Node;
+use themelios::resources::NodeSpec;
+use themelios::resources::NodeStatus;
+use themelios::resources::Pod;
+use themelios::resources::PodSpec;
+use themelios::resources::PodStatus;
+use themelios::resources::PodTemplateSpec;
+use themelios::resources::ReplicaSet;
+use themelios::resources::ReplicaSetSpec;
+use themelios::resources::ReplicaSetStatus;
+use themelios::resources::StatefulSet;
+use themelios::resources::StatefulSetSpec;
+use themelios::resources::StatefulSetStatus;
+use themelios::state::history::ConsistencySetup;
+use themelios::state::RawState;
+use themelios::utils;
 use stateright::Checker;
 use stateright::Model;
 use stateright::UniformChooser;
@@ -218,7 +218,7 @@ where
             let rt = Runtime::new().unwrap();
             rt.block_on(async {
                 let trace_layer = TraceLayer::new_for_http();
-                let app = model_checked_orchestration::serve_test::app().layer(trace_layer);
+                let app = themelios::serve_test::app().layer(trace_layer);
                 let address = format!("127.0.0.1:{port}");
                 info!("Serving test API on {address}");
                 let listener = tokio::net::TcpListener::bind(address).await.unwrap();
@@ -231,7 +231,7 @@ where
                 let address = format!("127.0.0.1:{port}");
                 info!("Serving cluster API on {address}");
                 let (shutdown, handles) =
-                    model_checked_orchestration::serve_cluster::run(address).await;
+                    themelios::serve_cluster::run(address).await;
                 tokio::signal::ctrl_c().await.unwrap();
                 shutdown.store(true, std::sync::atomic::Ordering::Relaxed);
                 for handle in handles {
@@ -244,7 +244,7 @@ where
             rt.block_on(async {
                 info!("Serving controllers");
                 let (shutdown, handles) =
-                    model_checked_orchestration::controller_manager::run().await;
+                    themelios::controller_manager::run().await;
                 tokio::signal::ctrl_c().await.unwrap();
                 shutdown.store(true, std::sync::atomic::Ordering::Relaxed);
                 for handle in handles {

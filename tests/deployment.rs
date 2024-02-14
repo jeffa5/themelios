@@ -1,24 +1,24 @@
 use common::annotations_subset;
 use common::run;
-use model_checked_orchestration::controller::client::ClientState;
-use model_checked_orchestration::controller::deployment::deployment_complete;
-use model_checked_orchestration::controller::deployment::find_old_replicasets;
-use model_checked_orchestration::controller::deployment::DEFAULT_DEPLOYMENT_UNIQUE_LABEL_KEY;
-use model_checked_orchestration::controller::deployment::LAST_APPLIED_CONFIG_ANNOTATION;
-use model_checked_orchestration::model::OrchestrationModelCfg;
-use model_checked_orchestration::resources::Container;
-use model_checked_orchestration::resources::Deployment;
-use model_checked_orchestration::resources::DeploymentSpec;
-use model_checked_orchestration::resources::DeploymentStrategy;
-use model_checked_orchestration::resources::IntOrString;
-use model_checked_orchestration::resources::Metadata;
-use model_checked_orchestration::resources::Pod;
-use model_checked_orchestration::resources::PodSpec;
-use model_checked_orchestration::resources::PodTemplateSpec;
-use model_checked_orchestration::resources::ReplicaSet;
-use model_checked_orchestration::resources::RollingUpdate;
-use model_checked_orchestration::state::RawState;
-use model_checked_orchestration::utils;
+use themelios::controller::client::ClientState;
+use themelios::controller::deployment::deployment_complete;
+use themelios::controller::deployment::find_old_replicasets;
+use themelios::controller::deployment::DEFAULT_DEPLOYMENT_UNIQUE_LABEL_KEY;
+use themelios::controller::deployment::LAST_APPLIED_CONFIG_ANNOTATION;
+use themelios::model::OrchestrationModelCfg;
+use themelios::resources::Container;
+use themelios::resources::Deployment;
+use themelios::resources::DeploymentSpec;
+use themelios::resources::DeploymentStrategy;
+use themelios::resources::IntOrString;
+use themelios::resources::Metadata;
+use themelios::resources::Pod;
+use themelios::resources::PodSpec;
+use themelios::resources::PodTemplateSpec;
+use themelios::resources::ReplicaSet;
+use themelios::resources::RollingUpdate;
+use themelios::state::RawState;
+use themelios::utils;
 use stateright::Expectation;
 use std::collections::BTreeMap;
 use stdext::function_name;
@@ -51,7 +51,7 @@ fn new_deployment(name: &str, _namespace: &str, replicas: u32) -> Deployment {
     test_labels.insert("name".to_owned(), "test".to_owned());
     d.spec.selector.match_labels = test_labels.clone();
     d.spec.strategy = Some(DeploymentStrategy {
-        r#type: model_checked_orchestration::resources::DeploymentStrategyType::RollingUpdate,
+        r#type: themelios::resources::DeploymentStrategyType::RollingUpdate,
         rolling_update: Some(RollingUpdate::default()),
     });
     d.spec.template = PodTemplateSpec {
@@ -168,7 +168,7 @@ fn test_deployment_rolling_update() {
     deployment.spec.min_ready_seconds = 4;
     let quarter = IntOrString::Str("25%".to_owned());
     deployment.spec.strategy = Some(DeploymentStrategy {
-        r#type: model_checked_orchestration::resources::DeploymentStrategyType::RollingUpdate,
+        r#type: themelios::resources::DeploymentStrategyType::RollingUpdate,
         rolling_update: Some(RollingUpdate {
             max_surge: Some(quarter.clone()),
             max_unavailable: Some(quarter),

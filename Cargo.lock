@@ -1162,37 +1162,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "model-checked-orchestration"
-version = "0.1.0"
-dependencies = [
- "axum",
- "clap",
- "derivative",
- "diff-struct",
- "env_logger",
- "fnv",
- "futures",
- "imbl",
- "k8s-openapi",
- "kube",
- "maplit",
- "num_cpus",
- "serde",
- "serde_json",
- "serde_yaml",
- "stateright",
- "stdext",
- "sysinfo",
- "test-log",
- "time",
- "tokio",
- "tower-http 0.5.1",
- "tracing",
- "tracing-subscriber",
- "uuid",
-]
-
-[[package]]
 name = "nohash-hasher"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2008,6 +1977,37 @@ name = "textwrap"
 version = "0.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "222a222a5bfe1bba4a77b45ec488a741b3cb8872e5e499451fd7d0129c9c7c3d"
+
+[[package]]
+name = "themelios"
+version = "0.1.0"
+dependencies = [
+ "axum",
+ "clap",
+ "derivative",
+ "diff-struct",
+ "env_logger",
+ "fnv",
+ "futures",
+ "imbl",
+ "k8s-openapi",
+ "kube",
+ "maplit",
+ "num_cpus",
+ "serde",
+ "serde_json",
+ "serde_yaml",
+ "stateright",
+ "stdext",
+ "sysinfo",
+ "test-log",
+ "time",
+ "tokio",
+ "tower-http 0.5.1",
+ "tracing",
+ "tracing-subscriber",
+ "uuid",
+]
 
 [[package]]
 name = "thiserror"
