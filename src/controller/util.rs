@@ -1,6 +1,8 @@
+use std::collections::BTreeMap;
+
 use crate::resources::{
-    ConditionStatus, GroupVersionKind, Metadata, NodeCondition, NodeConditionType, OwnerReference,
-    Pod, PodConditionType, PodPhase, PodStatus, PodTemplateSpec,
+    ConditionStatus, GroupVersionKind, Meta, Metadata, NodeCondition, NodeConditionType,
+    OwnerReference, Pod, PodConditionType, PodPhase, PodStatus, PodTemplateSpec,
 };
 
 pub enum ValOrOp<V, O> {
@@ -90,4 +92,17 @@ pub fn filter_terminating_pods<'a>(pods: &[&'a Pod]) -> Vec<&'a Pod> {
 pub fn is_pod_terminating(pod: &Pod) -> bool {
     !(pod.status.phase == PodPhase::Failed || pod.status.phase == PodPhase::Succeeded)
         && pod.metadata.deletion_timestamp.is_some()
+}
+
+// Check that the annotations on resource `a` are all set on resource `b`.
+pub fn annotations_subset<T, U>(a: &T, b: &U) -> bool
+where
+    T: Meta,
+    U: Meta,
+{
+    subset(&a.metadata().annotations, &b.metadata().annotations)
+}
+
+fn subset(m1: &BTreeMap<String, String>, m2: &BTreeMap<String, String>) -> bool {
+    m1.iter().all(|(k, v)| m2.get(k).map_or(false, |w| v == w))
 }

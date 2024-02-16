@@ -2,27 +2,9 @@ use stateright::Checker;
 use stateright::HasDiscoveries;
 use stateright::Model;
 use stateright::UniformChooser;
-use std::collections::BTreeMap;
 use std::time::Duration;
 use themelios::model::OrchestrationModelCfg;
 use themelios::report::Reporter;
-
-use themelios::resources::Meta;
-
-// Check that the annotations on resource `a` are all set on resource `b`.
-#[allow(dead_code)]
-pub fn annotations_subset<T, U>(a: &T, b: &U) -> bool
-where
-    T: Meta,
-    U: Meta,
-{
-    subset(&a.metadata().annotations, &b.metadata().annotations)
-}
-
-#[allow(dead_code)]
-fn subset(m1: &BTreeMap<String, String>, m2: &BTreeMap<String, String>) -> bool {
-    m1.iter().all(|(k, v)| m2.get(k).map_or(false, |w| v == w))
-}
 
 pub fn run(model: OrchestrationModelCfg, default_check_mode: CheckMode, fn_name: &str) {
     println!("Running test {:?}", fn_name);
@@ -101,15 +83,4 @@ fn explore(model: OrchestrationModelCfg, mut path: String) {
     );
     let am = model.into_abstract_model();
     am.checker().serve((host, port));
-}
-
-pub trait LogicalBoolExt {
-    fn implies(self, other: bool) -> bool;
-}
-
-impl LogicalBoolExt for bool {
-    fn implies(self, other: bool) -> bool {
-        // P => Q == not(P) \/ Q
-        !self || other
-    }
 }

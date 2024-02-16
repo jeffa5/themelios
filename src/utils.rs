@@ -42,3 +42,14 @@ pub fn metadata(name: String) -> Metadata {
         finalizers: Vec::new(),
     }
 }
+
+pub trait LogicalBoolExt {
+    fn implies(self, other: bool) -> bool;
+}
+
+impl LogicalBoolExt for bool {
+    fn implies(self, other: bool) -> bool {
+        // P => Q == not(P) \/ Q
+        !self || other
+    }
+}

@@ -7,6 +7,7 @@ use crate::{
         DeploymentController, NodeController, ReplicaSetController, SchedulerController,
         StatefulSetController,
     },
+    controller_properties::ControllerProperties,
     state::{history::ConsistencySetup, RawState, State},
 };
 
@@ -39,7 +40,9 @@ pub struct OrchestrationModelCfg {
 }
 
 impl OrchestrationModelCfg {
-    pub fn into_abstract_model(self) -> AbstractModelCfg {
+    pub fn into_abstract_model(mut self) -> AbstractModelCfg {
+        self.auto_add_properties();
+
         let mut model = AbstractModelCfg {
             controllers: Vec::new(),
             clients: Vec::new(),
@@ -116,5 +119,36 @@ impl OrchestrationModelCfg {
             name,
             condition,
         })
+    }
+
+    pub fn add_properties(
+        &mut self,
+        properties: impl IntoIterator<Item = Property<AbstractModelCfg>>,
+    ) {
+        self.properties.extend(properties)
+    }
+
+    fn auto_add_properties(&mut self) {
+        if self.replicaset_controllers > 0 {
+            self.add_properties(ReplicaSetController::properties())
+        }
+        if self.deployment_controllers > 0 {
+            self.add_properties(DeploymentController::properties())
+        }
+        if self.statefulset_controllers > 0 {
+            self.add_properties(StatefulSetController::properties())
+        }
+        if self.job_controllers > 0 {
+            self.add_properties(JobController::properties())
+        }
+        if self.podgc_controllers > 0 {
+            self.add_properties(PodGCController::properties())
+        }
+        if self.nodes > 0 {
+            self.add_properties(NodeController::properties())
+        }
+        if self.schedulers > 0 {
+            self.add_properties(SchedulerController::properties())
+        }
     }
 }

@@ -1,6 +1,4 @@
 use common::run;
-use common::LogicalBoolExt;
-use stateright::Expectation;
 use std::collections::BTreeMap;
 use stdext::function_name;
 use themelios::controller::client::ClientState;
@@ -21,58 +19,14 @@ fn model(
     client_state: ClientState,
 ) -> OrchestrationModelCfg {
     let initial_state = RawState::default().with_replicasets(replicasets);
-    let mut model = OrchestrationModelCfg {
+    OrchestrationModelCfg {
         initial_state,
         replicaset_controllers: 1,
         schedulers: 1,
         nodes: 1,
         client_state,
         ..Default::default()
-    };
-    model.add_property(
-        Expectation::Always,
-        "when synced, replicas are created or removed to match",
-        |_model, s| {
-            let s = s.latest();
-            let mut replicasets_iter = s.replicasets.iter();
-            replicasets_iter.all(|r| {
-                let pod_count = s.pods.for_controller(&r.metadata.uid).count();
-                // when the resource has finished processing towards the desired state the
-                // status should match the desired number of replicas and the pods should match
-                // that too
-                s.resource_stable(r).implies(
-                    // the status has been updated correctly
-                    r.spec.replicas.unwrap() == r.status.replicas
-                        // and the pods were created
-                        && pod_count as u32 == r.status.replicas,
-                )
-            })
-        },
-    );
-    model.add_property(
-        Expectation::Always,
-        "when stable, all pods are created",
-        |_model, s| {
-            let s = s.latest();
-            let all_stable = s.resources_stable(&s.replicasets);
-            let expected_count = s.replicasets.iter().map(|r| r.status.replicas).sum::<u32>();
-            all_stable.implies(expected_count == s.pods.len() as u32)
-        },
-    );
-    model.add_property(
-        Expectation::Always,
-        "when stable, status replicas == spec replicas",
-        |_model, s| {
-            let s = s.latest();
-            let mut replicasets_iter = s.replicasets.iter();
-            replicasets_iter.all(|r| {
-                let stable = s.resource_stable(r);
-                let replicas_equal = r.spec.replicas.unwrap() == r.status.replicas;
-                stable.implies(replicas_equal)
-            })
-        },
-    );
-    model
+    }
 }
 
 fn new_replicaset(name: &str, _namespace: &str, replicas: u32) -> ReplicaSet {

@@ -11,9 +11,9 @@ pub use scheduler::SchedulerController;
 pub use statefulset::StatefulSetController;
 
 pub use self::deployment::DeploymentControllerState;
-use self::job::{JobController, JobControllerState};
+pub use self::job::{JobController, JobControllerState};
 pub use self::node::NodeControllerState;
-use self::podgc::{PodGCController, PodGCControllerState};
+pub use self::podgc::{PodGCController, PodGCControllerState};
 pub use self::replicaset::ReplicaSetControllerState;
 pub use self::scheduler::SchedulerControllerState;
 pub use self::statefulset::StatefulSetControllerState;

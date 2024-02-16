@@ -3,6 +3,7 @@ pub mod api;
 pub mod arbitrary_client;
 pub mod controller;
 pub mod controller_manager;
+pub mod controller_properties;
 pub mod hasher;
 pub mod model;
 pub mod report;

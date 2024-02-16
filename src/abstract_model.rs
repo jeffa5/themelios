@@ -244,59 +244,6 @@ impl Model for AbstractModelCfg {
                     )
                     && all_unique(state.jobs.iter().map(|n| &n.metadata.name))
             }),
-            Property::<Self>::eventually("every pod gets scheduled", |_model, state| {
-                let state = state.latest();
-                let mut pods_iter = state.pods.iter();
-                pods_iter.all(|pod| pod.spec.node_name.is_some())
-            }),
-            Property::<Self>::always("pods on nodes are unique", |model, state| {
-                let mut node_pods = BTreeSet::new();
-                for c in 0..model.controllers.len() {
-                    let cstate = state.get_controller(c);
-                    if let ControllerStates::Node(n) = cstate {
-                        for node in &n.running {
-                            if !node_pods.insert(node) {
-                                return false;
-                            }
-                        }
-                    }
-                }
-                true
-            }),
-            Property::<Self>::always(
-                "statefulsets always have consecutive pods",
-                |_model, state| {
-                    // point one and two from https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/#deployment-and-scaling-guarantees
-                    let state = state.latest();
-                    for sts in state.statefulsets.iter() {
-                        let mut ordinals = Vec::new();
-                        for pod in state.pods.iter() {
-                            if sts.spec.selector.matches(&pod.metadata.labels) {
-                                ordinals.push(
-                                    crate::controller::statefulset::get_ordinal(pod).unwrap(),
-                                );
-                            }
-                        }
-                        ordinals.sort();
-                        // the first one should be 0
-                        if let Some(first) = ordinals.first() {
-                            if *first != 0 {
-                                return false;
-                            }
-                        }
-                        // then each other should be one more than this
-                        for os in ordinals.windows(2) {
-                            if os[0] + 1 != os[1] {
-                                // violation of the property
-                                // we have found a missing pod but then continued to find an existing one
-                                // for this statefulset.
-                                return false;
-                            }
-                        }
-                    }
-                    true
-                },
-            ),
             Property::<Self>::always("resources have a resource version", |_model, state| {
                 let state = state.latest();
                 let res = state
