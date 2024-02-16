@@ -30,13 +30,6 @@ impl ControllerProperties for StatefulSetController {
                         }
                     }
 
-                    dbg!(
-                        &s.revision,
-                        &sts.status,
-                        pod_count,
-                        ready_replicas,
-                        active_replicas
-                    );
                     let satisfied = sts.status.replicas == pod_count
                         && sts.status.ready_replicas == ready_replicas
                         && sts.status.available_replicas == active_replicas;
