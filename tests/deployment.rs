@@ -27,7 +27,7 @@ mod common;
 
 fn model(deployment: Deployment, client_state: ClientState) -> OrchestrationModelCfg {
     let initial_state = RawState::default().with_deployment(deployment);
-    OrchestrationModelCfg {
+    let mut model = OrchestrationModelCfg {
         initial_state,
         deployment_controllers: 1,
         replicaset_controllers: 1,
@@ -35,7 +35,87 @@ fn model(deployment: Deployment, client_state: ClientState) -> OrchestrationMode
         nodes: 1,
         client_state,
         ..Default::default()
-    }
+    };
+    model.add_property(
+        Expectation::Eventually,
+        "new replicaset is created",
+        |_model, s| {
+            let s = s.latest();
+            let mut deployment_iter = s.deployments.iter();
+            deployment_iter.all(|d| s.replicasets.for_controller(&d.metadata.uid).count() != 0)
+        },
+    );
+    model.add_property(
+        Expectation::Eventually,
+        "deployment is complete",
+        |_m, s| {
+            let s = s.latest();
+            let mut deployment_iter = s.deployments.iter();
+            deployment_iter.all(|d| deployment_complete(d, &d.status))
+        },
+    );
+    model.add_property(
+        Expectation::Eventually,
+        "replicaset has annotations from deployment",
+        |_m, s| {
+            let s = s.latest();
+            let mut deployment_iter = s.deployments.iter();
+            deployment_iter.all(|d| {
+                s.replicasets
+                    .for_controller(&d.metadata.uid)
+                    .all(|rs| annotations_subset(d, rs))
+            })
+        },
+    );
+    model.add_property(
+        Expectation::Eventually,
+        "rs has pod-template-hash in selector, label and template label",
+        |_m, s| {
+            let s = s.latest();
+            let mut deployment_iter = s.deployments.iter();
+            deployment_iter.all(|d| {
+                s.replicasets
+                    .for_controller(&d.metadata.uid)
+                    .all(check_rs_hash_labels)
+            })
+        },
+    );
+    model.add_property(
+        Expectation::Eventually,
+        "all pods for the rs should have the pod-template-hash in their labels",
+        |_m, s| {
+            let s = s.latest();
+            let mut deployment_iter = s.deployments.iter();
+            deployment_iter.all(|d| check_pods_hash_label(s.pods.for_controller(&d.metadata.uid)))
+        },
+    );
+    model.add_property(
+        Expectation::Eventually,
+        "old rss do not have pods",
+        |_model, s| {
+            let s = s.latest();
+            let mut deployment_iter = s.deployments.iter();
+            deployment_iter.all(|d| {
+                let rss = s.replicasets.to_vec();
+                let (_, old) = find_old_replicasets(d, &rss);
+                old.iter()
+                    .all(|rs| rs.spec.replicas.map_or(false, |r| r == 0))
+            })
+        },
+    );
+    model.add_property(
+        Expectation::Always,
+        "no replicaset is created when a deployment is paused",
+        |_model, s| {
+            let s = s.latest();
+            s.deployments.iter().filter(|d| d.spec.paused).all(|d| {
+                s.replicasets
+                    .for_controller(&d.metadata.uid)
+                    .all(|rs| rs.metadata.resource_version <= d.metadata.resource_version)
+            })
+        },
+    );
+    model
 }
 
 fn new_deployment(name: &str, _namespace: &str, replicas: u32) -> Deployment {
@@ -91,60 +171,7 @@ fn test_new_deployment() {
         "should-not-copy-to-replica-set".to_owned(),
     );
 
-    let mut m = model(deployment, ClientState::default());
-    m.add_property(
-        Expectation::Eventually,
-        "new replicaset is created",
-        |_model, s| {
-            let s = s.latest();
-            let mut deployment_iter = s.deployments.iter();
-            deployment_iter.all(|d| s.replicasets.for_controller(&d.metadata.uid).count() != 0)
-        },
-    );
-    m.add_property(
-        Expectation::Eventually,
-        "deployment is complete",
-        |_m, s| {
-            let s = s.latest();
-            let mut deployment_iter = s.deployments.iter();
-            deployment_iter.all(|d| deployment_complete(d, &d.status))
-        },
-    );
-    m.add_property(
-        Expectation::Eventually,
-        "replicaset has annotations from deployment",
-        |_m, s| {
-            let s = s.latest();
-            let mut deployment_iter = s.deployments.iter();
-            deployment_iter.all(|d| {
-                s.replicasets
-                    .for_controller(&d.metadata.uid)
-                    .all(|rs| annotations_subset(d, rs))
-            })
-        },
-    );
-    m.add_property(
-        Expectation::Eventually,
-        "rs has pod-template-hash in selector, label and template label",
-        |_m, s| {
-            let s = s.latest();
-            let mut deployment_iter = s.deployments.iter();
-            deployment_iter.all(|d| {
-                s.replicasets
-                    .for_controller(&d.metadata.uid)
-                    .all(check_rs_hash_labels)
-            })
-        },
-    );
-    m.add_property(
-        Expectation::Eventually,
-        "all pods for the rs should have the pod-template-hash in their labels",
-        |_m, s| {
-            let s = s.latest();
-            let mut deployment_iter = s.deployments.iter();
-            deployment_iter.all(|d| check_pods_hash_label(s.pods.for_controller(&d.metadata.uid)))
-        },
-    );
+    let m = model(deployment, ClientState::default());
     run(m, common::CheckMode::Bfs, function_name!())
 }
 
@@ -175,32 +202,9 @@ fn test_deployment_rolling_update() {
         }),
     });
 
-    let mut m = model(
+    let m = model(
         deployment,
         ClientState::new_unordered().with_change_images(1),
-    );
-    m.add_property(
-        Expectation::Eventually,
-        "new replicaset is created",
-        |_model, s| {
-            let s = s.latest();
-            let mut deployment_iter = s.deployments.iter();
-            deployment_iter.all(|d| s.replicasets.for_controller(&d.metadata.uid).count() != 0)
-        },
-    );
-    m.add_property(
-        Expectation::Eventually,
-        "old rss do not have pods",
-        |_model, s| {
-            let s = s.latest();
-            let mut deployment_iter = s.deployments.iter();
-            deployment_iter.all(|d| {
-                let rss = s.replicasets.to_vec();
-                let (_, old) = find_old_replicasets(d, &rss);
-                old.iter()
-                    .all(|rs| rs.spec.replicas.map_or(false, |r| r == 0))
-            })
-        },
     );
     run(m, common::CheckMode::Bfs, function_name!())
 }
@@ -219,20 +223,12 @@ fn test_paused_deployment() {
         .spec
         .termination_grace_period_seconds = Some(1);
 
-    let mut m = model(
+    let m = model(
         deployment,
         ClientState::new_unordered()
             .with_change_images(1)
             .with_scale_ups(1)
             .with_scale_downs(1),
-    );
-    m.add_property(
-        Expectation::Always,
-        "no replicaset is created",
-        |_model, s| {
-            let s = s.latest();
-            s.replicasets.is_empty()
-        },
     );
     run(m, common::CheckMode::Bfs, function_name!())
 }
