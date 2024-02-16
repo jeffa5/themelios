@@ -8,11 +8,11 @@ use crate::{
 use super::History;
 
 #[derive(Default, Clone, PartialEq, Eq, Hash, Debug)]
-pub struct StrongHistory {
+pub struct LinearizableHistory {
     state: Arc<StateView>,
 }
 
-impl StrongHistory {
+impl LinearizableHistory {
     pub fn new(initial_state: RawState) -> Self {
         Self {
             state: Arc::new(initial_state.into()),
@@ -20,7 +20,7 @@ impl StrongHistory {
     }
 }
 
-impl History for StrongHistory {
+impl History for LinearizableHistory {
     fn add_change(&mut self, change: Change) -> Revision {
         let new_revision = self.max_revision().increment();
         Arc::make_mut(&mut self.state).apply_operation(change.operation, new_revision);

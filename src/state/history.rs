@@ -2,7 +2,7 @@ use crate::abstract_model::Change;
 
 use self::{
     bounded::BoundedHistory, causal::CausalHistory, eventual::EventualHistory,
-    optimistic::OptimisticLinearHistory, session::SessionHistory, strong::StrongHistory,
+    optimistic::OptimisticLinearHistory, session::SessionHistory, linearizable::LinearizableHistory,
 };
 
 use super::{revision::Revision, RawState, StateView};
@@ -12,7 +12,7 @@ pub mod causal;
 pub mod eventual;
 pub mod optimistic;
 pub mod session;
-pub mod strong;
+pub mod linearizable;
 
 /// Consistency level for viewing the state with.
 #[derive(Default, Clone, Debug, PartialEq, Eq, Hash)]
@@ -21,7 +21,7 @@ pub enum ConsistencySetup {
     /// Linearizable reads.
     /// Linearizable writes.
     #[default]
-    Strong,
+    Linearizable,
     /// Work off a state that is close to the latest, bounded by the `k`.
     /// Bounded staleness on reads.
     /// Linearizable writes.
@@ -62,7 +62,7 @@ pub trait History {
 pub enum StateHistory {
     /// Linearizable reads.
     /// Linearizable writes.
-    Strong(StrongHistory),
+    Linearizable(LinearizableHistory),
     /// Bounded staleness on reads.
     /// Linearizable writes.
     Bounded(BoundedHistory),
@@ -80,14 +80,14 @@ pub enum StateHistory {
 
 impl Default for StateHistory {
     fn default() -> Self {
-        Self::Strong(StrongHistory::default())
+        Self::Linearizable(LinearizableHistory::default())
     }
 }
 
 impl StateHistory {
     pub fn new(consistency_level: ConsistencySetup, initial_state: RawState) -> Self {
         match consistency_level {
-            ConsistencySetup::Strong => Self::Strong(StrongHistory::new(initial_state)),
+            ConsistencySetup::Linearizable => Self::Linearizable(LinearizableHistory::new(initial_state)),
             ConsistencySetup::BoundedStaleness(k) => {
                 Self::Bounded(BoundedHistory::new(initial_state, k))
             }
@@ -102,7 +102,7 @@ impl StateHistory {
 
     pub fn add_change(&mut self, change: Change) -> Revision {
         match self {
-            StateHistory::Strong(s) => s.add_change(change),
+            StateHistory::Linearizable(s) => s.add_change(change),
             StateHistory::Bounded(s) => s.add_change(change),
             StateHistory::Session(s) => s.add_change(change),
             StateHistory::Eventual(s) => s.add_change(change),
@@ -113,7 +113,7 @@ impl StateHistory {
 
     pub fn max_revision(&self) -> Revision {
         match self {
-            StateHistory::Strong(s) => s.max_revision(),
+            StateHistory::Linearizable(s) => s.max_revision(),
             StateHistory::Bounded(s) => s.max_revision(),
             StateHistory::Session(s) => s.max_revision(),
             StateHistory::Eventual(s) => s.max_revision(),
@@ -124,7 +124,7 @@ impl StateHistory {
 
     pub fn state_at(&self, revision: Revision) -> StateView {
         match self {
-            StateHistory::Strong(s) => s.state_at(revision),
+            StateHistory::Linearizable(s) => s.state_at(revision),
             StateHistory::Bounded(s) => s.state_at(revision),
             StateHistory::Session(s) => s.state_at(revision),
             StateHistory::Eventual(s) => s.state_at(revision),
@@ -135,7 +135,7 @@ impl StateHistory {
 
     pub fn states_for(&self, min_revision: Revision) -> Vec<StateView> {
         match self {
-            StateHistory::Strong(s) => s.states_for(min_revision),
+            StateHistory::Linearizable(s) => s.states_for(min_revision),
             StateHistory::Bounded(s) => s.states_for(min_revision),
             StateHistory::Session(s) => s.states_for(min_revision),
             StateHistory::Eventual(s) => s.states_for(min_revision),
