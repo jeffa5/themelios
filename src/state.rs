@@ -189,38 +189,6 @@ impl RawState {
         self
     }
 
-    pub fn with_deployment(mut self, deployment: Deployment) -> Self {
-        self.set_deployment(deployment);
-        self
-    }
-
-    pub fn set_deployment(&mut self, deployment: Deployment) -> &mut Self {
-        let revision = deployment
-            .metadata
-            .resource_version
-            .as_str()
-            .try_into()
-            .unwrap_or_default();
-        self.deployments.insert(deployment, revision).unwrap();
-        self
-    }
-
-    pub fn with_replicaset(mut self, replicaset: ReplicaSet) -> Self {
-        self.set_replicaset(replicaset);
-        self
-    }
-
-    pub fn set_replicaset(&mut self, replicaset: ReplicaSet) -> &mut Self {
-        let revision = replicaset
-            .metadata
-            .resource_version
-            .as_str()
-            .try_into()
-            .unwrap_or_default();
-        self.replicasets.insert(replicaset, revision).unwrap();
-        self
-    }
-
     pub fn with_statefulsets(
         mut self,
         statefulsets: impl IntoIterator<Item = StatefulSet>,
@@ -245,22 +213,6 @@ impl RawState {
         self
     }
 
-    pub fn with_statefulset(mut self, statefulset: StatefulSet) -> Self {
-        self.set_statefulset(statefulset);
-        self
-    }
-
-    pub fn set_statefulset(&mut self, statefulset: StatefulSet) -> &mut Self {
-        let revision = statefulset
-            .metadata
-            .resource_version
-            .as_str()
-            .try_into()
-            .unwrap_or_default();
-        self.statefulsets.insert(statefulset, revision).unwrap();
-        self
-    }
-
     pub fn with_jobs(mut self, jobs: impl IntoIterator<Item = Job>) -> Self {
         self.set_jobs(jobs);
         self
@@ -276,22 +228,6 @@ impl RawState {
                 .unwrap_or_default();
             self.jobs.insert(job, revision).unwrap();
         }
-        self
-    }
-
-    pub fn with_job(mut self, job: Job) -> Self {
-        self.set_job(job);
-        self
-    }
-
-    pub fn set_job(&mut self, job: Job) -> &mut Self {
-        let revision = job
-            .metadata
-            .resource_version
-            .as_str()
-            .try_into()
-            .unwrap_or_default();
-        self.jobs.insert(job, revision).unwrap();
         self
     }
 

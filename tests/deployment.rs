@@ -25,8 +25,11 @@ use themelios::utils;
 
 mod common;
 
-fn model(deployment: Deployment, client_state: ClientState) -> OrchestrationModelCfg {
-    let initial_state = RawState::default().with_deployment(deployment);
+fn model(
+    deployments: impl IntoIterator<Item = Deployment>,
+    client_state: ClientState,
+) -> OrchestrationModelCfg {
+    let initial_state = RawState::default().with_deployments(deployments);
     let mut model = OrchestrationModelCfg {
         initial_state,
         deployment_controllers: 1,
@@ -171,7 +174,7 @@ fn test_new_deployment() {
         "should-not-copy-to-replica-set".to_owned(),
     );
 
-    let m = model(deployment, ClientState::default());
+    let m = model([deployment], ClientState::default());
     run(m, common::CheckMode::Bfs, function_name!())
 }
 
@@ -203,7 +206,7 @@ fn test_deployment_rolling_update() {
     });
 
     let m = model(
-        deployment,
+        [deployment],
         ClientState::new_unordered().with_change_images(1),
     );
     run(m, common::CheckMode::Bfs, function_name!())
@@ -224,7 +227,7 @@ fn test_paused_deployment() {
         .termination_grace_period_seconds = Some(1);
 
     let m = model(
-        deployment,
+        [deployment],
         ClientState::new_unordered()
             .with_change_images(1)
             .with_scale_ups(1)

@@ -20,8 +20,8 @@ use themelios::utils;
 
 mod common;
 
-fn model(job: Job, client_state: ClientState) -> OrchestrationModelCfg {
-    let initial_state = RawState::default().with_job(job);
+fn model(jobs: impl IntoIterator<Item = Job>, client_state: ClientState) -> OrchestrationModelCfg {
+    let initial_state = RawState::default().with_jobs(jobs);
     let mut model = OrchestrationModelCfg {
         initial_state,
         job_controllers: 1,
@@ -127,7 +127,7 @@ fn new_job(name: &str, _namespace: &str) -> Job {
 fn test_non_parallel_job() {
     let job = new_job("simple", "");
 
-    let m = model(job, ClientState::default());
+    let m = model([job], ClientState::default());
     run(m, common::CheckMode::Bfs, function_name!())
 }
 
@@ -140,7 +140,7 @@ fn test_parallel_job() {
 
     // TODO: have a way of failing pods and check that.
 
-    let m = model(job, ClientState::default());
+    let m = model([job], ClientState::default());
     run(m, common::CheckMode::Bfs, function_name!())
 }
 

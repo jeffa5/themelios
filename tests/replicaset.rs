@@ -16,8 +16,11 @@ use themelios::utils;
 
 mod common;
 
-fn model(replicaset: ReplicaSet, client_state: ClientState) -> OrchestrationModelCfg {
-    let initial_state = RawState::default().with_replicaset(replicaset);
+fn model(
+    replicasets: impl IntoIterator<Item = ReplicaSet>,
+    client_state: ClientState,
+) -> OrchestrationModelCfg {
+    let initial_state = RawState::default().with_replicasets(replicasets);
     let mut model = OrchestrationModelCfg {
         initial_state,
         replicaset_controllers: 1,
@@ -72,21 +75,6 @@ fn model(replicaset: ReplicaSet, client_state: ClientState) -> OrchestrationMode
     model
 }
 
-fn model_multiple(
-    replicasets: impl IntoIterator<Item = ReplicaSet>,
-    client_state: ClientState,
-) -> OrchestrationModelCfg {
-    let initial_state = RawState::default().with_replicasets(replicasets);
-    OrchestrationModelCfg {
-        initial_state,
-        replicaset_controllers: 1,
-        schedulers: 1,
-        nodes: 1,
-        client_state,
-        ..Default::default()
-    }
-}
-
 fn new_replicaset(name: &str, _namespace: &str, replicas: u32) -> ReplicaSet {
     let mut d = ReplicaSet {
         metadata: utils::metadata(name.to_owned()),
@@ -127,7 +115,7 @@ fn test_spec_replicas_change() {
         .insert("test".to_owned(), "should-copy-to-replica-set".to_owned());
 
     let m = model(
-        replicaset,
+        [replicaset],
         ClientState::new_unordered()
             .with_scale_ups(1)
             .with_scale_downs(1),
@@ -141,10 +129,7 @@ fn test_overlapping_rss() {
     let replicaset_1 = new_replicaset("test-overlapping-rss-1", "", 1);
     let replicaset_2 = new_replicaset("test-overlapping-rss-2", "", 2);
 
-    let m = model_multiple(
-        [replicaset_1, replicaset_2].into_iter(),
-        ClientState::default(),
-    );
+    let m = model([replicaset_1, replicaset_2], ClientState::default());
     run(m, common::CheckMode::Bfs, function_name!())
 }
 

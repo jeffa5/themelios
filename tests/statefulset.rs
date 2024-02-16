@@ -20,11 +20,11 @@ use themelios::utils;
 mod common;
 
 fn model(
-    statefulset: StatefulSet,
+    statefulsets: impl IntoIterator<Item = StatefulSet>,
     client_actions: ClientState,
     nodes: usize,
 ) -> OrchestrationModelCfg {
-    let initial_state = RawState::default().with_statefulset(statefulset);
+    let initial_state = RawState::default().with_statefulsets(statefulsets);
     let mut model = OrchestrationModelCfg {
         initial_state,
         statefulset_controllers: 1,
@@ -113,7 +113,7 @@ fn test_spec_replicas_change() {
         .insert("test".to_owned(), "should-copy-to-replica-set".to_owned());
 
     let m = model(
-        statefulset,
+        [statefulset],
         // scale from initial 2 up to 3 and down to 0 then up to 2 again
         ClientState::new_unordered()
             .with_scale_ups(3)
@@ -129,7 +129,7 @@ fn test_spec_replicas_change() {
 fn test_statefulset_available() {
     let statefulset = new_statefulset("sts", "", 4);
 
-    let m = model(statefulset, ClientState::new_unordered(), 1);
+    let m = model([statefulset], ClientState::new_unordered(), 1);
     // TODO: fix up what this test is supposed to be doing
     run(m, common::CheckMode::Bfs, function_name!())
 }
@@ -140,7 +140,7 @@ fn stale_reads() {
     let statefulset = new_statefulset("stale-reads", "", 1);
 
     let mut m = model(
-        statefulset,
+        [statefulset],
         ClientState::new_ordered().with_change_images(1),
         2,
     );
