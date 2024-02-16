@@ -43,12 +43,12 @@ function cleanup_cargo {
 trap_add cleanup_cargo EXIT
 
 # create a resource
-kubectl create deployment --image nginx nginx --replicas 1
+kubectl create deployment --image nginx nginx:alpine --replicas 1
 
 # wait for it to finish deploying
 kubectl rollout status deployment/nginx --watch
 
 # TODO: scale the deployment down, change the image and wait again
-kubectl scale deployment/nginx --replicas 3
+kubectl scale deployment/nginx --replicas 2
 
 kubectl rollout status deployment/nginx --watch
