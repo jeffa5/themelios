@@ -257,7 +257,7 @@ fn check_rs_hash_labels(rs: &ReplicaSet) -> bool {
     }
 }
 
-fn check_pods_hash_label<'a>(pods: impl Iterator<Item = &'a Pod>) -> bool {
+fn check_pods_hash_label<'a>(pods: impl IntoIterator<Item = &'a Pod>) -> bool {
     let mut first_hash = None;
     for pod in pods {
         let pod_hash = pod.metadata.labels.get(DEFAULT_DEPLOYMENT_UNIQUE_LABEL_KEY);

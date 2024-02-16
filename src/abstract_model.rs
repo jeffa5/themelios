@@ -318,7 +318,7 @@ impl Model for AbstractModelCfg {
     }
 }
 
-fn all_unique<T: Ord>(iter: impl Iterator<Item = T>) -> bool {
+fn all_unique<T: Ord>(iter: impl IntoIterator<Item = T>) -> bool {
     let mut set = BTreeSet::new();
     for item in iter {
         if !set.insert(item) {

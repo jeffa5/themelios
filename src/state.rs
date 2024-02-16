@@ -46,7 +46,7 @@ impl State {
     }
 
     /// Record changes for this state.
-    pub fn push_changes(&mut self, changes: impl Iterator<Item = Change>) -> Revision {
+    pub fn push_changes(&mut self, changes: impl IntoIterator<Item = Change>) -> Revision {
         for change in changes {
             self.push_change(change);
         }
@@ -129,12 +129,12 @@ pub struct RawState {
 }
 
 impl RawState {
-    pub fn with_pods(mut self, pods: impl Iterator<Item = Pod>) -> Self {
+    pub fn with_pods(mut self, pods: impl IntoIterator<Item = Pod>) -> Self {
         self.set_pods(pods);
         self
     }
 
-    pub fn set_pods(&mut self, pods: impl Iterator<Item = Pod>) -> &mut Self {
+    pub fn set_pods(&mut self, pods: impl IntoIterator<Item = Pod>) -> &mut Self {
         for pod in pods {
             let revision = pod
                 .metadata
@@ -147,12 +147,15 @@ impl RawState {
         self
     }
 
-    pub fn with_replicasets(mut self, replicasets: impl Iterator<Item = ReplicaSet>) -> Self {
+    pub fn with_replicasets(mut self, replicasets: impl IntoIterator<Item = ReplicaSet>) -> Self {
         self.set_replicasets(replicasets);
         self
     }
 
-    pub fn set_replicasets(&mut self, replicasets: impl Iterator<Item = ReplicaSet>) -> &mut Self {
+    pub fn set_replicasets(
+        &mut self,
+        replicasets: impl IntoIterator<Item = ReplicaSet>,
+    ) -> &mut Self {
         for replicaset in replicasets {
             let revision = replicaset
                 .metadata
@@ -165,12 +168,15 @@ impl RawState {
         self
     }
 
-    pub fn with_deployments(mut self, deployments: impl Iterator<Item = Deployment>) -> Self {
+    pub fn with_deployments(mut self, deployments: impl IntoIterator<Item = Deployment>) -> Self {
         self.set_deployments(deployments);
         self
     }
 
-    pub fn set_deployments(&mut self, deployments: impl Iterator<Item = Deployment>) -> &mut Self {
+    pub fn set_deployments(
+        &mut self,
+        deployments: impl IntoIterator<Item = Deployment>,
+    ) -> &mut Self {
         for deployment in deployments {
             let revision = deployment
                 .metadata
@@ -215,14 +221,17 @@ impl RawState {
         self
     }
 
-    pub fn with_statefulsets(mut self, statefulsets: impl Iterator<Item = StatefulSet>) -> Self {
+    pub fn with_statefulsets(
+        mut self,
+        statefulsets: impl IntoIterator<Item = StatefulSet>,
+    ) -> Self {
         self.set_statefulsets(statefulsets);
         self
     }
 
     pub fn set_statefulsets(
         &mut self,
-        statefulsets: impl Iterator<Item = StatefulSet>,
+        statefulsets: impl IntoIterator<Item = StatefulSet>,
     ) -> &mut Self {
         for statefulset in statefulsets {
             let revision = statefulset
@@ -252,12 +261,12 @@ impl RawState {
         self
     }
 
-    pub fn with_jobs(mut self, jobs: impl Iterator<Item = Job>) -> Self {
+    pub fn with_jobs(mut self, jobs: impl IntoIterator<Item = Job>) -> Self {
         self.set_jobs(jobs);
         self
     }
 
-    pub fn set_jobs(&mut self, jobs: impl Iterator<Item = Job>) -> &mut Self {
+    pub fn set_jobs(&mut self, jobs: impl IntoIterator<Item = Job>) -> &mut Self {
         for job in jobs {
             let revision = job
                 .metadata
@@ -286,12 +295,12 @@ impl RawState {
         self
     }
 
-    pub fn with_nodes(mut self, nodes: impl Iterator<Item = Node>) -> Self {
+    pub fn with_nodes(mut self, nodes: impl IntoIterator<Item = Node>) -> Self {
         self.set_nodes(nodes);
         self
     }
 
-    pub fn set_nodes(&mut self, nodes: impl Iterator<Item = Node>) -> &mut Self {
+    pub fn set_nodes(&mut self, nodes: impl IntoIterator<Item = Node>) -> &mut Self {
         for node in nodes {
             let revision = node
                 .metadata

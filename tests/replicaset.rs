@@ -73,7 +73,7 @@ fn model(replicaset: ReplicaSet, client_state: ClientState) -> OrchestrationMode
 }
 
 fn model_multiple(
-    replicasets: impl Iterator<Item = ReplicaSet>,
+    replicasets: impl IntoIterator<Item = ReplicaSet>,
     client_state: ClientState,
 ) -> OrchestrationModelCfg {
     let initial_state = RawState::default().with_replicasets(replicasets);
