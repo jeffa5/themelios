@@ -8,7 +8,7 @@ pub fn new_uid(_name: &str) -> String {
     uuid::Uuid::new_v4().to_string()
 }
 
-#[cfg(feature = "model")]
+#[cfg(not(feature = "serve"))]
 pub fn new_uid(name: &str) -> String {
     name.to_owned()
 }
@@ -18,7 +18,7 @@ pub fn now() -> Time {
     Time(OffsetDateTime::now_utc())
 }
 
-#[cfg(feature = "model")]
+#[cfg(not(feature = "serve"))]
 pub fn now() -> Time {
     Time(OffsetDateTime::UNIX_EPOCH)
 }

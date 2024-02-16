@@ -39,8 +39,7 @@ stateright = { version = "0.30.1", git = "https://github.com/jeffa5/stateright",
 debug = true
 
 [features]
-default = ["model"]
-model = []
+default = []
 serve = ["dep:uuid"]
 
 [dev-dependencies]
