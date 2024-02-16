@@ -72,7 +72,11 @@ pub async fn run() -> (Arc<AtomicBool>, Vec<JoinHandle<()>>) {
                                 state.$field.remove(dep.metadata.name.as_ref().unwrap());
                             }
                             Event::Restarted(deps) => {
-                                println!("resource watch restarted {:?}", deps);
+                                let dep_names: Vec<_> = deps
+                                    .iter()
+                                    .map(|d| d.metadata.name.as_ref().unwrap())
+                                    .collect();
+                                println!("resource watch restarted {:?}", dep_names);
                                 let mut state = state2.lock().await;
                                 for dep in deps {
                                     let revision = Revision::try_from(
