@@ -6,19 +6,10 @@ use std::time::Duration;
 use themelios::model::OrchestrationModelCfg;
 use themelios::report::Reporter;
 use themelios::state::history::ConsistencySetup;
+use tracing::info;
 
 pub fn run(mut model: OrchestrationModelCfg, default_check_mode: CheckMode, fn_name: &str) {
     println!("Running test {:?}", fn_name);
-    if let Ok(explore_test) = std::env::var("MCO_EXPLORE_TEST") {
-        if fn_name.ends_with(&explore_test) {
-            let path = std::env::var("MCO_EXPLORE_PATH").unwrap_or_default();
-            explore(model, path);
-            return;
-        } else {
-            // skip others
-            return;
-        }
-    }
 
     if let Ok(consistency_level) = std::env::var("MCO_CONSISTENCY") {
         let consistency_level = match consistency_level.as_str() {
@@ -31,7 +22,19 @@ pub fn run(mut model: OrchestrationModelCfg, default_check_mode: CheckMode, fn_n
                 )
             }
         };
+        info!(?consistency_level, "Set consistency level from environment");
         model.consistency_level = consistency_level;
+    }
+
+    if let Ok(explore_test) = std::env::var("MCO_EXPLORE_TEST") {
+        if fn_name.ends_with(&explore_test) {
+            let path = std::env::var("MCO_EXPLORE_PATH").unwrap_or_default();
+            explore(model, path);
+            return;
+        } else {
+            // skip others
+            return;
+        }
     }
 
     check(model, default_check_mode)
@@ -57,18 +60,27 @@ fn check(model: OrchestrationModelCfg, default_check_mode: CheckMode) {
     // skip clippy bit here for clarity
     #[allow(clippy::wildcard_in_or_patterns)]
     match check_mode.as_str() {
-        "simulation" => checker
-            .spawn_simulation(0, UniformChooser)
-            .report(&mut reporter)
-            .assert_properties(),
-        "dfs" => checker
-            .spawn_dfs()
-            .report(&mut reporter)
-            .assert_properties(),
-        "bfs" => checker
-            .spawn_bfs()
-            .report(&mut reporter)
-            .assert_properties(),
+        "simulation" => {
+            info!(check_mode, "Running checking");
+            checker
+                .spawn_simulation(0, UniformChooser)
+                .report(&mut reporter)
+                .assert_properties()
+        }
+        "dfs" => {
+            info!(check_mode, "Running checking");
+            checker
+                .spawn_dfs()
+                .report(&mut reporter)
+                .assert_properties()
+        }
+        "bfs" => {
+            info!(check_mode, "Running checking");
+            checker
+                .spawn_bfs()
+                .report(&mut reporter)
+                .assert_properties()
+        }
         _ => match default_check_mode {
             CheckMode::Bfs => checker
                 .spawn_bfs()
