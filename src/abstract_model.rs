@@ -117,7 +117,7 @@ impl Model for AbstractModelCfg {
             let cstate = state.get_controller(i);
             let min_revision = controller.min_revision_accepted(cstate);
             for view in state.views(min_revision.clone()) {
-                if view.revision <= min_revision {
+                if view.revision < min_revision {
                     panic!(
                         "Tried to give a controller an old revision! {} vs {}",
                         view.revision, min_revision
