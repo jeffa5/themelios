@@ -22,29 +22,76 @@ mod common;
 
 fn model(job: Job, client_state: ClientState) -> OrchestrationModelCfg {
     let initial_state = RawState::default().with_job(job);
-    OrchestrationModelCfg {
+    let mut model = OrchestrationModelCfg {
         initial_state,
         job_controllers: 1,
         schedulers: 1,
         nodes: 1,
         client_state,
         ..Default::default()
-    }
-}
-
-fn model_multiple(
-    jobs: impl Iterator<Item = Job>,
-    client_state: ClientState,
-) -> OrchestrationModelCfg {
-    let initial_state = RawState::default().with_jobs(jobs);
-    OrchestrationModelCfg {
-        initial_state,
-        job_controllers: 1,
-        schedulers: 1,
-        nodes: 1,
-        client_state,
-        ..Default::default()
-    }
+    };
+    model.add_property(
+        Expectation::Always,
+        "when synced, job status matches pods",
+        |_model, s| {
+            let s = s.latest();
+            s.jobs.iter().all(|r| {
+                let active_pods = s
+                    .pods
+                    .for_controller(&r.metadata.uid)
+                    .filter(|p| is_pod_active(p))
+                    .count();
+                let ready_pods = s
+                    .pods
+                    .for_controller(&r.metadata.uid)
+                    .filter(|p| is_pod_ready(p))
+                    .count();
+                // when the resource has finished processing towards the desired state the
+                // status should match the desired number of replicas and the pods should match
+                // that too
+                let stable = s.resource_current(r);
+                // mimic validateJobPodsStatus
+                let active_correct = active_pods as u32 == r.status.active;
+                let ready_correct = ready_pods as u32 == r.status.ready;
+                stable.implies(active_correct && ready_correct)
+            })
+        },
+    );
+    model.add_property(
+        Expectation::Always,
+        "owned active pods have tracking finalizer",
+        |_model, s| {
+            let s = s.latest();
+            s.jobs.iter().all(|r| {
+                s.pods
+                    .for_controller(&r.metadata.uid)
+                    .filter(|p| is_pod_active(p))
+                    .all(|p| {
+                        p.metadata
+                            .finalizers
+                            .contains(&JOB_TRACKING_FINALIZER.to_string())
+                    })
+            })
+        },
+    );
+    model.add_property(
+        Expectation::Always,
+        "finished pods have no finalizer",
+        |_model, s| {
+            let s = s.latest();
+            s.jobs.iter().all(|r| {
+                s.pods
+                    .for_controller(&r.metadata.uid)
+                    .filter(|p| matches!(p.status.phase, PodPhase::Succeeded | PodPhase::Failed))
+                    .all(|p| {
+                        !p.metadata
+                            .finalizers
+                            .contains(&JOB_TRACKING_FINALIZER.to_string())
+                    })
+            })
+        },
+    );
+    model
 }
 
 fn new_job(name: &str, _namespace: &str) -> Job {
@@ -80,45 +127,7 @@ fn new_job(name: &str, _namespace: &str) -> Job {
 fn test_non_parallel_job() {
     let job = new_job("simple", "");
 
-    let mut m = model(job, ClientState::default());
-    m.add_property(
-        Expectation::Always,
-        "when synced, job status matches pods",
-        |_model, s| {
-            let s = s.latest();
-            s.jobs.iter().all(|r| {
-                let active_pods = s
-                    .pods
-                    .for_controller(&r.metadata.uid)
-                    .filter(|p| matches!(p.status.phase, PodPhase::Pending | PodPhase::Running))
-                    .count();
-                // when the resource has finished processing towards the desired state the
-                // status should match the desired number of replicas and the pods should match
-                // that too
-                let stable = s.revision == r.metadata.resource_version.as_str().try_into().unwrap();
-                // mimic validateJobPodsStatus
-                let active_correct = active_pods as u32 == r.status.active;
-                stable.implies(active_correct)
-            })
-        },
-    );
-    m.add_property(
-        Expectation::Always,
-        "owned active pods have tracking finalizer",
-        |_model, s| {
-            let s = s.latest();
-            s.jobs.iter().all(|r| {
-                s.pods
-                    .for_controller(&r.metadata.uid)
-                    .filter(|p| matches!(p.status.phase, PodPhase::Pending | PodPhase::Running))
-                    .all(|p| {
-                        p.metadata
-                            .finalizers
-                            .contains(&JOB_TRACKING_FINALIZER.to_string())
-                    })
-            })
-        },
-    );
+    let m = model(job, ClientState::default());
     run(m, common::CheckMode::Bfs, function_name!())
 }
 
@@ -131,68 +140,7 @@ fn test_parallel_job() {
 
     // TODO: have a way of failing pods and check that.
 
-    let mut m = model(job, ClientState::default());
-    m.add_property(
-        Expectation::Always,
-        "when synced, job status matches pods",
-        |_model, s| {
-            let s = s.latest();
-            s.jobs.iter().all(|r| {
-                let active_pods = s
-                    .pods
-                    .for_controller(&r.metadata.uid)
-                    .filter(|p| is_pod_active(p))
-                    .count();
-                let ready_pods = s
-                    .pods
-                    .for_controller(&r.metadata.uid)
-                    .filter(|p| is_pod_ready(p))
-                    .count();
-                // when the resource has finished processing towards the desired state the
-                // status should match the desired number of replicas and the pods should match
-                // that too
-                let stable = s.revision == r.metadata.resource_version.as_str().try_into().unwrap();
-                // mimic validateJobPodsStatus
-                let active_correct = active_pods as u32 == r.status.active;
-                let ready_correct = ready_pods as u32 == r.status.ready;
-                stable.implies(active_correct && ready_correct)
-            })
-        },
-    );
-    m.add_property(
-        Expectation::Always,
-        "owned active pods have tracking finalizer",
-        |_model, s| {
-            let s = s.latest();
-            s.jobs.iter().all(|r| {
-                s.pods
-                    .for_controller(&r.metadata.uid)
-                    .filter(|p| matches!(p.status.phase, PodPhase::Pending | PodPhase::Running))
-                    .all(|p| {
-                        p.metadata
-                            .finalizers
-                            .contains(&JOB_TRACKING_FINALIZER.to_string())
-                    })
-            })
-        },
-    );
-    m.add_property(
-        Expectation::Always,
-        "finished pods have no finalizer",
-        |_model, s| {
-            let s = s.latest();
-            s.jobs.iter().all(|r| {
-                s.pods
-                    .for_controller(&r.metadata.uid)
-                    .filter(|p| matches!(p.status.phase, PodPhase::Succeeded | PodPhase::Failed))
-                    .all(|p| {
-                        !p.metadata
-                            .finalizers
-                            .contains(&JOB_TRACKING_FINALIZER.to_string())
-                    })
-            })
-        },
-    );
+    let m = model(job, ClientState::default());
     run(m, common::CheckMode::Bfs, function_name!())
 }
 
