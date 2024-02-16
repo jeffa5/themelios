@@ -3,7 +3,7 @@
 set -ex
 
 # create a cluster
-kind create cluster
+kind create cluster --wait 5m
 
 function cleanup_kind {
   kind delete cluster
