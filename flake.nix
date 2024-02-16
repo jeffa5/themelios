@@ -45,6 +45,7 @@
           pkgs.cargo-flamegraph
 
           pkgs.kubectl
+          pkgs.kind
         ];
       };
     });
