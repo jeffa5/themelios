@@ -5,8 +5,9 @@ use stateright::UniformChooser;
 use std::time::Duration;
 use themelios::model::OrchestrationModelCfg;
 use themelios::report::Reporter;
+use themelios::state::history::ConsistencySetup;
 
-pub fn run(model: OrchestrationModelCfg, default_check_mode: CheckMode, fn_name: &str) {
+pub fn run(mut model: OrchestrationModelCfg, default_check_mode: CheckMode, fn_name: &str) {
     println!("Running test {:?}", fn_name);
     if let Ok(explore_test) = std::env::var("MCO_EXPLORE_TEST") {
         if fn_name.ends_with(&explore_test) {
@@ -18,6 +19,21 @@ pub fn run(model: OrchestrationModelCfg, default_check_mode: CheckMode, fn_name:
             return;
         }
     }
+
+    if let Ok(consistency_level) = std::env::var("MCO_CONSISTENCY") {
+        let consistency_level = match consistency_level.as_str() {
+            "linearizable" => ConsistencySetup::Linearizable,
+            "session" => ConsistencySetup::Session,
+            _ => {
+                panic!(
+                    "Unknown consistency level from MCO_CONSISTENCY: {:?}",
+                    consistency_level
+                )
+            }
+        };
+        model.consistency_level = consistency_level;
+    }
+
     check(model, default_check_mode)
 }
 
