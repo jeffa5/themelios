@@ -47,6 +47,7 @@
           pkgs.kubectl
           pkgs.kind
           pkgs.etcd
+          pkgs.cargo-tarpaulin
         ];
       };
     });
