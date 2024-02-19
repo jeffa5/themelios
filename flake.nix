@@ -46,6 +46,7 @@
 
           pkgs.kubectl
           pkgs.kind
+          pkgs.etcd
         ];
       };
     });

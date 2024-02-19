@@ -23,6 +23,7 @@ trap_add() {
     done
 }
 
+cargo build --release --features serve
 cargo run --release --features serve -- serve-test &
 pid=$!
 function cleanup_cargo {
@@ -30,11 +31,13 @@ function cleanup_cargo {
 }
 trap_add cleanup_cargo EXIT
 
+sleep 5
+
 # run go tests
 cd ../kubernetes
 
-make test-integration WHAT=./test/integration/deployment GOFLAGS="-v -failfast"
-make test-integration WHAT=./test/integration/job GOFLAGS="-v -failfast"
-make test-integration WHAT=./test/integration/replicaset GOFLAGS="-v -failfast"
-make test-integration WHAT=./test/integration/scheduler GOFLAGS="-v -failfast"
-make test-integration WHAT=./test/integration/statefulset GOFLAGS="-v -failfast"
+make test-integration WHAT=./test/integration/deployment GOFLAGS="-v -failfast" > integration-deployment.out 2> integration-deployment.err
+make test-integration WHAT=./test/integration/job GOFLAGS="-v -failfast" > integration-job.out 2> integration-job.err
+make test-integration WHAT=./test/integration/replicaset GOFLAGS="-v -failfast" > integration-replicaset.out 2> integration-replicaset.err
+make test-integration WHAT=./test/integration/scheduler GOFLAGS="-v -failfast" > integration-scheduler.out 2> integration-scheduler.err
+make test-integration WHAT=./test/integration/statefulset GOFLAGS="-v -failfast" > integration-statefulset.out 2> integration-statefulset.err
