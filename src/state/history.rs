@@ -2,7 +2,8 @@ use crate::abstract_model::Change;
 
 use self::{
     bounded::BoundedHistory, causal::CausalHistory, eventual::EventualHistory,
-    optimistic::OptimisticLinearHistory, session::SessionHistory, linearizable::LinearizableHistory,
+    linearizable::LinearizableHistory, optimistic::OptimisticLinearHistory,
+    session::SessionHistory,
 };
 
 use super::{revision::Revision, RawState, StateView};
@@ -10,9 +11,9 @@ use super::{revision::Revision, RawState, StateView};
 pub mod bounded;
 pub mod causal;
 pub mod eventual;
+pub mod linearizable;
 pub mod optimistic;
 pub mod session;
-pub mod linearizable;
 
 /// Consistency level for viewing the state with.
 #[derive(Default, Clone, Debug, PartialEq, Eq, Hash)]
@@ -87,7 +88,9 @@ impl Default for StateHistory {
 impl StateHistory {
     pub fn new(consistency_level: ConsistencySetup, initial_state: RawState) -> Self {
         match consistency_level {
-            ConsistencySetup::Linearizable => Self::Linearizable(LinearizableHistory::new(initial_state)),
+            ConsistencySetup::Linearizable => {
+                Self::Linearizable(LinearizableHistory::new(initial_state))
+            }
             ConsistencySetup::BoundedStaleness(k) => {
                 Self::Bounded(BoundedHistory::new(initial_state, k))
             }
