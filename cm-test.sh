@@ -1,4 +1,4 @@
-#!/usr/bin/env sh
+#!/usr/bin/env bash
 
 set -ex
 
@@ -43,7 +43,7 @@ function cleanup_cargo {
 trap_add cleanup_cargo EXIT
 
 # create a resource
-kubectl create deployment --image nginx nginx:alpine --replicas 1
+kubectl create deployment --image nginx:alpine nginx --replicas 1
 
 # wait for it to finish deploying
 kubectl rollout status deployment/nginx --watch
