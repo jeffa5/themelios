@@ -189,7 +189,6 @@ async fn scheduler(
 ) -> Result<Json<SchedulerResponse>, ErrorResponse> {
     let s = SchedulerController;
     debug!("Got scheduler request");
-    println!("{}", serde_yaml::to_string(&payload).unwrap());
     let mut pods = payload.bound_pods;
     pods.push(payload.pod);
     let state_view = StateView {
@@ -218,7 +217,6 @@ async fn deployment(
 ) -> Result<Json<DeploymentResponse>, ErrorResponse> {
     let s = DeploymentController;
     debug!("Got deployment controller request");
-    println!("{}", serde_yaml::to_string(&payload).unwrap());
     let state_view = StateView {
         state: RawState {
             deployments: vec![payload.deployment].into(),
@@ -276,7 +274,6 @@ async fn replicaset(
 ) -> Result<Json<ReplicasetResponse>, ErrorResponse> {
     let s = ReplicaSetController;
     debug!("Got replicaset controller request");
-    println!("{}", serde_yaml::to_string(&payload).unwrap());
     let mut replicasets = payload.replicasets;
     if !replicasets
         .iter()
@@ -320,7 +317,6 @@ async fn statefulset(
 ) -> Result<Json<StatefulSetResponse>, ErrorResponse> {
     let s = StatefulSetController;
     debug!("Got statefulset controller request");
-    println!("{}", serde_yaml::to_string(&payload).unwrap());
     let state_view = StateView {
         state: RawState {
             statefulsets: vec![payload.statefulset].into(),
@@ -382,7 +378,6 @@ async fn statefulset(
 async fn job(Json(payload): Json<JobRequest>) -> Result<Json<JobResponse>, ErrorResponse> {
     let s = JobController;
     debug!("Got job controller request");
-    println!("{}", serde_yaml::to_string(&payload).unwrap());
     let state_view = StateView {
         state: RawState {
             jobs: vec![payload.job].into(),
