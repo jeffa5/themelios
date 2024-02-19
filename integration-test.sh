@@ -35,11 +35,13 @@ trap_add cleanup_cargo EXIT
 
 sleep 5
 
+cwd=$PWD
+
 # run go tests
 cd ../kubernetes
 
-make test-integration WHAT=./test/integration/deployment GOFLAGS="-v -failfast" 2>&1 | tee integration-deployment.out
-make test-integration WHAT=./test/integration/job GOFLAGS="-v -failfast" 2>&1 | tee integration-job.out
-make test-integration WHAT=./test/integration/replicaset GOFLAGS="-v -failfast" 2>&1 | tee integration-replicaset.out
-make test-integration WHAT=./test/integration/scheduler GOFLAGS="-v -failfast" 2>&1 | tee integration-scheduler.out
-make test-integration WHAT=./test/integration/statefulset GOFLAGS="-v -failfast" 2>&1 | tee integration-statefulset.out
+make test-integration WHAT=./test/integration/deployment GOFLAGS="-v -failfast" 2>&1 | tee $cwd/integration-deployment.out
+make test-integration WHAT=./test/integration/job GOFLAGS="-v -failfast" 2>&1 | tee $cwd/integration-job.out
+make test-integration WHAT=./test/integration/replicaset GOFLAGS="-v -failfast" 2>&1 | tee $cwd/integration-replicaset.out
+make test-integration WHAT=./test/integration/scheduler GOFLAGS="-v -failfast" 2>&1 | tee $cwd/integration-scheduler.out
+make test-integration WHAT=./test/integration/statefulset GOFLAGS="-v -failfast" 2>&1 | tee $cwd/integration-statefulset.out
