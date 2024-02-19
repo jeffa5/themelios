@@ -13,7 +13,9 @@ use kube::{
     Api, Client,
 };
 use tokio::{sync::Mutex, task::JoinHandle};
+use tracing::debug;
 use tracing::info;
+use tracing::warn;
 
 use crate::{
     abstract_model::ControllerAction,
@@ -38,13 +40,13 @@ pub async fn run() -> (Arc<AtomicBool>, Vec<JoinHandle<()>>) {
             );
             let state2 = Arc::clone(&state);
             tokio::spawn(async move {
-                watcher
+                let res = watcher
                     .try_for_each(|dep| async {
                         match dep {
                             Event::Applied(dep) => {
-                                println!(
-                                    "resource applied {}",
-                                    dep.metadata.name.as_ref().unwrap()
+                                info!(
+                                    name = dep.metadata.name.as_ref().unwrap(),
+                                    "resource applied"
                                 );
                                 let mut state = state2.lock().await;
                                 let revision = Revision::try_from(
@@ -56,12 +58,12 @@ pub async fn run() -> (Arc<AtomicBool>, Vec<JoinHandle<()>>) {
                                 let local_dep =
                                     serde_json::from_value(serde_json::to_value(dep).unwrap())
                                         .unwrap();
-                                state.$field.insert(local_dep, revision).unwrap();
+                                let _ = state.$field.insert(local_dep, revision);
                             }
                             Event::Deleted(dep) => {
-                                println!(
-                                    "resource deleted {}",
-                                    dep.metadata.name.as_ref().unwrap()
+                                info!(
+                                    name = dep.metadata.name.as_ref().unwrap(),
+                                    "resource deleted"
                                 );
                                 let mut state = state2.lock().await;
                                 let revision = Revision::try_from(
@@ -76,7 +78,7 @@ pub async fn run() -> (Arc<AtomicBool>, Vec<JoinHandle<()>>) {
                                     .iter()
                                     .map(|d| d.metadata.name.as_ref().unwrap())
                                     .collect();
-                                println!("resource watch restarted {:?}", dep_names);
+                                info!(names=?dep_names, "resource watch restarted");
                                 let mut state = state2.lock().await;
                                 for dep in deps {
                                     let revision = Revision::try_from(
@@ -88,14 +90,16 @@ pub async fn run() -> (Arc<AtomicBool>, Vec<JoinHandle<()>>) {
                                     let local_dep =
                                         serde_json::from_value(serde_json::to_value(dep).unwrap())
                                             .unwrap();
-                                    state.$field.insert(local_dep, revision.clone()).unwrap();
+                                    let _ = state.$field.insert(local_dep, revision.clone());
                                 }
                             }
                         }
                         Ok(())
                     })
-                    .await
-                    .unwrap();
+                    .await;
+                    if let Err(err) = res {
+                        warn!(kind=std::any::type_name::<$kind>(), %err, "Finished watch for resource kind");
+                    }
             });
         };
     }
@@ -155,7 +159,7 @@ async fn controller_loop<C: Controller>(
             continue;
         }
 
-        info!(name = controller.name(), "Checking for steps");
+        debug!(name = controller.name(), "Checking for steps");
         if let Some(operation) = controller.step(&s, &mut cstate) {
             info!(name = controller.name(), "Got operation to perform");
             // let revision = s.revision.clone();
@@ -163,7 +167,7 @@ async fn controller_loop<C: Controller>(
             handle_action(operation.into(), client.clone()).await;
         }
         last_revision = s.revision.clone();
-        info!(name = controller.name(), "Finished processing step");
+        debug!(name = controller.name(), "Finished processing step");
     }
     info!(name = controller.name(), "Stopping controller");
 }
