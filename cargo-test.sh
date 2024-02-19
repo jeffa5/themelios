@@ -2,7 +2,7 @@
 
 set -euxo pipefail
 
-rm -f cargo-*.{out,err}
+rm -f cargo-*.out
 
 # run with default setup for tests, just dfs to reduce memory usage
 MCO_CHECK_MODE=dfs cargo test --release -- --nocapture 2>&1 | tee cargo-default.out

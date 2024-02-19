@@ -2,7 +2,7 @@
 
 set -euxo pipefail
 
-rm -f integration-*.{out,err}
+rm -f integration-*.out
 
 # appends a command to a trap
 #
