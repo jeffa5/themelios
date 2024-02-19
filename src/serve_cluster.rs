@@ -17,10 +17,12 @@ use crate::resources::Deployment;
 use crate::resources::Node;
 use crate::resources::Pod;
 use crate::resources::ReplicaSet;
+use crate::resources::Scale;
 use crate::state::StateView;
 use axum::extract::Path;
 use axum::extract::State;
 use axum::routing::delete;
+use axum::routing::patch;
 use axum::routing::put;
 use axum::{
     http::{Method, StatusCode, Uri},
@@ -37,7 +39,7 @@ use k8s_openapi::List;
 use tokio::sync::Mutex;
 use tokio::task::JoinHandle;
 use tower_http::trace::TraceLayer;
-use tracing::{info, warn};
+use tracing::{debug, info, warn};
 
 type AppState = Arc<Mutex<StateView>>;
 
@@ -115,14 +117,14 @@ async fn controller_loop<C: Controller>(state: AppState, controller: C, shutdown
             continue;
         }
 
-        info!(name = controller.name(), "Checking for steps");
+        debug!(name = controller.name(), "Checking for steps");
         if let Some(operation) = controller.step(&s, &mut cstate) {
             info!(name = controller.name(), "Got operation to perform");
             let revision = s.revision.clone();
             s.apply_operation(operation.into(), revision.increment());
         }
         last_revision = s.revision.clone();
-        info!(name = controller.name(), "Finished processing step");
+        debug!(name = controller.name(), "Finished processing step");
     }
     info!(name = controller.name(), "Stopping controller");
 }
@@ -194,6 +196,7 @@ fn deployments_router() -> Router<AppState> {
         .route("/:name", get(get_deployment))
         .route("/", post(create_deployment))
         .route("/:name", put(update_deployment))
+        .route("/:name/scale", patch(scale_deployment))
         .route("/:name", delete(delete_deployment))
 }
 
@@ -243,7 +246,7 @@ async fn get_deployment(
 async fn create_deployment(
     State(state): State<AppState>,
     Json(deployment): Json<Deployment>,
-) -> (StatusCode, Json<Deployment>) {
+) -> (StatusCode, Json<SerializableResource<Deployment>>) {
     info!("Got create request for deployment");
     let mut s = state.lock().await;
     s.revision = s.revision.clone().increment();
@@ -251,14 +254,14 @@ async fn create_deployment(
     let deployment_name = deployment.metadata.name.clone();
     s.deployments.insert(deployment, revision).unwrap();
     let deployment = s.deployments.get(&deployment_name).unwrap().clone();
-    (StatusCode::OK, Json(deployment))
+    (StatusCode::OK, Json(SerializableResource::new(deployment)))
 }
 
 #[tracing::instrument(skip_all)]
 async fn update_deployment(
     State(state): State<AppState>,
     Json(deployment): Json<Deployment>,
-) -> (StatusCode, Json<Deployment>) {
+) -> (StatusCode, Json<SerializableResource<Deployment>>) {
     info!("Got create request for deployment");
     let mut s = state.lock().await;
     s.revision = s.revision.clone().increment();
@@ -266,7 +269,24 @@ async fn update_deployment(
     let deployment_name = deployment.metadata.name.clone();
     s.deployments.insert(deployment, revision).unwrap();
     let deployment = s.deployments.get(&deployment_name).unwrap().clone();
-    (StatusCode::OK, Json(deployment))
+    (StatusCode::OK, Json(SerializableResource::new(deployment)))
+}
+
+#[tracing::instrument(skip_all)]
+async fn scale_deployment(
+    State(state): State<AppState>,
+    Path(name): Path<String>,
+    Json(scale): Json<Scale>,
+) -> (StatusCode, Json<SerializableResource<Deployment>>) {
+    info!("Got scale request for deployment");
+    let mut s = state.lock().await;
+    s.revision = s.revision.clone().increment();
+    let revision = s.revision.clone();
+    let mut deployment = s.deployments.get(&name).unwrap().clone();
+    deployment.spec.replicas = scale.spec.replicas;
+    s.deployments.insert(deployment, revision).unwrap();
+    let deployment = s.deployments.get(&name).unwrap().clone();
+    (StatusCode::OK, Json(SerializableResource::new(deployment)))
 }
 
 #[tracing::instrument(skip_all)]
@@ -437,7 +457,11 @@ async fn list_apps_v1() -> (StatusCode, Json<APIResourceList>) {
     info!("Got request for api apps/v1 versions");
     let apiversions = APIResourceList {
         group_version: "apps/v1".to_owned(),
-        resources: vec![Deployment::api_resource(), ReplicaSet::api_resource()],
+        resources: vec![
+            Deployment::api_resource(),
+            Scale::api_resource::<Deployment>(),
+            ReplicaSet::api_resource(),
+        ],
     };
     (StatusCode::OK, Json(apiversions))
 }

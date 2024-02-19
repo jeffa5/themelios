@@ -7,6 +7,7 @@ use crate::resources::Deployment;
 use crate::resources::Node;
 use crate::resources::Pod;
 use crate::resources::ReplicaSet;
+use crate::resources::Scale;
 
 pub trait APIObject: Resource {
     fn api_resource() -> APIResource;
@@ -154,4 +155,21 @@ impl<R: Resource + k8s_openapi::ListableResource> k8s_openapi::ListableResource
     for SerializableResource<R>
 {
     const LIST_KIND: &'static str = R::LIST_KIND;
+}
+
+impl Scale {
+    pub fn api_resource<K: Resource>() -> APIResource {
+        APIResource {
+            categories: None,
+            group: Some("autoscaling".to_owned()),
+            kind: "Scale".to_owned(),
+            name: format!("{}/scale", K::URL_PATH_SEGMENT),
+            namespaced: true,
+            short_names: None,
+            singular_name: "".to_owned(),
+            storage_version_hash: None,
+            verbs: vec!["get".to_owned(), "patch".to_owned(), "update".to_owned()],
+            version: Some("v1".to_owned()),
+        }
+    }
 }

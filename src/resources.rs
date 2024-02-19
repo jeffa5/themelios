@@ -1718,3 +1718,38 @@ impl Display for GroupVersion {
         }
     }
 }
+
+#[derive(
+    Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff,
+)]
+#[diff(attr(
+    #[derive(Debug, PartialEq)]
+))]
+pub struct Scale {
+    #[serde(default)]
+    pub metadata: Metadata,
+    pub spec: ScaleSpec,
+    #[serde(default)]
+    pub status: ScaleStatus,
+}
+
+#[derive(
+    Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff,
+)]
+#[diff(attr(
+    #[derive(Debug, PartialEq)]
+))]
+pub struct ScaleSpec {
+    pub replicas: u32,
+}
+
+#[derive(
+    Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff,
+)]
+#[diff(attr(
+    #[derive(Debug, PartialEq)]
+))]
+pub struct ScaleStatus {
+    #[serde(default)]
+    pub replicas: u32,
+}
