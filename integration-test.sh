@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-set -ex
+set -euxo pipefail
 
 rm -f integration-*.{out,err}
 
@@ -38,8 +38,8 @@ sleep 5
 # run go tests
 cd ../kubernetes
 
-make test-integration WHAT=./test/integration/deployment GOFLAGS="-v -failfast" > integration-deployment.out 2> integration-deployment.err
-make test-integration WHAT=./test/integration/job GOFLAGS="-v -failfast" > integration-job.out 2> integration-job.err
-make test-integration WHAT=./test/integration/replicaset GOFLAGS="-v -failfast" > integration-replicaset.out 2> integration-replicaset.err
-make test-integration WHAT=./test/integration/scheduler GOFLAGS="-v -failfast" > integration-scheduler.out 2> integration-scheduler.err
-make test-integration WHAT=./test/integration/statefulset GOFLAGS="-v -failfast" > integration-statefulset.out 2> integration-statefulset.err
+make test-integration WHAT=./test/integration/deployment GOFLAGS="-v -failfast" 2>&1 | tee integration-deployment.out
+make test-integration WHAT=./test/integration/job GOFLAGS="-v -failfast" 2>&1 | tee integration-job.out
+make test-integration WHAT=./test/integration/replicaset GOFLAGS="-v -failfast" 2>&1 | tee integration-replicaset.out
+make test-integration WHAT=./test/integration/scheduler GOFLAGS="-v -failfast" 2>&1 | tee integration-scheduler.out
+make test-integration WHAT=./test/integration/statefulset GOFLAGS="-v -failfast" 2>&1 | tee integration-statefulset.out
