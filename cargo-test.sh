@@ -2,6 +2,8 @@
 
 set -ex
 
+rm -f cargo-*.{out,err}
+
 # run with default setup for tests, just dfs to reduce memory usage
 MCO_CHECK_MODE=dfs cargo test --release -- --nocapture > cargo-default.out 2> cargo-default.err
 

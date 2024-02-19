@@ -2,6 +2,8 @@
 
 set -ex
 
+rm -f integration-*.{out,err}
+
 # appends a command to a trap
 #
 # - 1st arg:  code to add
