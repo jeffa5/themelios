@@ -55,7 +55,8 @@ fn check(model: OrchestrationModelCfg, default_check_mode: CheckMode) {
         .checker()
         .threads(num_cpus::get())
         .finish_when(HasDiscoveries::AnyFailures)
-        .target_max_depth(30);
+        .target_max_depth(100)
+        .timeout(Duration::from_secs(60));
     let check_mode = std::env::var("MCO_CHECK_MODE").unwrap_or_else(|_| String::new());
     let check_result = match check_mode.as_str() {
         "simulation" => {
