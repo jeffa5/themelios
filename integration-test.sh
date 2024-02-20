@@ -43,5 +43,5 @@ cd ../kubernetes
 make test-integration WHAT=./test/integration/deployment GOFLAGS="-v -failfast" 2>&1 | tee $cwd/integration-deployment.out
 make test-integration WHAT=./test/integration/job GOFLAGS="-v -failfast" 2>&1 | tee $cwd/integration-job.out
 make test-integration WHAT=./test/integration/replicaset GOFLAGS="-v -failfast" 2>&1 | tee $cwd/integration-replicaset.out
-make test-integration WHAT=./test/integration/scheduler GOFLAGS="-v -failfast" 2>&1 | tee $cwd/integration-scheduler.out
 make test-integration WHAT=./test/integration/statefulset GOFLAGS="-v -failfast" 2>&1 | tee $cwd/integration-statefulset.out
+make test-integration WHAT=./test/integration/scheduler GOFLAGS="-v -failfast" 2>&1 | tee $cwd/integration-scheduler.out
