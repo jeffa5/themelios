@@ -12,7 +12,7 @@ impl ControllerProperties for StatefulSetController {
         let mut properties = Properties::default();
         properties.add(
             Expectation::Always,
-            "statefulset status counters are correct",
+            "sts: statefulset status counters are correct",
             |_model, s| {
                 let s = s.latest();
                 for sts in s.statefulsets.iter() {
@@ -42,7 +42,7 @@ impl ControllerProperties for StatefulSetController {
         );
         properties.add(
             Expectation::Always,
-            "statefulsets always have consecutive pods",
+            "sts: statefulsets always have consecutive pods",
             |_model, state| {
                 // point one and two from https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/#deployment-and-scaling-guarantees
                 let state = state.latest();

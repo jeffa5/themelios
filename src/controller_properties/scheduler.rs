@@ -9,7 +9,7 @@ impl ControllerProperties for SchedulerController {
         let mut properties = Properties::default();
         properties.add(
             Expectation::Eventually,
-            "every pod gets scheduled",
+            "sched: every pod gets scheduled",
             |_model, state| {
                 let state = state.latest();
                 let mut pods_iter = state.pods.iter();

@@ -15,7 +15,7 @@ impl ControllerProperties for JobController {
         let mut properties = Properties::default();
         properties.add(
             Expectation::Always,
-            "when synced, job status matches pods",
+            "job: when synced, job status matches pods",
             |_model, s| {
                 let s = s.latest();
                 s.jobs.iter().all(|r| {
@@ -42,7 +42,7 @@ impl ControllerProperties for JobController {
         );
         properties.add(
             Expectation::Always,
-            "owned active pods have tracking finalizer",
+            "job: owned active pods have tracking finalizer",
             |_model, s| {
                 let s = s.latest();
                 s.jobs.iter().all(|r| {
@@ -59,7 +59,7 @@ impl ControllerProperties for JobController {
         );
         properties.add(
             Expectation::Always,
-            "finished pods have no finalizer",
+            "job: finished pods have no finalizer",
             |_model, s| {
                 let s = s.latest();
                 s.jobs.iter().all(|r| {

@@ -11,7 +11,7 @@ impl ControllerProperties for NodeController {
         let mut properties = Properties::default();
         properties.add(
             Expectation::Always,
-            "pods on nodes are unique",
+            "node: pods on nodes are unique",
             |model, state| {
                 let mut node_pods = BTreeSet::new();
                 for c in 0..model.controllers.len() {

@@ -16,7 +16,7 @@ impl ControllerProperties for DeploymentController {
         let mut properties = Properties::default();
         properties.add(
             Expectation::Eventually,
-            "new replicaset is created",
+            "dep: new replicaset is created",
             |_model, s| {
                 let s = s.latest();
                 let mut deployment_iter = s.deployments.iter();
@@ -25,7 +25,7 @@ impl ControllerProperties for DeploymentController {
         );
         properties.add(
             Expectation::Eventually,
-            "deployment is complete",
+            "dep: deployment is complete",
             |_m, s| {
                 let s = s.latest();
                 let mut deployment_iter = s.deployments.iter();
@@ -34,7 +34,7 @@ impl ControllerProperties for DeploymentController {
         );
         properties.add(
             Expectation::Eventually,
-            "replicaset has annotations from deployment",
+            "dep: replicaset has annotations from deployment",
             |_m, s| {
                 let s = s.latest();
                 let mut deployment_iter = s.deployments.iter();
@@ -47,7 +47,7 @@ impl ControllerProperties for DeploymentController {
         );
         properties.add(
             Expectation::Eventually,
-            "rs has pod-template-hash in selector, label and template label",
+            "dep: rs has pod-template-hash in selector, label and template label",
             |_m, s| {
                 let s = s.latest();
                 let mut deployment_iter = s.deployments.iter();
@@ -60,7 +60,7 @@ impl ControllerProperties for DeploymentController {
         );
         properties.add(
             Expectation::Eventually,
-            "all pods for the rs should have the pod-template-hash in their labels",
+            "dep: all pods for the rs should have the pod-template-hash in their labels",
             |_m, s| {
                 let s = s.latest();
                 let mut deployment_iter = s.deployments.iter();
@@ -70,7 +70,7 @@ impl ControllerProperties for DeploymentController {
         );
         properties.add(
             Expectation::Eventually,
-            "old rss do not have pods",
+            "dep: old rss do not have pods",
             |_model, s| {
                 let s = s.latest();
                 let mut deployment_iter = s.deployments.iter();
@@ -84,7 +84,7 @@ impl ControllerProperties for DeploymentController {
         );
         properties.add(
             Expectation::Always,
-            "no replicaset is created when a deployment is paused",
+            "dep: no replicaset is created when a deployment is paused",
             |_model, _s| {
                 // let s = s.latest();
                 // s.deployments.iter().filter(|d| d.spec.paused).all(|d| {

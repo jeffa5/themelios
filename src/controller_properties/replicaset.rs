@@ -9,7 +9,7 @@ impl ControllerProperties for ReplicaSetController {
         let mut properties = Properties::default();
         properties.add(
             Expectation::Always,
-            "when synced, replicas are created or removed to match",
+            "rs: when synced, replicas are created or removed to match",
             |_model, s| {
                 let s = s.latest();
                 let mut replicasets_iter = s.replicasets.iter();
@@ -29,7 +29,7 @@ impl ControllerProperties for ReplicaSetController {
         );
         properties.add(
             Expectation::Always,
-            "when stable, all pods are created",
+            "rs: when stable, all pods are created",
             |_model, s| {
                 let s = s.latest();
                 let all_stable = s.resources_stable(&s.replicasets);
@@ -39,7 +39,7 @@ impl ControllerProperties for ReplicaSetController {
         );
         properties.add(
             Expectation::Always,
-            "when stable, status replicas == spec replicas",
+            "rs: when stable, status replicas == spec replicas",
             |_model, s| {
                 let s = s.latest();
                 let mut replicasets_iter = s.replicasets.iter();
