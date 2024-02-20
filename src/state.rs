@@ -412,13 +412,6 @@ impl StateView {
                     && self.revision == resource.metadata().resource_version.as_str().try_into().unwrap()
     }
 
-    pub fn resources_stable<'a, T: Meta + ObservedGeneration + 'a>(
-        &self,
-        resources: impl IntoIterator<Item = &'a T>,
-    ) -> bool {
-        resources.into_iter().all(|r| self.resource_stable(r))
-    }
-
     pub fn resource_current<T: Meta>(&self, resource: &T) -> bool {
         // no other things have happened in the cluster since the update (e.g. a
         // node dying which happens to remove pods)
