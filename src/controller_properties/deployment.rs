@@ -85,7 +85,7 @@ impl ControllerProperties for DeploymentController {
         properties.add(
             Expectation::Always,
             "no replicaset is created when a deployment is paused",
-            |_model, s| {
+            |_model, _s| {
                 // let s = s.latest();
                 // s.deployments.iter().filter(|d| d.spec.paused).all(|d| {
                 //     s.replicasets
