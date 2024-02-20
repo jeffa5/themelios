@@ -26,7 +26,7 @@ trap_add() {
 }
 
 cargo build --release --features serve
-cargo run --release --features serve -- serve-test &
+cargo run --release --features serve -- serve-test >integration-server.out 2>&1 &
 pid=$!
 function cleanup_cargo {
   kill $pid
