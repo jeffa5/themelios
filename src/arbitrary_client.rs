@@ -127,17 +127,17 @@ impl ArbitraryClient {
         match action {
             ArbitraryClientAction::ScaleDeployment(name, by) => {
                 let mut res = state.deployments.get(&name).unwrap().clone();
-                res.spec.replicas += by as u32;
+                res.spec.replicas = (res.spec.replicas as i32 + by) as u32;
                 ControllerAction::UpdateDeployment(res)
             }
             ArbitraryClientAction::ScaleStatefulSet(name, by) => {
                 let mut res = state.statefulsets.get(&name).unwrap().clone();
-                res.spec.replicas = Some(res.spec.replicas.unwrap_or(1) + by as u32);
+                res.spec.replicas = Some((res.spec.replicas.unwrap_or(1) as i32 + by) as u32);
                 ControllerAction::UpdateStatefulSet(res)
             }
             ArbitraryClientAction::ScaleReplicaSet(name, by) => {
                 let mut res = state.replicasets.get(&name).unwrap().clone();
-                res.spec.replicas = Some(res.spec.replicas.unwrap_or(1) + by as u32);
+                res.spec.replicas = Some((res.spec.replicas.unwrap_or(1) as i32 + by) as u32);
                 ControllerAction::UpdateReplicaSet(res)
             }
             ArbitraryClientAction::ChangeImageDeployment(name, image) => {
