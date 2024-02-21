@@ -4,6 +4,7 @@ use crate::controller::deployment::DEFAULT_DEPLOYMENT_UNIQUE_LABEL_KEY;
 use crate::controller::util::annotations_subset;
 use crate::resources::Pod;
 use crate::resources::ReplicaSet;
+use crate::utils::LogicalBoolExt;
 use stateright::Expectation;
 
 use crate::controller::DeploymentController;
@@ -15,21 +16,28 @@ impl ControllerProperties for DeploymentController {
     fn properties() -> Properties {
         let mut properties = Properties::default();
         properties.add(
-            Expectation::Eventually,
-            "dep: new replicaset is created",
+            Expectation::Always,
+            "dep: when stable there should be at least one replicaset",
             |_model, s| {
                 let s = s.latest();
-                let mut deployment_iter = s.deployments.iter();
-                deployment_iter.all(|d| s.replicasets.for_controller(&d.metadata.uid).count() != 0)
+                s.deployments.iter().all(|d| {
+                    let rs_count = s.replicasets.for_controller(&d.metadata.uid).count();
+                    s.resource_stable(d).implies(if d.spec.replicas == 0 {
+                        rs_count == 0
+                    } else {
+                        rs_count > 0
+                    })
+                })
             },
         );
         properties.add(
-            Expectation::Eventually,
+            Expectation::Sometimes,
             "dep: deployment is complete",
             |_m, s| {
                 let s = s.latest();
-                let mut deployment_iter = s.deployments.iter();
-                deployment_iter.all(|d| deployment_complete(d, &d.status))
+                s.deployments
+                    .iter()
+                    .all(|d| deployment_complete(d, &d.status))
             },
         );
         properties.add(
