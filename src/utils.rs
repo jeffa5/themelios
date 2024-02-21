@@ -45,11 +45,17 @@ pub fn metadata(name: String) -> Metadata {
 
 pub trait LogicalBoolExt {
     fn implies(self, other: bool) -> bool;
+    fn implies_then(self, other: impl Fn() -> bool) -> bool;
 }
 
 impl LogicalBoolExt for bool {
     fn implies(self, other: bool) -> bool {
         // P => Q == not(P) \/ Q
         !self || other
+    }
+
+    fn implies_then(self, other: impl Fn() -> bool) -> bool {
+        // P => Q == not(P) \/ Q
+        !self || other()
     }
 }
