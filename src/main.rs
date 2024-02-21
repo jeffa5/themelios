@@ -5,7 +5,6 @@ use clap::Parser;
 use stateright::Checker;
 use stateright::Model;
 use stateright::UniformChooser;
-use themelios::controller::client::ClientState;
 use themelios::model;
 use themelios::report::Reporter;
 use themelios::resources::Deployment;
@@ -172,7 +171,6 @@ fn main() {
         statefulset_controllers: opts.statefulset_controllers,
         job_controllers: opts.job_controllers,
         podgc_controllers: opts.podgc_controllers,
-        client_state: ClientState::new_ordered(),
         properties: Vec::new(),
     };
     run(opts, model.into_abstract_model())

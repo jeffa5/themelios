@@ -1,6 +1,5 @@
 use std::ops::{Deref, DerefMut};
 
-use crate::controller::client::ClientState;
 use crate::controller::ControllerStates;
 use crate::resources::{
     ConditionStatus, ControllerRevision, Job, Meta, NodeCondition, NodeConditionType,
@@ -27,8 +26,6 @@ pub struct State {
     states: StateHistory,
 
     controller_states: Vec<ControllerStates>,
-
-    client_states: Vec<ClientState>,
 }
 
 impl State {
@@ -36,7 +33,6 @@ impl State {
         Self {
             states: StateHistory::new(consistency_level, initial_state),
             controller_states: Vec::new(),
-            client_states: Vec::new(),
         }
     }
 
@@ -72,24 +68,12 @@ impl State {
         self.controller_states.push(controller_state);
     }
 
-    pub fn add_client(&mut self, client: ClientState) {
-        self.client_states.push(client)
-    }
-
-    pub fn update_client(&mut self, client: usize, state: ClientState) {
-        self.client_states[client] = state;
-    }
-
     pub fn update_controller(&mut self, controller: usize, controller_state: ControllerStates) {
         self.controller_states[controller] = controller_state;
     }
 
     pub fn get_controller(&self, controller: usize) -> &ControllerStates {
         &self.controller_states[controller]
-    }
-
-    pub fn get_client(&self, client: usize) -> &ClientState {
-        &self.client_states[client]
     }
 
     pub fn latest(&self) -> StateView {

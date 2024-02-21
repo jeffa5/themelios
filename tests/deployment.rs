@@ -1,7 +1,6 @@
 use common::run;
 use std::collections::BTreeMap;
 use stdext::function_name;
-use themelios::controller::client::ClientState;
 use themelios::controller::deployment::LAST_APPLIED_CONFIG_ANNOTATION;
 use themelios::model::OrchestrationModelCfg;
 use themelios::resources::Container;
@@ -18,10 +17,7 @@ use themelios::utils;
 
 mod common;
 
-fn model(
-    deployments: impl IntoIterator<Item = Deployment>,
-    client_state: ClientState,
-) -> OrchestrationModelCfg {
+fn model(deployments: impl IntoIterator<Item = Deployment>) -> OrchestrationModelCfg {
     let initial_state = RawState::default().with_deployments(deployments);
     OrchestrationModelCfg {
         initial_state,
@@ -29,7 +25,6 @@ fn model(
         replicaset_controllers: 1,
         schedulers: 1,
         nodes: 1,
-        client_state,
         ..Default::default()
     }
 }
@@ -87,7 +82,7 @@ fn test_new_deployment() {
         "should-not-copy-to-replica-set".to_owned(),
     );
 
-    let m = model([deployment], ClientState::default());
+    let m = model([deployment]);
     run(m, common::CheckMode::Bfs, function_name!())
 }
 
@@ -118,10 +113,7 @@ fn test_deployment_rolling_update() {
         }),
     });
 
-    let m = model(
-        [deployment],
-        ClientState::new_unordered().with_change_images(1),
-    );
+    let m = model([deployment]);
     run(m, common::CheckMode::Bfs, function_name!())
 }
 
@@ -139,13 +131,7 @@ fn test_paused_deployment() {
         .spec
         .termination_grace_period_seconds = Some(1);
 
-    let m = model(
-        [deployment],
-        ClientState::new_unordered()
-            .with_change_images(1)
-            .with_scale_ups(1)
-            .with_scale_downs(1),
-    );
+    let m = model([deployment]);
     run(m, common::CheckMode::Bfs, function_name!())
 }
 

@@ -1,7 +1,6 @@
 use common::run;
 use std::collections::BTreeMap;
 use stdext::function_name;
-use themelios::controller::client::ClientState;
 use themelios::model::OrchestrationModelCfg;
 use themelios::resources::Container;
 use themelios::resources::Metadata;
@@ -14,17 +13,13 @@ use themelios::utils;
 
 mod common;
 
-fn model(
-    replicasets: impl IntoIterator<Item = ReplicaSet>,
-    client_state: ClientState,
-) -> OrchestrationModelCfg {
+fn model(replicasets: impl IntoIterator<Item = ReplicaSet>) -> OrchestrationModelCfg {
     let initial_state = RawState::default().with_replicasets(replicasets);
     OrchestrationModelCfg {
         initial_state,
         replicaset_controllers: 1,
         schedulers: 1,
         nodes: 1,
-        client_state,
         ..Default::default()
     }
 }
@@ -68,12 +63,7 @@ fn test_spec_replicas_change() {
         .annotations
         .insert("test".to_owned(), "should-copy-to-replica-set".to_owned());
 
-    let m = model(
-        [replicaset],
-        ClientState::new_unordered()
-            .with_scale_ups(1)
-            .with_scale_downs(1),
-    );
+    let m = model([replicaset]);
     run(m, common::CheckMode::Bfs, function_name!())
 }
 
@@ -83,7 +73,7 @@ fn test_overlapping_rss() {
     let replicaset_1 = new_replicaset("test-overlapping-rss-1", "", 1);
     let replicaset_2 = new_replicaset("test-overlapping-rss-2", "", 2);
 
-    let m = model([replicaset_1, replicaset_2], ClientState::default());
+    let m = model([replicaset_1, replicaset_2]);
     run(m, common::CheckMode::Bfs, function_name!())
 }
 

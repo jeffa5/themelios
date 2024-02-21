@@ -18,7 +18,6 @@ pub use self::replicaset::ReplicaSetControllerState;
 pub use self::scheduler::SchedulerControllerState;
 pub use self::statefulset::StatefulSetControllerState;
 
-pub mod client;
 pub mod deployment;
 pub mod job;
 pub mod node;

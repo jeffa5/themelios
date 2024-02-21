@@ -6,9 +6,6 @@ use stateright::{Model, Property};
 
 use crate::arbitrary_client::ArbitraryClient;
 use crate::arbitrary_client::ArbitraryClientAction;
-use crate::controller::client::Client;
-use crate::controller::client::ClientAction;
-use crate::controller::client::ClientState;
 use crate::controller::util::get_node_condition;
 use crate::controller::{Controller, ControllerStates, Controllers};
 use crate::resources::{
@@ -23,8 +20,6 @@ use crate::state::{history::ConsistencySetup, revision::Revision, State};
 pub struct AbstractModelCfg {
     /// The controllers running in this configuration.
     pub controllers: Vec<Controllers>,
-    /// The clients manipulating the system.
-    pub clients: Vec<Client>,
     /// The initial state.
     pub initial_state: RawState,
     /// The consistency level of the state.
@@ -91,7 +86,6 @@ pub enum ControllerAction {
 pub enum Action {
     ControllerStep(usize, ControllerStates, Change),
     ArbitraryStep(ArbitraryClientAction),
-    Client(usize, ClientState, ClientAction),
 
     /// The controller at the given index restarts, losing its state.
     ControllerRestart(usize),
@@ -106,9 +100,6 @@ impl Model for AbstractModelCfg {
         let mut state = State::new(self.initial_state.clone(), self.consistency_level.clone());
         for c in &self.controllers {
             state.add_controller(c.new_state());
-        }
-        for c in &self.clients {
-            state.add_client(c.new_state());
         }
         vec![state]
     }
@@ -148,17 +139,6 @@ impl Model for AbstractModelCfg {
             .into_iter()
             .map(Action::ArbitraryStep);
         actions.extend(arbitrary_actions);
-
-        for (i, client) in self.clients.iter().enumerate() {
-            let view = state.latest();
-            let cstate = state.get_client(i);
-            let cactions = client.actions(i, &view, cstate);
-            debug!(?cactions, "Client step completed");
-            let mut changes = cactions
-                .into_iter()
-                .map(|(state, action)| Action::Client(i, state, action));
-            actions.extend(&mut changes);
-        }
 
         for (i, controller) in self.controllers.iter().enumerate() {
             if matches!(controller, Controllers::Node(_)) {
@@ -203,19 +183,6 @@ impl Model for AbstractModelCfg {
                     revision: state.max_revision(),
                     operation: controller_action,
                 }));
-                Some(state)
-            }
-            Action::Client(from, cstate, action) => {
-                let mut state = last_state.clone();
-                let client = self.clients.get(from).unwrap();
-                let sv = state.latest();
-                let action = client.apply(&sv, action);
-                let change = Change {
-                    revision: sv.revision,
-                    operation: action,
-                };
-                state.push_changes(std::iter::once(change));
-                state.update_client(from, cstate);
                 Some(state)
             }
             Action::ControllerRestart(controller_index) => {

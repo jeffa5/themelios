@@ -3,9 +3,8 @@ use stateright::{Expectation, Property};
 use crate::{
     abstract_model::AbstractModelCfg,
     controller::{
-        client::ClientState, job::JobController, podgc::PodGCController, Controllers,
-        DeploymentController, NodeController, ReplicaSetController, SchedulerController,
-        StatefulSetController,
+        job::JobController, podgc::PodGCController, Controllers, DeploymentController,
+        NodeController, ReplicaSetController, SchedulerController, StatefulSetController,
     },
     controller_properties::ControllerProperties,
     state::{history::ConsistencySetup, RawState, State},
@@ -32,9 +31,6 @@ pub struct OrchestrationModelCfg {
     pub job_controllers: usize,
     pub podgc_controllers: usize,
 
-    /// Set up clients with specific actions to perform.
-    pub client_state: ClientState,
-
     #[derivative(Debug = "ignore")]
     pub properties: Vec<Property<AbstractModelCfg>>,
 }
@@ -45,7 +41,6 @@ impl OrchestrationModelCfg {
 
         let mut model = AbstractModelCfg {
             controllers: Vec::new(),
-            clients: Vec::new(),
             initial_state: self.initial_state,
             consistency_level: self.consistency_level,
             properties: self.properties,
@@ -73,28 +68,12 @@ impl OrchestrationModelCfg {
             model
                 .controllers
                 .push(Controllers::Deployment(DeploymentController));
-            if !self.client_state.is_empty() {
-                for deployment in model.initial_state.deployments.iter() {
-                    model.clients.push(crate::controller::client::Client {
-                        name: deployment.metadata.name.clone(),
-                        initial_state: self.client_state.clone(),
-                    })
-                }
-            }
         }
 
         for _ in 0..self.statefulset_controllers {
             model
                 .controllers
                 .push(Controllers::StatefulSet(StatefulSetController));
-            if !self.client_state.is_empty() {
-                for statefulset in model.initial_state.statefulsets.iter() {
-                    model.clients.push(crate::controller::client::Client {
-                        name: statefulset.metadata.name.clone(),
-                        initial_state: self.client_state.clone(),
-                    })
-                }
-            }
         }
 
         for _ in 0..self.job_controllers {

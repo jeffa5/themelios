@@ -1,7 +1,6 @@
 use common::run;
 use std::collections::BTreeMap;
 use stdext::function_name;
-use themelios::controller::client::ClientState;
 use themelios::model::OrchestrationModelCfg;
 use themelios::resources::Container;
 use themelios::resources::Metadata;
@@ -18,7 +17,6 @@ mod common;
 
 fn model(
     statefulsets: impl IntoIterator<Item = StatefulSet>,
-    client_actions: ClientState,
     nodes: usize,
 ) -> OrchestrationModelCfg {
     let initial_state = RawState::default().with_statefulsets(statefulsets);
@@ -27,7 +25,6 @@ fn model(
         statefulset_controllers: 1,
         schedulers: 1,
         nodes,
-        client_state: client_actions,
         ..Default::default()
     }
 }
@@ -71,14 +68,7 @@ fn test_spec_replicas_change() {
         .annotations
         .insert("test".to_owned(), "should-copy-to-replica-set".to_owned());
 
-    let m = model(
-        [statefulset],
-        // scale from initial 2 up to 3 and down to 0 then up to 2 again
-        ClientState::new_unordered()
-            .with_scale_ups(3)
-            .with_scale_downs(3),
-        1,
-    );
+    let m = model([statefulset], 1);
     // TODO: fix up what this test is supposed to be doing
     run(m, common::CheckMode::Bfs, function_name!())
 }
@@ -88,7 +78,7 @@ fn test_spec_replicas_change() {
 fn test_statefulset_available() {
     let statefulset = new_statefulset("sts", "", 4);
 
-    let m = model([statefulset], ClientState::new_unordered(), 1);
+    let m = model([statefulset], 1);
     // TODO: fix up what this test is supposed to be doing
     run(m, common::CheckMode::Bfs, function_name!())
 }
@@ -98,11 +88,7 @@ fn test_statefulset_available() {
 fn stale_reads() {
     let statefulset = new_statefulset("stale-reads", "", 1);
 
-    let mut m = model(
-        [statefulset],
-        ClientState::new_ordered().with_change_images(1),
-        2,
-    );
+    let mut m = model([statefulset], 2);
     m.initial_state.set_pods(std::iter::once(Pod {
         metadata: utils::metadata("zspare-pod".to_owned()),
         spec: PodSpec::default(),

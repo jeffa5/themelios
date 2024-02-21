@@ -1,7 +1,6 @@
 use common::run;
 use std::collections::BTreeMap;
 use stdext::function_name;
-use themelios::controller::client::ClientState;
 use themelios::model::OrchestrationModelCfg;
 use themelios::resources::Container;
 use themelios::resources::Job;
@@ -14,14 +13,13 @@ use themelios::utils;
 
 mod common;
 
-fn model(jobs: impl IntoIterator<Item = Job>, client_state: ClientState) -> OrchestrationModelCfg {
+fn model(jobs: impl IntoIterator<Item = Job>) -> OrchestrationModelCfg {
     let initial_state = RawState::default().with_jobs(jobs);
     OrchestrationModelCfg {
         initial_state,
         job_controllers: 1,
         schedulers: 1,
         nodes: 1,
-        client_state,
         ..Default::default()
     }
 }
@@ -59,7 +57,7 @@ fn new_job(name: &str, _namespace: &str) -> Job {
 fn test_non_parallel_job() {
     let job = new_job("simple", "");
 
-    let m = model([job], ClientState::default());
+    let m = model([job]);
     run(m, common::CheckMode::Bfs, function_name!())
 }
 
@@ -72,7 +70,7 @@ fn test_parallel_job() {
 
     // TODO: have a way of failing pods and check that.
 
-    let m = model([job], ClientState::default());
+    let m = model([job]);
     run(m, common::CheckMode::Bfs, function_name!())
 }
 
