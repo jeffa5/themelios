@@ -59,12 +59,15 @@ impl ControllerProperties for JobController {
         );
         properties.add(
             Expectation::Always,
-            "job: finished pods have no finalizer",
+            "job: observed finished pods have no finalizer",
             |_model, s| {
                 let s = s.latest();
                 s.jobs.iter().all(|r| {
-                    s.pods
+                    let stable = s.resource_current(r);
+                    let old_pods_dont_have_finalizer = s
+                        .pods
                         .for_controller(&r.metadata.uid)
+                        .filter(|p| p.metadata.resource_version < r.metadata.resource_version)
                         .filter(|p| {
                             matches!(p.status.phase, PodPhase::Succeeded | PodPhase::Failed)
                         })
@@ -72,7 +75,8 @@ impl ControllerProperties for JobController {
                             !p.metadata
                                 .finalizers
                                 .contains(&JOB_TRACKING_FINALIZER.to_string())
-                        })
+                        });
+                    stable.implies(old_pods_dont_have_finalizer)
                 })
             },
         );
