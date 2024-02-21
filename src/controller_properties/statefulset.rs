@@ -1,8 +1,8 @@
 use stateright::Expectation;
 
-use crate::controller::{
-    util::{is_pod_active, is_pod_ready},
-    StatefulSetController,
+use crate::{
+    controller::{util::is_pod_ready, StatefulSetController},
+    utils::LogicalBoolExt,
 };
 
 use super::{ControllerProperties, Properties};
@@ -15,7 +15,7 @@ impl ControllerProperties for StatefulSetController {
             "sts: statefulset status counters are correct",
             |_model, s| {
                 let s = s.latest();
-                for sts in s.statefulsets.iter() {
+                s.statefulsets.iter().all(|sts| {
                     let pods = s.pods.matching(&sts.spec.selector);
                     let mut pod_count = 0;
                     let mut ready_replicas = 0;
@@ -24,20 +24,16 @@ impl ControllerProperties for StatefulSetController {
                         pod_count += 1;
                         if is_pod_ready(pod) {
                             ready_replicas += 1;
-                        }
-                        if is_pod_active(pod) {
                             active_replicas += 1;
                         }
                     }
 
+                    let stable = s.resource_stable(sts);
                     let satisfied = sts.status.replicas == pod_count
                         && sts.status.ready_replicas == ready_replicas
                         && sts.status.available_replicas == active_replicas;
-                    if !satisfied {
-                        return false;
-                    }
-                }
-                true
+                    stable.implies(satisfied)
+                })
             },
         );
         properties.add(
