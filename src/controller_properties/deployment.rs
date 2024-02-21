@@ -4,7 +4,6 @@ use crate::controller::deployment::DEFAULT_DEPLOYMENT_UNIQUE_LABEL_KEY;
 use crate::controller::util::annotations_subset;
 use crate::resources::Pod;
 use crate::resources::ReplicaSet;
-use crate::utils::LogicalBoolExt;
 use stateright::Expectation;
 
 use crate::controller::DeploymentController;
