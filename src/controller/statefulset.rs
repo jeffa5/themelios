@@ -263,11 +263,11 @@ fn do_update_statefulset(
         &[pods.to_vec()],
     );
 
-    if status != sts.status {
-        let mut sts = sts.clone();
-        sts.status = status;
-        return ValOrOp::Op(StatefulSetControllerAction::UpdateStatefulSetStatus(sts));
-    }
+    // if status != sts.status {
+    //     let mut sts = sts.clone();
+    //     sts.status = status;
+    //     return ValOrOp::Op(StatefulSetControllerAction::UpdateStatefulSetStatus(sts));
+    // }
 
     let replica_count = sts.spec.replicas;
     let mut replicas = vec![None; replica_count.unwrap_or_default() as usize];
