@@ -52,11 +52,20 @@ impl<T: Meta + Spec + Clone> Resources<T> {
                 Err(())
             } else {
                 // set resource version to mod revision as per https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#concurrency-control-and-consistency
-                res.metadata_mut().resource_version = revision.to_string();
                 // Update the generation of the resource if the spec (desired state) has changed.
-                if res.spec() != existing.spec() {
+                let mut new_meta_without_generation = res.metadata().clone();
+                new_meta_without_generation.generation = 0;
+                let mut existing_meta_without_generation = existing.metadata().clone();
+                existing_meta_without_generation.generation = 0;
+                if res.spec() != existing.spec() ||
+                // THEMELIOS: changing metadata does not change generation normally, but this
+                // eliminates the way to check for stability (that a controller has observed the
+                // updates)
+                    new_meta_without_generation != existing_meta_without_generation
+                {
                     res.metadata_mut().generation += 1;
                 }
+                res.metadata_mut().resource_version = revision.to_string();
                 *existing = res;
                 Ok(())
             }
