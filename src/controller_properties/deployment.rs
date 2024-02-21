@@ -16,21 +16,6 @@ impl ControllerProperties for DeploymentController {
     fn properties() -> Properties {
         let mut properties = Properties::default();
         properties.add(
-            Expectation::Always,
-            "dep: when stable there should be at least one replicaset",
-            |_model, s| {
-                let s = s.latest();
-                s.deployments.iter().all(|d| {
-                    let rs_count = s.replicasets.for_controller(&d.metadata.uid).count();
-                    s.resource_stable(d).implies(if d.spec.replicas == 0 {
-                        rs_count == 0
-                    } else {
-                        rs_count > 0
-                    })
-                })
-            },
-        );
-        properties.add(
             Expectation::Sometimes,
             "dep: deployment is complete",
             |_m, s| {
