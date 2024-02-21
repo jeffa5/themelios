@@ -5,6 +5,7 @@ use tracing::debug;
 use stateright::{Model, Property};
 
 use crate::arbitrary_client::ArbitraryClient;
+use crate::arbitrary_client::ArbitraryClientAction;
 use crate::controller::client::Client;
 use crate::controller::client::ClientAction;
 use crate::controller::client::ClientState;
@@ -89,7 +90,7 @@ pub enum ControllerAction {
 #[derive(Debug, PartialEq, Eq, Hash)]
 pub enum Action {
     ControllerStep(usize, ControllerStates, Change),
-    ArbitraryStep(Change),
+    ArbitraryStep(ArbitraryClientAction),
     Client(usize, ClientState, ClientAction),
 
     /// The controller at the given index restarts, losing its state.
@@ -143,12 +144,9 @@ impl Model for AbstractModelCfg {
 
         // arbitrary client
         let latest_view = state.latest();
-        let arbitrary_actions = ArbitraryClient.actions(&latest_view).into_iter().map(|a| {
-            Action::ArbitraryStep(Change {
-                revision: latest_view.revision.clone(),
-                operation: a,
-            })
-        });
+        let arbitrary_actions = ArbitraryClient::actions(&latest_view)
+            .into_iter()
+            .map(Action::ArbitraryStep);
         actions.extend(arbitrary_actions);
 
         for (i, client) in self.clients.iter().enumerate() {
@@ -198,9 +196,13 @@ impl Model for AbstractModelCfg {
                 state.update_controller(from, cstate);
                 Some(state)
             }
-            Action::ArbitraryStep(change) => {
+            Action::ArbitraryStep(action) => {
                 let mut state = last_state.clone();
-                state.push_changes(std::iter::once(change));
+                let controller_action = ArbitraryClient::controller_action(&state.latest(), action);
+                state.push_changes(std::iter::once(Change {
+                    revision: state.max_revision(),
+                    operation: controller_action,
+                }));
                 Some(state)
             }
             Action::Client(from, cstate, action) => {
