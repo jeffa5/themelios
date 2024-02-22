@@ -3,18 +3,17 @@ use std::{collections::BTreeMap, time::Duration};
 use tracing::{debug, trace};
 
 use super::{
-    util::{get_pod_from_template, new_controller_ref, is_pod_ready},
+    util::{get_pod_from_template, is_pod_ready, new_controller_ref},
     Controller,
 };
 use crate::{
     abstract_model::ControllerAction,
     hasher::FnvHasher,
     resources::{
-        ConditionStatus, ControllerRevision, GroupVersionKind, Metadata, OwnerReference,
-        PersistentVolumeClaim, PersistentVolumeClaimVolumeSource, Pod, PodConditionType,
-        PodManagementPolicyType, PodPhase, StatefulSet,
-        StatefulSetPersistentVolumeClaimRetentionPolicyType, StatefulSetSpec, StatefulSetStatus,
-        Volume,
+        ControllerRevision, GroupVersionKind, Metadata, OwnerReference, PersistentVolumeClaim,
+        PersistentVolumeClaimVolumeSource, Pod, PodConditionType, PodManagementPolicyType,
+        PodPhase, StatefulSet, StatefulSetPersistentVolumeClaimRetentionPolicyType,
+        StatefulSetSpec, StatefulSetStatus, Volume,
     },
     state::{revision::Revision, StateView},
     utils::now,

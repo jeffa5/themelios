@@ -68,9 +68,9 @@ impl ControllerProperties for StatefulSetController {
                         .collect::<Vec<_>>();
                     ordinals.sort();
                     // the first one should be 0
-                    let correct_start = ordinals
-                        .first()
-                        .map_or(true, |o| *o == sts.spec.ordinals.as_ref().map_or(0, |o| o.start));
+                    let correct_start = ordinals.first().map_or(true, |o| {
+                        *o == sts.spec.ordinals.as_ref().map_or(0, |o| o.start)
+                    });
                     // then each other should be one more than this
                     let sequential = ordinals.windows(2).all(|os| os[0] + 1 == os[1]);
                     state
