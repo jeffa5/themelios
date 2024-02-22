@@ -12,27 +12,45 @@ impl ControllerProperties for StatefulSetController {
         let mut properties = Properties::default();
         properties.add(
             Expectation::Always,
-            "sts: statefulset status counters are correct",
+            "sts: statefulset status.replicas is correct",
             |_model, s| {
                 let s = s.latest();
                 s.statefulsets.iter().all(|sts| {
-                    let pods = s.pods.matching(&sts.spec.selector);
-                    let mut pod_count = 0;
-                    let mut ready_replicas = 0;
-                    let mut active_replicas = 0;
-                    for pod in pods {
-                        pod_count += 1;
-                        if is_pod_ready(pod) {
-                            ready_replicas += 1;
-                            active_replicas += 1;
-                        }
-                    }
-
+                    let pod_count = s.pods.matching(&sts.spec.selector).count() as u32;
                     let stable = s.resource_stable(sts);
-                    let satisfied = sts.status.replicas == pod_count
-                        && sts.status.ready_replicas == ready_replicas
-                        && sts.status.available_replicas == active_replicas;
-                    stable.implies(satisfied)
+                    stable.implies(sts.status.replicas == pod_count)
+                })
+            },
+        );
+        properties.add(
+            Expectation::Always,
+            "sts: statefulset status.ready_replicas is correct",
+            |_model, s| {
+                let s = s.latest();
+                s.statefulsets.iter().all(|sts| {
+                    let pod_count = s
+                        .pods
+                        .matching(&sts.spec.selector)
+                        .filter(|p| is_pod_ready(p))
+                        .count() as u32;
+                    let stable = s.resource_stable(sts);
+                    stable.implies(sts.status.ready_replicas == pod_count)
+                })
+            },
+        );
+        properties.add(
+            Expectation::Always,
+            "sts: statefulset status.available_replicas is correct",
+            |_model, s| {
+                let s = s.latest();
+                s.statefulsets.iter().all(|sts| {
+                    let pod_count = s
+                        .pods
+                        .matching(&sts.spec.selector)
+                        .filter(|p| is_pod_ready(p))
+                        .count() as u32;
+                    let stable = s.resource_stable(sts);
+                    stable.implies(sts.status.available_replicas == pod_count)
                 })
             },
         );
