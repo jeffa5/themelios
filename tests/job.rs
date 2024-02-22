@@ -65,10 +65,7 @@ fn test_non_parallel_job() {
 #[test_log::test]
 fn test_parallel_job() {
     let mut job = new_job("simple", "");
-
     job.spec.parallelism = 5;
-
-    // TODO: have a way of failing pods and check that.
 
     let m = model([job]);
     run(m, common::CheckMode::Bfs, function_name!())
