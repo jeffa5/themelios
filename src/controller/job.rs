@@ -1388,16 +1388,16 @@ fn flush_uncounted_and_remove_finalizers(
     uids_with_finalizer: &[&str],
     needs_flush: bool,
 ) -> OptionalJobControllerAction {
-    if needs_flush {
-        debug!("updating job status as needs flush in flush_uncounted_and_remove_finalizers");
-        return Some(JobControllerAction::UpdateJobStatus(job.clone())).into();
-    }
-
     if !pods_to_remove_finalizer.is_empty() {
         debug!("Had some pods to remove finalizer from");
         if let Some(op) = remove_tracking_finalizer_from_pods(pods_to_remove_finalizer).0 {
             return Some(op).into();
         }
+    }
+
+    if needs_flush {
+        debug!("updating job status as needs flush in flush_uncounted_and_remove_finalizers");
+        return Some(JobControllerAction::UpdateJobStatus(job.clone())).into();
     }
 
     if clean_uncounted_pods_without_finalizers(&mut job.status, uids_with_finalizer) {
