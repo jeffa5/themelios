@@ -1,7 +1,7 @@
 use stateright::Expectation;
 
 use crate::{
-    controller::{util::is_pod_ready, StatefulSetController},
+    controller::{statefulset::get_ordinal, util::is_pod_ready, StatefulSetController},
     utils::LogicalBoolExt,
 };
 
@@ -56,36 +56,27 @@ impl ControllerProperties for StatefulSetController {
         );
         properties.add(
             Expectation::Always,
-            "sts: statefulsets always have consecutive pods",
+            "sts: when stable, statefulsets always have consecutive pods",
             |_model, state| {
                 // point one and two from https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/#deployment-and-scaling-guarantees
                 let state = state.latest();
-                for sts in state.statefulsets.iter() {
-                    let mut ordinals = Vec::new();
-                    for pod in state.pods.iter() {
-                        if sts.spec.selector.matches(&pod.metadata.labels) {
-                            ordinals
-                                .push(crate::controller::statefulset::get_ordinal(pod).unwrap());
-                        }
-                    }
+                state.statefulsets.iter().all(|sts| {
+                    let mut ordinals = state
+                        .pods
+                        .for_controller(&sts.metadata.uid)
+                        .map(|p| get_ordinal(p).unwrap())
+                        .collect::<Vec<_>>();
                     ordinals.sort();
                     // the first one should be 0
-                    if let Some(first) = ordinals.first() {
-                        if *first != 0 {
-                            return false;
-                        }
-                    }
+                    let correct_start = ordinals
+                        .first()
+                        .map_or(true, |o| *o == sts.spec.ordinals.as_ref().map_or(0, |o| o.start));
                     // then each other should be one more than this
-                    for os in ordinals.windows(2) {
-                        if os[0] + 1 != os[1] {
-                            // violation of the property
-                            // we have found a missing pod but then continued to find an existing one
-                            // for this statefulset.
-                            return false;
-                        }
-                    }
-                }
-                true
+                    let sequential = ordinals.windows(2).all(|os| os[0] + 1 == os[1]);
+                    state
+                        .resource_stable(sts)
+                        .implies(correct_start && sequential)
+                })
             },
         );
         properties
