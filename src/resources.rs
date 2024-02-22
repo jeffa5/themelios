@@ -49,7 +49,7 @@ macro_rules! impl_observed_generation {
 }
 
 // impl_observed_generation!(Pod);
-// impl_observed_generation!(Job);
+impl_observed_generation!(Job);
 impl_observed_generation!(Deployment);
 impl_observed_generation!(ReplicaSet);
 impl_observed_generation!(StatefulSet);
@@ -816,6 +816,10 @@ pub struct JobStatus {
     // The number of pods which have a Ready condition.
     #[serde(default)]
     pub ready: u32,
+
+    // THEMELIOS: added field
+    #[serde(default)]
+    pub observed_generation: u64,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff)]

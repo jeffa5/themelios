@@ -293,6 +293,8 @@ fn reconcile(job: &mut Job, pods: &mut [&Pod]) -> OptionalJobControllerAction {
     job.status.active = active as u32;
     job.status.ready = ready as u32;
 
+    job.status.observed_generation = job.metadata.generation;
+
     track_job_status_and_remove_finalizers(
         needs_status_update,
         job,

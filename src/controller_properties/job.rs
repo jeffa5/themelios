@@ -32,7 +32,7 @@ impl ControllerProperties for JobController {
                     // when the resource has finished processing towards the desired state the
                     // status should match the desired number of replicas and the pods should match
                     // that too
-                    let stable = s.resource_current(r);
+                    let stable = s.resource_stable(r);
                     // mimic validateJobPodsStatus
                     let active_correct = active_pods as u32 == r.status.active;
                     let ready_correct = ready_pods as u32 == r.status.ready;
@@ -63,7 +63,7 @@ impl ControllerProperties for JobController {
             |_model, s| {
                 let s = s.latest();
                 s.jobs.iter().all(|r| {
-                    let stable = s.resource_current(r);
+                    let stable = s.resource_stable(r);
                     let old_pods_dont_have_finalizer = s
                         .pods
                         .for_controller(&r.metadata.uid)
