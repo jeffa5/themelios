@@ -3,7 +3,7 @@ use std::{collections::BTreeMap, time::Duration};
 use tracing::{debug, trace};
 
 use super::{
-    util::{get_pod_from_template, new_controller_ref},
+    util::{get_pod_from_template, new_controller_ref, is_pod_ready},
     Controller,
 };
 use crate::{
@@ -625,15 +625,6 @@ fn is_running_and_available(pod: &Pod, min_ready_seconds: u32) -> bool {
         }
     }
     false
-}
-
-fn is_pod_ready(pod: &Pod) -> bool {
-    pod.status
-        .conditions
-        .iter()
-        .find(|c| c.r#type == PodConditionType::Ready)
-        .map(|c| c.status == ConditionStatus::True)
-        .unwrap_or_default()
 }
 
 fn is_terminating(pod: &Pod) -> bool {
