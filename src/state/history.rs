@@ -2,8 +2,8 @@ use crate::abstract_model::Change;
 
 use self::{
     bounded::BoundedHistory, causal::CausalHistory, eventual::EventualHistory,
-    linearizable::LinearizableHistory, optimistic::OptimisticLinearHistory,
-    session::SessionHistory,
+    linearizable::LinearizableHistory, monotonic_session::MonotonicSessionHistory,
+    optimistic::OptimisticLinearHistory, session::SessionHistory,
 };
 
 use super::{revision::Revision, RawState, StateView};
@@ -12,6 +12,7 @@ pub mod bounded;
 pub mod causal;
 pub mod eventual;
 pub mod linearizable;
+pub mod monotonic_session;
 pub mod optimistic;
 pub mod session;
 
@@ -27,7 +28,13 @@ pub enum ConsistencySetup {
     /// Bounded staleness on reads.
     /// Linearizable writes.
     BoundedStaleness(usize),
-    /// Work off a state that derives from the last one seen.
+    /// Work off a state that derives from the last one seen, defaulting to the latest when no
+    /// session is present.
+    /// Session consistency on reads.
+    /// Linearizable writes.
+    MonotonicSession,
+    /// Work off a state that derives from the last one seen, defaulting to any valid when no session
+    /// is present.
     /// Session consistency on reads.
     /// Linearizable writes.
     Session,
@@ -69,6 +76,9 @@ pub enum StateHistory {
     Bounded(BoundedHistory),
     /// Session consistency on reads.
     /// Linearizable writes.
+    MonotonicSession(MonotonicSessionHistory),
+    /// Session consistency on reads.
+    /// Linearizable writes.
     Session(SessionHistory),
     /// Eventually consistent reads.
     /// Linearizable writes.
@@ -94,6 +104,9 @@ impl StateHistory {
             ConsistencySetup::BoundedStaleness(k) => {
                 Self::Bounded(BoundedHistory::new(initial_state, k))
             }
+            ConsistencySetup::MonotonicSession => {
+                Self::MonotonicSession(MonotonicSessionHistory::new(initial_state))
+            }
             ConsistencySetup::Session => Self::Session(SessionHistory::new(initial_state)),
             ConsistencySetup::Eventual => Self::Eventual(EventualHistory::new(initial_state)),
             ConsistencySetup::OptimisticLinear(commit_every) => {
@@ -107,6 +120,7 @@ impl StateHistory {
         match self {
             StateHistory::Linearizable(s) => s.add_change(change),
             StateHistory::Bounded(s) => s.add_change(change),
+            StateHistory::MonotonicSession(s) => s.add_change(change),
             StateHistory::Session(s) => s.add_change(change),
             StateHistory::Eventual(s) => s.add_change(change),
             StateHistory::OptimisticLinear(s) => s.add_change(change),
@@ -118,6 +132,7 @@ impl StateHistory {
         match self {
             StateHistory::Linearizable(s) => s.max_revision(),
             StateHistory::Bounded(s) => s.max_revision(),
+            StateHistory::MonotonicSession(s) => s.max_revision(),
             StateHistory::Session(s) => s.max_revision(),
             StateHistory::Eventual(s) => s.max_revision(),
             StateHistory::OptimisticLinear(s) => s.max_revision(),
@@ -129,6 +144,7 @@ impl StateHistory {
         match self {
             StateHistory::Linearizable(s) => s.state_at(revision),
             StateHistory::Bounded(s) => s.state_at(revision),
+            StateHistory::MonotonicSession(s) => s.state_at(revision),
             StateHistory::Session(s) => s.state_at(revision),
             StateHistory::Eventual(s) => s.state_at(revision),
             StateHistory::OptimisticLinear(s) => s.state_at(revision),
@@ -140,6 +156,7 @@ impl StateHistory {
         match self {
             StateHistory::Linearizable(s) => s.states_for(min_revision),
             StateHistory::Bounded(s) => s.states_for(min_revision),
+            StateHistory::MonotonicSession(s) => s.states_for(min_revision),
             StateHistory::Session(s) => s.states_for(min_revision),
             StateHistory::Eventual(s) => s.states_for(min_revision),
             StateHistory::OptimisticLinear(s) => s.states_for(min_revision),

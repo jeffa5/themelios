@@ -14,6 +14,7 @@ pub fn run(mut model: OrchestrationModelCfg, default_check_mode: CheckMode, fn_n
     if let Ok(consistency_level) = std::env::var("MCO_CONSISTENCY") {
         let consistency_level = match consistency_level.as_str() {
             "linearizable" => ConsistencySetup::Linearizable,
+            "monotonic-session" => ConsistencySetup::MonotonicSession,
             "session" => ConsistencySetup::Session,
             _ => {
                 panic!(
