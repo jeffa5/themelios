@@ -110,7 +110,10 @@ impl ArbitraryClient {
         // mark pods as succeeded or finished
         for pod in view.pods.iter() {
             let pod = pod.clone();
-            if !matches!(pod.status.phase, PodPhase::Succeeded | PodPhase::Failed) {
+            if !matches!(
+                pod.status.phase,
+                PodPhase::Unknown | PodPhase::Succeeded | PodPhase::Failed
+            ) {
                 actions.push(ArbitraryClientAction::MarkSucceededPod(
                     pod.metadata.name.clone(),
                 ));
