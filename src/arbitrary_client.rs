@@ -168,11 +168,13 @@ impl ArbitraryClient {
             ArbitraryClientAction::MarkSucceededPod(name) => {
                 let mut res = state.pods.get(&name).unwrap().clone();
                 res.status.phase = PodPhase::Succeeded;
+                res.status.conditions.clear();
                 ControllerAction::UpdatePod(res)
             }
             ArbitraryClientAction::MarkFailedPod(name) => {
                 let mut res = state.pods.get(&name).unwrap().clone();
                 res.status.phase = PodPhase::Failed;
+                res.status.conditions.clear();
                 ControllerAction::UpdatePod(res)
             }
         }
