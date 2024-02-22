@@ -50,7 +50,7 @@ impl History for MonotonicSessionHistory {
         } else {
             self.states
                 .iter()
-                .filter(|s| s.revision >= min_revision)
+                .filter(|s| s.revision > min_revision)
                 .map(|s| s.revision.clone())
                 .collect()
         }

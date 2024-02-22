@@ -45,7 +45,7 @@ impl History for SessionHistory {
     fn valid_revisions(&self, min_revision: Revision) -> Vec<Revision> {
         self.states
             .iter()
-            .filter(|s| s.revision >= min_revision)
+            .filter(|s| s.revision > min_revision)
             .map(|s| s.revision.clone())
             .collect()
     }
