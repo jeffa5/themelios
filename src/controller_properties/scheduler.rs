@@ -1,12 +1,10 @@
-use stateright::Expectation;
-
 use crate::controller::SchedulerController;
 
 use super::{ControllerProperties, Properties};
 
 impl ControllerProperties for SchedulerController {
     fn properties() -> Properties {
-        let mut properties = Properties::default();
+        Properties::default()
         // properties.add(
         //     Expectation::Eventually,
         //     "sched: every pod gets scheduled",
@@ -15,6 +13,5 @@ impl ControllerProperties for SchedulerController {
         //         state.pods.iter().all(|pod| pod.spec.node_name.is_some())
         //     },
         // );
-        properties
     }
 }
