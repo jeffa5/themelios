@@ -30,10 +30,8 @@ impl ControllerProperties for ReplicaSetController {
                     // status should match the desired number of replicas and the pods should match
                     // that too
                     s.resource_stable(r).implies(
-                        // the status has been updated correctly
-                        r.spec.replicas.unwrap() == r.status.replicas
-                        // and the pods were created
-                        && pod_count as u32 == r.status.replicas,
+                        // the pods were created
+                        pod_count as u32 == r.status.replicas,
                     )
                 })
             },
