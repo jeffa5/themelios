@@ -74,6 +74,8 @@ pub fn is_pod_ready(pod: &Pod) -> bool {
         .iter()
         .find(|c| c.r#type == PodConditionType::Ready)
         .map_or(false, |c| c.status == ConditionStatus::True)
+    // THEMELIOS: ensure that this pod is also not being deleted
+        && pod.metadata.deletion_timestamp.is_none()
 }
 
 pub fn is_pod_active(pod: &Pod) -> bool {
