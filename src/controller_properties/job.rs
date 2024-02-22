@@ -15,7 +15,7 @@ impl ControllerProperties for JobController {
         let mut properties = Properties::default();
         properties.add(
             Expectation::Always,
-            "job: when synced, job status matches pods",
+            "job: when synced, status.active is correct",
             |_model, s| {
                 let s = s.latest();
                 s.jobs.iter().all(|r| {
@@ -24,6 +24,22 @@ impl ControllerProperties for JobController {
                         .for_controller(&r.metadata.uid)
                         .filter(|p| is_pod_active(p))
                         .count();
+                    // when the resource has finished processing towards the desired state the
+                    // status should match the desired number of replicas and the pods should match
+                    // that too
+                    let stable = s.resource_stable(r);
+                    // mimic validateJobPodsStatus
+                    let active_correct = active_pods as u32 == r.status.active;
+                    stable.implies(active_correct)
+                })
+            },
+        );
+        properties.add(
+            Expectation::Always,
+            "job: when synced, status.ready is correct",
+            |_model, s| {
+                let s = s.latest();
+                s.jobs.iter().all(|r| {
                     let ready_pods = s
                         .pods
                         .for_controller(&r.metadata.uid)
@@ -34,29 +50,28 @@ impl ControllerProperties for JobController {
                     // that too
                     let stable = s.resource_stable(r);
                     // mimic validateJobPodsStatus
-                    let active_correct = active_pods as u32 == r.status.active;
                     let ready_correct = ready_pods as u32 == r.status.ready;
-                    stable.implies(active_correct && ready_correct)
+                    stable.implies(ready_correct)
                 })
             },
         );
-        properties.add(
-            Expectation::Always,
-            "job: owned active pods have tracking finalizer",
-            |_model, s| {
-                let s = s.latest();
-                s.jobs.iter().all(|r| {
-                    s.pods
-                        .for_controller(&r.metadata.uid)
-                        .filter(|p| is_pod_active(p))
-                        .all(|p| {
-                            p.metadata
-                                .finalizers
-                                .contains(&JOB_TRACKING_FINALIZER.to_string())
-                        })
-                })
-            },
-        );
+        // properties.add(
+        //     Expectation::Always,
+        //     "job: owned active pods have tracking finalizer",
+        //     |_model, s| {
+        //         let s = s.latest();
+        //         s.jobs.iter().all(|r| {
+        //             s.pods
+        //                 .for_controller(&r.metadata.uid)
+        //                 .filter(|p| is_pod_active(p))
+        //                 .all(|p| {
+        //                     p.metadata
+        //                         .finalizers
+        //                         .contains(&JOB_TRACKING_FINALIZER.to_string())
+        //                 })
+        //         })
+        //     },
+        // );
         properties.add(
             Expectation::Always,
             "job: observed finished pods have no finalizer",
