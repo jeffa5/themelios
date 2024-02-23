@@ -19,7 +19,9 @@ impl ControllerProperties for JobController {
             "job: when synced, status.active is correct",
             |_model, state| {
                 let s = state.latest();
-                s.jobs.iter().all(|r| {
+                s.jobs.iter()
+                    .filter(|r| !r.status.observed_revision.is_empty())
+                    .all(|r| {
                     let observed_revision =
                         Revision::try_from(&r.status.observed_revision).unwrap();
                     let observed = state.view_at(observed_revision);
@@ -43,7 +45,9 @@ impl ControllerProperties for JobController {
             "job: when synced, status.ready is correct",
             |_model, state| {
                 let s = state.latest();
-                s.jobs.iter().all(|r| {
+                s.jobs.iter()
+                    .filter(|r| !r.status.observed_revision.is_empty())
+                    .all(|r| {
                     let observed_revision =
                         Revision::try_from(&r.status.observed_revision).unwrap();
                     let observed = state.view_at(observed_revision);
@@ -84,7 +88,9 @@ impl ControllerProperties for JobController {
             "job: observed finished pods have no finalizer",
             |_model, state| {
                 let s = state.latest();
-                s.jobs.iter().all(|r| {
+                s.jobs.iter()
+                    .filter(|r| !r.status.observed_revision.is_empty())
+                    .all(|r| {
                     let observed_revision =
                         Revision::try_from(&r.status.observed_revision).unwrap();
                     let observed = state.view_at(observed_revision);

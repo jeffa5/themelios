@@ -16,28 +16,31 @@ impl ControllerProperties for ReplicaSetController {
             "rs: when stable, status.replicas == count(active_pods)",
             |_model, state| {
                 let s = state.latest();
-                s.replicasets.iter().all(|r| {
-                    let observed_revision =
-                        Revision::try_from(&r.status.observed_revision).unwrap();
-                    let observed = state.view_at(observed_revision);
-                    // Despite the reference docs saying that the replicas field is
-                    // quote: Replicas is the most recently oberved number of replicas.
-                    // from: https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.24/#replicasetstatus-v1-apps
-                    // It is only actually supposed to count the number of active pods, based on the
-                    // implementation.
-                    let pod_count = observed
-                        .pods
-                        .for_controller(&r.metadata.uid)
-                        .filter(|p| is_pod_active(p))
-                        .count();
-                    // when the resource has finished processing towards the desired state the
-                    // status should match the desired number of replicas and the pods should match
-                    // that too
-                    s.resource_stable(r).implies(
-                        // the pods were created
-                        pod_count as u32 == r.status.replicas,
-                    )
-                })
+                s.replicasets
+                    .iter()
+                    .filter(|r| !r.status.observed_revision.is_empty())
+                    .all(|r| {
+                        let observed_revision =
+                            Revision::try_from(&r.status.observed_revision).unwrap();
+                        let observed = state.view_at(observed_revision);
+                        // Despite the reference docs saying that the replicas field is
+                        // quote: Replicas is the most recently oberved number of replicas.
+                        // from: https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.24/#replicasetstatus-v1-apps
+                        // It is only actually supposed to count the number of active pods, based on the
+                        // implementation.
+                        let pod_count = observed
+                            .pods
+                            .for_controller(&r.metadata.uid)
+                            .filter(|p| is_pod_active(p))
+                            .count();
+                        // when the resource has finished processing towards the desired state the
+                        // status should match the desired number of replicas and the pods should match
+                        // that too
+                        s.resource_stable(r).implies(
+                            // the pods were created
+                            pod_count as u32 == r.status.replicas,
+                        )
+                    })
             },
         );
         properties.add(

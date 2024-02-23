@@ -16,7 +16,9 @@ impl ControllerProperties for StatefulSetController {
             "sts: statefulset status.replicas is correct",
             |_model, state| {
                 let s = state.latest();
-                s.statefulsets.iter().all(|sts| {
+                s.statefulsets.iter()
+                    .filter(|r| !r.status.observed_revision.is_empty())
+                    .all(|sts| {
                     let observed_revision =
                         Revision::try_from(&sts.status.observed_revision).unwrap();
                     let observed = state.view_at(observed_revision);
@@ -31,7 +33,9 @@ impl ControllerProperties for StatefulSetController {
             "sts: statefulset status.ready_replicas is correct",
             |_model, state| {
                 let s = state.latest();
-                s.statefulsets.iter().all(|sts| {
+                s.statefulsets.iter()
+                    .filter(|r| !r.status.observed_revision.is_empty())
+                    .all(|sts| {
                     let observed_revision =
                         Revision::try_from(&sts.status.observed_revision).unwrap();
                     let observed = state.view_at(observed_revision);
@@ -50,7 +54,9 @@ impl ControllerProperties for StatefulSetController {
             "sts: statefulset status.available_replicas is correct",
             |_model, state| {
                 let s = state.latest();
-                s.statefulsets.iter().all(|sts| {
+                s.statefulsets.iter()
+                    .filter(|r| !r.status.observed_revision.is_empty())
+                    .all(|sts| {
                     let observed_revision =
                         Revision::try_from(&sts.status.observed_revision).unwrap();
                     let observed = state.view_at(observed_revision);
@@ -70,7 +76,9 @@ impl ControllerProperties for StatefulSetController {
             |_model, state| {
                 // point one and two from https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/#deployment-and-scaling-guarantees
                 let s = state.latest();
-                s.statefulsets.iter().all(|sts| {
+                s.statefulsets.iter()
+                    .filter(|r| !r.status.observed_revision.is_empty())
+                    .all(|sts| {
                     let observed_revision =
                         Revision::try_from(&sts.status.observed_revision).unwrap();
                     let observed = state.view_at(observed_revision);
