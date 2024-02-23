@@ -101,8 +101,8 @@ fn reconcile(
         }
     }
 
-    let new_status = calculate_status(replicaset, &filtered_pods, state_revision);
-    if let Some(op) = update_replicaset_status(replicaset, new_status) {
+    let new_status = calculate_status(replicaset, &filtered_pods);
+    if let Some(op) = update_replicaset_status(replicaset, new_status, state_revision) {
         return Some(op);
     }
 
@@ -175,11 +175,7 @@ fn claim_pods<'a>(
     ValOrOp::Resource(pods)
 }
 
-fn calculate_status(
-    replicaset: &ReplicaSet,
-    pods: &[&Pod],
-    state_revision: &Revision,
-) -> ReplicaSetStatus {
+fn calculate_status(replicaset: &ReplicaSet, pods: &[&Pod]) -> ReplicaSetStatus {
     let mut new_status = replicaset.status.clone();
 
     // Count the number of pods that have labels matching the labels of the pod
@@ -230,7 +226,6 @@ fn calculate_status(
     new_status.fully_labeled_replicas = fully_labeled_replicas_count;
     new_status.ready_replicas = ready_replicas_count;
     new_status.available_replicas = available_replicas_count;
-    new_status.observed_revision = state_revision.to_string();
     new_status
 }
 
@@ -267,18 +262,20 @@ fn is_pod_available(pod: &Pod, min_ready_seconds: u32, now: Time) -> bool {
 fn update_replicaset_status(
     rs: &ReplicaSet,
     mut new_status: ReplicaSetStatus,
+    state_revision: &Revision,
 ) -> Option<ReplicaSetControllerAction> {
     if rs.status.replicas == new_status.replicas
         && rs.status.fully_labeled_replicas == new_status.fully_labeled_replicas
         && rs.status.ready_replicas == new_status.ready_replicas
         && rs.status.available_replicas == new_status.available_replicas
-        && rs.metadata.generation == rs.status.observed_generation
         && rs.status.conditions == new_status.conditions
+        && rs.metadata.generation == rs.status.observed_generation
     {
         return None;
     }
 
     new_status.observed_generation = rs.metadata.generation;
+    new_status.observed_revision = state_revision.to_string();
 
     let mut rs = rs.clone();
     rs.status = new_status;
