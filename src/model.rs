@@ -34,6 +34,25 @@ pub struct OrchestrationModelCfg {
 }
 
 impl OrchestrationModelCfg {
+    pub fn new(
+        initial_state: RawState,
+        consistency_level: ConsistencySetup,
+        controllers: usize,
+    ) -> Self {
+        Self {
+            initial_state,
+            consistency_level,
+            schedulers: controllers,
+            nodes: controllers,
+            replicaset_controllers: controllers,
+            deployment_controllers: controllers,
+            statefulset_controllers: controllers,
+            job_controllers: controllers,
+            podgc_controllers: controllers,
+            properties: Vec::new(),
+        }
+    }
+
     pub fn into_abstract_model(mut self) -> AbstractModelCfg {
         self.auto_add_properties();
 
