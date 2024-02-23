@@ -165,7 +165,6 @@ fn main() {
         consistency_level,
         schedulers: opts.schedulers,
         nodes: opts.nodes,
-        datastores: opts.datastores,
         replicaset_controllers: opts.replicaset_controllers,
         deployment_controllers: opts.deployment_controllers,
         statefulset_controllers: opts.statefulset_controllers,

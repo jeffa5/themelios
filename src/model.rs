@@ -18,8 +18,6 @@ pub struct OrchestrationModelCfg {
     pub initial_state: RawState,
     /// The consistency level of the state.
     pub consistency_level: ConsistencySetup,
-    /// The number of datastores to run.
-    pub datastores: usize,
     /// The number of schedulers to run.
     pub schedulers: usize,
     /// The number of nodes to run.

@@ -47,9 +47,6 @@ pub struct Opts {
     pub schedulers: usize,
 
     #[clap(long, short, global = true, default_value = "1")]
-    pub datastores: usize,
-
-    #[clap(long, short, global = true, default_value = "1")]
     pub nodes: usize,
 
     /// Max depth for the check run, 0 is no limit.
