@@ -15,7 +15,7 @@ pub fn run(mut model: OrchestrationModelCfg, default_check_mode: CheckMode, fn_n
         let consistency_level = match consistency_level.as_str() {
             "linearizable" => ConsistencySetup::Linearizable,
             "monotonic-session" => ConsistencySetup::MonotonicSession,
-            "session" => ConsistencySetup::Session,
+            "session" => ConsistencySetup::ResettableSession,
             _ => {
                 panic!(
                     "Unknown consistency level from MCO_CONSISTENCY: {:?}",

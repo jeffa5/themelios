@@ -90,7 +90,7 @@ fn stale_reads() {
         spec: PodSpec::default(),
         status: Default::default(),
     }));
-    m.consistency_level = ConsistencySetup::Session;
+    m.consistency_level = ConsistencySetup::ResettableSession;
     run(m, common::CheckMode::Dfs, function_name!())
 }
 

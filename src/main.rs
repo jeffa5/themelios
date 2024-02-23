@@ -147,7 +147,7 @@ fn main() {
         }));
 
     let consistency_level = if opts.session {
-        ConsistencySetup::Session
+        ConsistencySetup::ResettableSession
     } else if let Some(commit_every) = opts.optimistic_linear {
         ConsistencySetup::OptimisticLinear(commit_every)
     } else if opts.causal {

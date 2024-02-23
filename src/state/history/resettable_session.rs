@@ -8,11 +8,11 @@ use crate::{
 use super::History;
 
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
-pub struct SessionHistory {
+pub struct ResettableSessionHistory {
     states: imbl::Vector<Arc<StateView>>,
 }
 
-impl SessionHistory {
+impl ResettableSessionHistory {
     pub fn new(initial_state: RawState) -> Self {
         Self {
             states: imbl::vector![Arc::new(initial_state.into())],
@@ -20,7 +20,7 @@ impl SessionHistory {
     }
 }
 
-impl History for SessionHistory {
+impl History for ResettableSessionHistory {
     fn add_change(&mut self, change: Change) -> Revision {
         let mut new_state_ref = self.states.last().unwrap().clone();
         let new_state = Arc::make_mut(&mut new_state_ref);
