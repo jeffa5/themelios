@@ -61,7 +61,7 @@ impl ArbitraryClient {
                 for res in view.$kind.iter() {
                     let res = res.clone();
                     if res.spec.replicas.unwrap() > 0 {
-                        actions.push($update(res.metadata.name.clone(), 1));
+                        actions.push($update(res.metadata.name.clone(), -1));
                     }
                 }
             };
