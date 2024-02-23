@@ -24,6 +24,7 @@ fn model(
         initial_state,
         statefulset_controllers: 1,
         schedulers: 1,
+        podgc_controllers: 1,
         nodes,
         ..Default::default()
     }
