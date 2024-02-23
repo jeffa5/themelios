@@ -8,6 +8,7 @@ use themelios::resources::PodSpec;
 use themelios::resources::PodTemplateSpec;
 use themelios::resources::ReplicaSet;
 use themelios::resources::ReplicaSetSpec;
+use themelios::state::history::ConsistencySetup;
 use themelios::state::RawState;
 use themelios::utils;
 
@@ -15,13 +16,7 @@ mod common;
 
 fn model(replicasets: impl IntoIterator<Item = ReplicaSet>) -> OrchestrationModelCfg {
     let initial_state = RawState::default().with_replicasets(replicasets);
-    OrchestrationModelCfg {
-        initial_state,
-        replicaset_controllers: 1,
-        schedulers: 1,
-        nodes: 1,
-        ..Default::default()
-    }
+    OrchestrationModelCfg::new(initial_state, ConsistencySetup::Linearizable, 1)
 }
 
 fn new_replicaset(name: &str, _namespace: &str, replicas: u32) -> ReplicaSet {

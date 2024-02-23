@@ -20,14 +20,9 @@ fn model(
     nodes: usize,
 ) -> OrchestrationModelCfg {
     let initial_state = RawState::default().with_statefulsets(statefulsets);
-    OrchestrationModelCfg {
-        initial_state,
-        statefulset_controllers: 1,
-        schedulers: 1,
-        podgc_controllers: 1,
-        nodes,
-        ..Default::default()
-    }
+    let mut omc = OrchestrationModelCfg::new(initial_state, ConsistencySetup::Linearizable, 1);
+    omc.nodes = nodes;
+    omc
 }
 
 fn new_statefulset(name: &str, _namespace: &str, replicas: u32) -> StatefulSet {

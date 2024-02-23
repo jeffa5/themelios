@@ -8,6 +8,7 @@ use themelios::resources::JobSpec;
 use themelios::resources::Metadata;
 use themelios::resources::PodSpec;
 use themelios::resources::PodTemplateSpec;
+use themelios::state::history::ConsistencySetup;
 use themelios::state::RawState;
 use themelios::utils;
 
@@ -15,13 +16,7 @@ mod common;
 
 fn model(jobs: impl IntoIterator<Item = Job>) -> OrchestrationModelCfg {
     let initial_state = RawState::default().with_jobs(jobs);
-    OrchestrationModelCfg {
-        initial_state,
-        job_controllers: 1,
-        schedulers: 1,
-        nodes: 1,
-        ..Default::default()
-    }
+    OrchestrationModelCfg::new(initial_state, ConsistencySetup::Linearizable, 1)
 }
 
 fn new_job(name: &str, _namespace: &str) -> Job {
