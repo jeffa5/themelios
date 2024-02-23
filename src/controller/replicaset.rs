@@ -66,7 +66,7 @@ impl Controller for ReplicaSetController {
         local_state.revision = global_state.revision.clone();
         for replicaset in global_state.replicasets.iter() {
             let pods = global_state.pods.iter().collect::<Vec<_>>();
-            if let Some(op) = reconcile(replicaset, &pods) {
+            if let Some(op) = reconcile(replicaset, &pods, &global_state.revision) {
                 return Some(op);
             }
         }
@@ -82,7 +82,11 @@ impl Controller for ReplicaSetController {
     }
 }
 
-fn reconcile(replicaset: &ReplicaSet, all_pods: &[&Pod]) -> Option<ReplicaSetControllerAction> {
+fn reconcile(
+    replicaset: &ReplicaSet,
+    all_pods: &[&Pod],
+    state_revision: &Revision,
+) -> Option<ReplicaSetControllerAction> {
     let filtered_pods = util::filter_active_pods(all_pods);
     let filtered_pods = claim_pods(replicaset, &filtered_pods);
 
@@ -97,7 +101,7 @@ fn reconcile(replicaset: &ReplicaSet, all_pods: &[&Pod]) -> Option<ReplicaSetCon
         }
     }
 
-    let new_status = calculate_status(replicaset, &filtered_pods);
+    let new_status = calculate_status(replicaset, &filtered_pods, state_revision);
     if let Some(op) = update_replicaset_status(replicaset, new_status) {
         return Some(op);
     }
@@ -171,7 +175,11 @@ fn claim_pods<'a>(
     ValOrOp::Resource(pods)
 }
 
-fn calculate_status(replicaset: &ReplicaSet, pods: &[&Pod]) -> ReplicaSetStatus {
+fn calculate_status(
+    replicaset: &ReplicaSet,
+    pods: &[&Pod],
+    state_revision: &Revision,
+) -> ReplicaSetStatus {
     let mut new_status = replicaset.status.clone();
 
     // Count the number of pods that have labels matching the labels of the pod
@@ -222,6 +230,7 @@ fn calculate_status(replicaset: &ReplicaSet, pods: &[&Pod]) -> ReplicaSetStatus 
     new_status.fully_labeled_replicas = fully_labeled_replicas_count;
     new_status.ready_replicas = ready_replicas_count;
     new_status.available_replicas = available_replicas_count;
+    new_status.observed_revision = state_revision.to_string();
     new_status
 }
 
