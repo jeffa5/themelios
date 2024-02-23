@@ -96,7 +96,13 @@ impl Controller for StatefulSetController {
                 .persistent_volume_claims
                 .iter()
                 .collect::<Vec<_>>();
-            if let Some(op) = reconcile(statefulset, &pods, &revisions, &pvcs) {
+            if let Some(op) = reconcile(
+                statefulset,
+                &pods,
+                &revisions,
+                &pvcs,
+                &global_state.revision,
+            ) {
                 return Some(op);
             }
         }
@@ -117,6 +123,7 @@ fn reconcile(
     all_pods: &[&Pod],
     all_revisions: &[&ControllerRevision],
     all_pvcs: &[&PersistentVolumeClaim],
+    state_revision: &Revision,
 ) -> Option<StatefulSetControllerAction> {
     // TODO: claim things
 
@@ -134,7 +141,7 @@ fn reconcile(
 
     let pvcs = all_pvcs;
 
-    sync(statefulset, &pods, &revisions, pvcs)
+    sync(statefulset, &pods, &revisions, pvcs, state_revision)
 }
 
 fn sync(
@@ -142,8 +149,9 @@ fn sync(
     pods: &[&Pod],
     revisions: &[&ControllerRevision],
     pvcs: &[&PersistentVolumeClaim],
+    state_revision: &Revision,
 ) -> Option<StatefulSetControllerAction> {
-    if let Some(op) = update_statefulset(statefulset, pods, revisions, pvcs) {
+    if let Some(op) = update_statefulset(statefulset, pods, revisions, pvcs, state_revision) {
         return Some(op);
     }
     None
@@ -154,12 +162,13 @@ fn update_statefulset(
     pods: &[&Pod],
     revisions: &[&ControllerRevision],
     pvcs: &[&PersistentVolumeClaim],
+    state_revision: &Revision,
 ) -> Option<StatefulSetControllerAction> {
     // list all revisions and sort them
     let mut revisions = revisions.to_vec();
     sort_controller_revisions(&mut revisions);
 
-    let rop = perform_update(statefulset, pods, &revisions, pvcs);
+    let rop = perform_update(statefulset, pods, &revisions, pvcs, state_revision);
     let (current_revision, update_revision, _status) = match rop {
         ValOrOp::Op(op) => return Some(op),
         ValOrOp::Resource(r) => r,
@@ -196,6 +205,7 @@ fn perform_update(
     pods: &[&Pod],
     revisions: &[&ControllerRevision],
     pvcs: &[&PersistentVolumeClaim],
+    state_revision: &Revision,
 ) -> ValOrOp<(ControllerRevision, ControllerRevision, StatefulSetStatus)> {
     debug!("perform_update");
     let (current_revision, update_revision, collision_count) =
@@ -211,6 +221,7 @@ fn perform_update(
         collision_count,
         pods,
         pvcs,
+        state_revision,
     );
     let mut current_status = match current_status {
         ValOrOp::Resource(r) => r,
@@ -240,6 +251,7 @@ fn do_update_statefulset(
     collision_count: u32,
     pods: &[&Pod],
     pvcs: &[&PersistentVolumeClaim],
+    state_revision: &Revision,
 ) -> ValOrOp<StatefulSetStatus> {
     debug!("do_update_statefulset");
     let current_sts = apply_revision(sts, current_revision);
@@ -248,6 +260,7 @@ fn do_update_statefulset(
     // set the generation, and revisions in the returned status
     let mut status = StatefulSetStatus {
         observed_generation: sts.metadata.generation,
+        observed_revision: state_revision.to_string(),
         current_revision: current_revision.metadata.name.clone(),
         update_revision: update_revision.metadata.name.clone(),
         collision_count,
