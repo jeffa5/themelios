@@ -19,25 +19,26 @@ impl ControllerProperties for JobController {
             "job: when synced, status.active is correct",
             |_model, state| {
                 let s = state.latest();
-                s.jobs.iter()
+                s.jobs
+                    .iter()
                     .filter(|r| !r.status.observed_revision.is_empty())
                     .all(|r| {
-                    let observed_revision =
-                        Revision::try_from(&r.status.observed_revision).unwrap();
-                    let observed = state.view_at(observed_revision);
-                    let active_pods = observed
-                        .pods
-                        .for_controller(&r.metadata.uid)
-                        .filter(|p| is_pod_active(p))
-                        .count();
-                    // when the resource has finished processing towards the desired state the
-                    // status should match the desired number of replicas and the pods should match
-                    // that too
-                    let stable = s.resource_stable(r);
-                    // mimic validateJobPodsStatus
-                    let active_correct = active_pods as u32 == r.status.active;
-                    stable.implies(active_correct)
-                })
+                        let observed_revision =
+                            Revision::try_from(&r.status.observed_revision).unwrap();
+                        let observed = state.view_at(observed_revision);
+                        let active_pods = observed
+                            .pods
+                            .for_controller(&r.metadata.uid)
+                            .filter(|p| is_pod_active(p))
+                            .count();
+                        // when the resource has finished processing towards the desired state the
+                        // status should match the desired number of replicas and the pods should match
+                        // that too
+                        let stable = s.resource_stable(r);
+                        // mimic validateJobPodsStatus
+                        let active_correct = active_pods as u32 == r.status.active;
+                        stable.implies(active_correct)
+                    })
             },
         );
         properties.add(
@@ -45,25 +46,26 @@ impl ControllerProperties for JobController {
             "job: when synced, status.ready is correct",
             |_model, state| {
                 let s = state.latest();
-                s.jobs.iter()
+                s.jobs
+                    .iter()
                     .filter(|r| !r.status.observed_revision.is_empty())
                     .all(|r| {
-                    let observed_revision =
-                        Revision::try_from(&r.status.observed_revision).unwrap();
-                    let observed = state.view_at(observed_revision);
-                    let ready_pods = observed
-                        .pods
-                        .for_controller(&r.metadata.uid)
-                        .filter(|p| is_pod_ready(p))
-                        .count();
-                    // when the resource has finished processing towards the desired state the
-                    // status should match the desired number of replicas and the pods should match
-                    // that too
-                    let stable = s.resource_stable(r);
-                    // mimic validateJobPodsStatus
-                    let ready_correct = ready_pods as u32 == r.status.ready;
-                    stable.implies(ready_correct)
-                })
+                        let observed_revision =
+                            Revision::try_from(&r.status.observed_revision).unwrap();
+                        let observed = state.view_at(observed_revision);
+                        let ready_pods = observed
+                            .pods
+                            .for_controller(&r.metadata.uid)
+                            .filter(|p| is_pod_ready(p))
+                            .count();
+                        // when the resource has finished processing towards the desired state the
+                        // status should match the desired number of replicas and the pods should match
+                        // that too
+                        let stable = s.resource_stable(r);
+                        // mimic validateJobPodsStatus
+                        let ready_correct = ready_pods as u32 == r.status.ready;
+                        stable.implies(ready_correct)
+                    })
             },
         );
         // properties.add(
@@ -88,27 +90,28 @@ impl ControllerProperties for JobController {
             "job: observed finished pods have no finalizer",
             |_model, state| {
                 let s = state.latest();
-                s.jobs.iter()
+                s.jobs
+                    .iter()
                     .filter(|r| !r.status.observed_revision.is_empty())
                     .all(|r| {
-                    let observed_revision =
-                        Revision::try_from(&r.status.observed_revision).unwrap();
-                    let observed = state.view_at(observed_revision);
-                    let stable = s.resource_stable(r);
-                    let old_pods_dont_have_finalizer = observed
-                        .pods
-                        .for_controller(&r.metadata.uid)
-                        .filter(|p| p.metadata.resource_version < r.metadata.resource_version)
-                        .filter(|p| {
-                            matches!(p.status.phase, PodPhase::Succeeded | PodPhase::Failed)
-                        })
-                        .all(|p| {
-                            !p.metadata
-                                .finalizers
-                                .contains(&JOB_TRACKING_FINALIZER.to_string())
-                        });
-                    stable.implies(old_pods_dont_have_finalizer)
-                })
+                        let observed_revision =
+                            Revision::try_from(&r.status.observed_revision).unwrap();
+                        let observed = state.view_at(observed_revision);
+                        let stable = s.resource_stable(r);
+                        let old_pods_dont_have_finalizer = observed
+                            .pods
+                            .for_controller(&r.metadata.uid)
+                            .filter(|p| p.metadata.resource_version < r.metadata.resource_version)
+                            .filter(|p| {
+                                matches!(p.status.phase, PodPhase::Succeeded | PodPhase::Failed)
+                            })
+                            .all(|p| {
+                                !p.metadata
+                                    .finalizers
+                                    .contains(&JOB_TRACKING_FINALIZER.to_string())
+                            });
+                        stable.implies(old_pods_dont_have_finalizer)
+                    })
             },
         );
         properties

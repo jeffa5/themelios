@@ -196,8 +196,9 @@ impl Model for AbstractModelCfg {
 
     fn properties(&self) -> Vec<stateright::Property<Self>> {
         let mut p = self.properties.clone();
-        p.append(&mut vec![
-            Property::<Self>::always("all resources have unique names", |_model, state| {
+        p.append(&mut vec![Property::<Self>::always(
+            "all resources have unique names",
+            |_model, state| {
                 let state = state.latest();
                 all_unique(state.nodes.iter().map(|n| &n.metadata.name))
                     && all_unique(state.pods.iter().map(|n| &n.metadata.name))
@@ -212,8 +213,8 @@ impl Model for AbstractModelCfg {
                             .map(|n| &n.metadata.name),
                     )
                     && all_unique(state.jobs.iter().map(|n| &n.metadata.name))
-            }),
-        ]);
+            },
+        )]);
         p
     }
 }
