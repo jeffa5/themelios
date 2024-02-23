@@ -58,6 +58,8 @@ impl<T: Meta + Spec + Clone> Resources<T> {
                 let mut existing_meta_without_generation = existing.metadata().clone();
                 existing_meta_without_generation.generation = 0;
                 if res.spec() != existing.spec() ||
+                // TODO: this should be able to be removed now that we have the
+                // observed_revision field
                 // THEMELIOS: changing metadata does not change generation normally, but this
                 // eliminates the way to check for stability (that a controller has observed the
                 // updates)

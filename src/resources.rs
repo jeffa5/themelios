@@ -7,6 +7,8 @@ use std::{
     ops::{Add, AddAssign, Sub, SubAssign},
 };
 
+use crate::state::revision::Revision;
+
 pub trait Meta {
     fn metadata(&self) -> &Metadata;
     fn metadata_mut(&mut self) -> &mut Metadata;
@@ -56,6 +58,37 @@ impl_observed_generation!(StatefulSet);
 // impl_observed_generation!(ControllerRevision);
 // impl_observed_generation!(PersistentVolumeClaim);
 // impl_observed_generation!(Node);
+
+// THEMELIOS: When using session consistency stability of the resource is not enough to ensure that the
+// controller has seen everything. Instead, we are really looking for stability and progress of the
+// resource. That is, given that a controller will not process the same resource (revision) again,
+// we know that it will make progress, so we only need to ensure that it is correct in the revision that it is working from.
+// For this, we need to track in each resource what the latest revision of the state was that was
+// observed, leading to us being able to check when the controller saw things.
+// So:
+pub trait ObservedRevision {
+    fn observed_revision(&self) -> Revision;
+}
+
+macro_rules! impl_observed_revision {
+    ($r:ident) => {
+        impl ObservedRevision for $r {
+            fn observed_revision(&self) -> Revision {
+                let or = self.status.observed_revision.as_str();
+                Revision::try_from(or).unwrap()
+            }
+        }
+    };
+}
+
+// impl_observed_revision!(Pod);
+impl_observed_revision!(Job);
+impl_observed_revision!(Deployment);
+impl_observed_revision!(ReplicaSet);
+impl_observed_revision!(StatefulSet);
+// impl_observed_revision!(ControllerRevision);
+// impl_observed_revision!(PersistentVolumeClaim);
+// impl_observed_revision!(Node);
 
 /// Get the desired state of the resource, typically the `spec`.
 pub trait Spec {
@@ -820,6 +853,9 @@ pub struct JobStatus {
     // THEMELIOS: added field
     #[serde(default)]
     pub observed_generation: u64,
+    // THEMELIOS: added field
+    #[serde(default)]
+    pub observed_revision: String,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff)]
@@ -947,6 +983,10 @@ pub struct ReplicaSetStatus {
 
     #[serde(default)]
     pub conditions: Vec<ReplicaSetCondition>,
+
+    // THEMELIOS: added field
+    #[serde(default)]
+    pub observed_revision: String,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff)]
@@ -1131,6 +1171,10 @@ pub struct DeploymentStatus {
     // The generation observed by the deployment controller.
     #[serde(default)]
     pub observed_generation: u64,
+
+    // THEMELIOS: added field
+    #[serde(default)]
+    pub observed_revision: String,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff)]
@@ -1292,6 +1336,10 @@ pub struct StatefulSetStatus {
     pub update_revision: String,
     #[serde(default)]
     pub observed_generation: u64,
+
+    // THEMELIOS: added field
+    #[serde(default)]
+    pub observed_revision: String,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff)]

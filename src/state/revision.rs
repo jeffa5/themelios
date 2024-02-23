@@ -22,6 +22,13 @@ impl TryFrom<&str> for Revision {
     }
 }
 
+impl TryFrom<&String> for Revision {
+    type Error = String;
+    fn try_from(value: &String) -> Result<Self, Self::Error> {
+        Self::try_from(value.as_str())
+    }
+}
+
 impl std::fmt::Display for Revision {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let s = self

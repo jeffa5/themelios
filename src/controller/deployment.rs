@@ -141,7 +141,8 @@ impl Controller for DeploymentController {
         for deployment in global_state.deployments.iter() {
             let replicasets = global_state.replicasets.iter().collect::<Vec<_>>();
             let pod_map = BTreeMap::new();
-            if let Some(op) = reconcile(deployment, &replicasets, &pod_map) {
+            if let Some(op) = reconcile(deployment, &replicasets, &pod_map, &global_state.revision)
+            {
                 return Some(op);
             }
         }
@@ -161,6 +162,7 @@ fn reconcile(
     deployment: &Deployment,
     all_replicasets: &[&ReplicaSet],
     pod_map: &BTreeMap<String, Vec<Pod>>,
+    state_revision: &Revision,
 ) -> Option<DeploymentControllerAction> {
     let everything = LabelSelector::default();
     if deployment.spec.selector == everything {
@@ -183,7 +185,12 @@ fn reconcile(
     };
 
     if deployment.metadata.deletion_timestamp.is_some() {
-        return sync_status_only(&mut deployment.clone(), &replicasets, all_replicasets);
+        return sync_status_only(
+            &mut deployment.clone(),
+            &replicasets,
+            all_replicasets,
+            state_revision,
+        );
     }
 
     // Update deployment conditions with an Unknown condition when pausing/resuming
@@ -194,7 +201,12 @@ fn reconcile(
     }
 
     if deployment.spec.paused {
-        return sync(&mut deployment.clone(), &replicasets, all_replicasets);
+        return sync(
+            &mut deployment.clone(),
+            &replicasets,
+            all_replicasets,
+            state_revision,
+        );
     }
 
     // rollback is not re-entrant in case the underlying replica sets are updated with a new
@@ -210,7 +222,12 @@ fn reconcile(
         ValOrOp::Op(op) => return Some(op),
     };
     if scaling_event {
-        return sync(&mut deployment.clone(), &replicasets, all_replicasets);
+        return sync(
+            &mut deployment.clone(),
+            &replicasets,
+            all_replicasets,
+            state_revision,
+        );
     }
 
     match deployment
@@ -225,10 +242,14 @@ fn reconcile(
             &replicasets,
             all_replicasets,
             pod_map,
+            state_revision,
         ),
-        DeploymentStrategyType::RollingUpdate => {
-            rollout_rolling(&mut deployment.clone(), &replicasets, all_replicasets)
-        }
+        DeploymentStrategyType::RollingUpdate => rollout_rolling(
+            &mut deployment.clone(),
+            &replicasets,
+            all_replicasets,
+            state_revision,
+        ),
     }
 }
 
@@ -302,6 +323,7 @@ fn sync_status_only(
     deployment: &mut Deployment,
     replicasets: &[&ReplicaSet],
     replicasets_in_ns: &[&ReplicaSet],
+    state_revision: &Revision,
 ) -> Option<DeploymentControllerAction> {
     let (new_replicaset, old_replicasets) =
         get_all_replicasets_and_sync_revision(deployment, replicasets, replicasets_in_ns, false);
@@ -314,7 +336,7 @@ fn sync_status_only(
     if let Some(new_replicaset) = &new_replicaset {
         all_rss.push(new_replicaset);
     }
-    sync_deployment_status(&all_rss, &new_replicaset, deployment)
+    sync_deployment_status(&all_rss, &new_replicaset, deployment, state_revision)
 }
 
 // checkPausedConditions checks if the given deployment is paused or not and adds an appropriate condition.
@@ -366,6 +388,7 @@ fn sync(
     deployment: &mut Deployment,
     replicasets: &[&ReplicaSet],
     replicasets_in_ns: &[&ReplicaSet],
+    state_revision: &Revision,
 ) -> Option<DeploymentControllerAction> {
     debug!("Syncing deployment");
     let (new_replicaset, old_replicasets) =
@@ -391,7 +414,12 @@ fn sync(
     if let Some(new_rs) = &new_replicaset {
         all_replicasets.push(new_rs);
     }
-    if let Some(op) = sync_deployment_status(&all_replicasets, &new_replicaset, deployment) {
+    if let Some(op) = sync_deployment_status(
+        &all_replicasets,
+        &new_replicaset,
+        deployment,
+        state_revision,
+    ) {
         return Some(op);
     }
     None
@@ -636,9 +664,10 @@ fn sync_deployment_status(
     all_replicasets: &[&ReplicaSet],
     new_replicaset: &Option<ReplicaSet>,
     deployment: &Deployment,
+    state_revision: &Revision,
 ) -> Option<DeploymentControllerAction> {
     debug!("Syncing deployment status");
-    let new_status = calculate_status(all_replicasets, new_replicaset, deployment);
+    let new_status = calculate_status(all_replicasets, new_replicaset, deployment, state_revision);
     if deployment.status != new_status {
         debug!(
             status_diff = ?deployment.status.diff(&new_status),
@@ -659,6 +688,7 @@ fn calculate_status(
     all_replicasets: &[&ReplicaSet],
     new_replicaset: &Option<ReplicaSet>,
     deployment: &Deployment,
+    state_revision: &Revision,
 ) -> DeploymentStatus {
     let available_replicas = get_available_replica_count_for_replicasets(all_replicasets);
     let total_replicas = get_replica_count_for_replicasets(all_replicasets);
@@ -668,6 +698,7 @@ fn calculate_status(
 
     let mut status = DeploymentStatus {
         observed_generation: deployment.metadata.generation,
+        observed_revision: state_revision.to_string(),
         replicas: get_actual_replica_count_for_replicasets(all_replicasets),
         updated_replicas: get_actual_replica_count_for_replicasets(
             &new_replicaset.iter().collect::<Vec<_>>(),
@@ -1742,6 +1773,7 @@ fn rollout_rolling(
     deployment: &mut Deployment,
     replicasets: &[&ReplicaSet],
     replicasets_in_ns: &[&ReplicaSet],
+    state_revision: &Revision,
 ) -> Option<DeploymentControllerAction> {
     let (new_replicaset, old_replicasets) =
         get_all_replicasets_and_sync_revision(deployment, replicasets, replicasets_in_ns, true);
@@ -1780,7 +1812,12 @@ fn rollout_rolling(
         }
     }
 
-    sync_rollout_status(&all_rss, &Some(new_replicaset.clone()), deployment)
+    sync_rollout_status(
+        &all_rss,
+        &Some(new_replicaset.clone()),
+        deployment,
+        state_revision,
+    )
 }
 
 // syncRolloutStatus updates the status of a deployment during a rollout. There are
@@ -1792,8 +1829,9 @@ fn sync_rollout_status(
     all_rss: &[&ReplicaSet],
     new_rs: &Option<ReplicaSet>,
     deployment: &Deployment,
+    state_revision: &Revision,
 ) -> Option<DeploymentControllerAction> {
-    let mut new_status = calculate_status(all_rss, new_rs, deployment);
+    let mut new_status = calculate_status(all_rss, new_rs, deployment, state_revision);
     debug!(status_diff = ?deployment.status.diff(&new_status), "Checking new status");
 
     if !has_progress_deadline(deployment) {
@@ -2076,6 +2114,7 @@ fn rollout_recreate(
     replicasets: &[&ReplicaSet],
     replicasets_in_ns: &[&ReplicaSet],
     pod_map: &BTreeMap<String, Vec<Pod>>,
+    state_revision: &Revision,
 ) -> Option<DeploymentControllerAction> {
     // Don't create a new RS if not already existed, so that we avoid scaling up before scaling down.
     let (new_replicaset, old_replicasets) =
@@ -2104,7 +2143,7 @@ fn rollout_recreate(
 
     if old_pods_running(&new_replicaset, &old_replicasets, pod_map) {
         let all_rss = all_rss.iter().collect::<Vec<_>>();
-        return sync_rollout_status(&all_rss, &new_replicaset, deployment);
+        return sync_rollout_status(&all_rss, &new_replicaset, deployment, state_revision);
     }
 
     // If we need to create a new RS, create it now.
@@ -2134,7 +2173,7 @@ fn rollout_recreate(
     }
 
     let all_rss = all_rss.iter().collect::<Vec<_>>();
-    sync_rollout_status(&all_rss, &Some(new_replicaset), deployment)
+    sync_rollout_status(&all_rss, &Some(new_replicaset), deployment, state_revision)
 }
 
 fn scale_down_old_replicasets_for_recreate(
