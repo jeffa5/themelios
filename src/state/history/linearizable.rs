@@ -9,34 +9,40 @@ use super::History;
 
 #[derive(Default, Clone, PartialEq, Eq, Hash, Debug)]
 pub struct LinearizableHistory {
-    state: Arc<StateView>,
+    states: imbl::Vector<Arc<StateView>>,
 }
 
 impl LinearizableHistory {
     pub fn new(initial_state: RawState) -> Self {
         Self {
-            state: Arc::new(initial_state.into()),
+            states: imbl::vector![Arc::new(initial_state.into())],
         }
     }
 }
 
 impl History for LinearizableHistory {
     fn add_change(&mut self, change: Change) -> Revision {
+        let mut new_state_ref = self.states.last().unwrap().clone();
+        let new_state = Arc::make_mut(&mut new_state_ref);
         let new_revision = self.max_revision().increment();
-        Arc::make_mut(&mut self.state).apply_operation(change.operation, new_revision);
+        new_state.apply_operation(change.operation, new_revision);
+        self.states.push_back(new_state_ref);
         self.max_revision()
     }
 
     fn max_revision(&self) -> Revision {
-        self.state.revision.clone()
+        self.states.last().unwrap().revision.clone()
     }
 
     fn state_at(&self, revision: Revision) -> StateView {
-        assert_eq!(revision, self.state.revision);
-        (*self.state).clone()
+        let index = self
+            .states
+            .binary_search_by_key(&revision, |s| s.revision.clone())
+            .unwrap();
+        (*self.states[index]).clone()
     }
 
     fn valid_revisions(&self, _min_revision: Revision) -> Vec<Revision> {
-        vec![self.state.revision.clone()]
+        vec![self.max_revision()]
     }
 }
