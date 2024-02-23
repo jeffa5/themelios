@@ -16,7 +16,11 @@ impl From<Vec<usize>> for Revision {
 impl TryFrom<&str> for Revision {
     type Error = String;
     fn try_from(value: &str) -> Result<Self, Self::Error> {
-        let parts: Result<Vec<usize>, _> = value.split('-').map(|s| s.parse()).collect();
+        let parts: Result<Vec<usize>, _> = value
+            .split('-')
+            .filter(|v| !v.is_empty())
+            .map(|s| s.parse())
+            .collect();
         let parts = parts.map_err(|e| e.to_string())?;
         Ok(Revision(parts))
     }
