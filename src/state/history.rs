@@ -1,7 +1,7 @@
 use crate::abstract_model::Change;
 
 use self::{
-    causal::CausalHistory, eventual::EventualHistory, linearizable::LinearizableHistory,
+    causal::CausalHistory, linearizable::LinearizableHistory,
     monotonic_session::MonotonicSessionHistory, optimistic::OptimisticLinearHistory,
     session::SessionHistory,
 };
@@ -9,7 +9,6 @@ use self::{
 use super::{revision::Revision, RawState, StateView};
 
 pub mod causal;
-pub mod eventual;
 pub mod linearizable;
 pub mod monotonic_session;
 pub mod optimistic;
@@ -33,10 +32,6 @@ pub enum ConsistencySetup {
     /// Session consistency on reads.
     /// Linearizable writes.
     Session,
-    /// Work off any historical state.
-    /// Eventually consistent reads.
-    /// Linearizable writes.
-    Eventual,
     /// Optimistically apply changes without guarantee that they are committed.
     /// Commits automatically happen every `k` changes.
     /// Optimistic reads.
@@ -72,9 +67,6 @@ pub enum StateHistory {
     /// Session consistency on reads.
     /// Linearizable writes.
     Session(SessionHistory),
-    /// Eventually consistent reads.
-    /// Linearizable writes.
-    Eventual(EventualHistory),
     /// Optimistic reads.
     /// Optimistic writes.
     OptimisticLinear(OptimisticLinearHistory),
@@ -97,7 +89,6 @@ impl StateHistory {
                 Self::MonotonicSession(MonotonicSessionHistory::new(initial_state))
             }
             ConsistencySetup::Session => Self::Session(SessionHistory::new(initial_state)),
-            ConsistencySetup::Eventual => Self::Eventual(EventualHistory::new(initial_state)),
             ConsistencySetup::OptimisticLinear(commit_every) => {
                 Self::OptimisticLinear(OptimisticLinearHistory::new(initial_state, commit_every))
             }
@@ -110,7 +101,6 @@ impl StateHistory {
             StateHistory::Linearizable(s) => s.add_change(change),
             StateHistory::MonotonicSession(s) => s.add_change(change),
             StateHistory::Session(s) => s.add_change(change),
-            StateHistory::Eventual(s) => s.add_change(change),
             StateHistory::OptimisticLinear(s) => s.add_change(change),
             StateHistory::Causal(s) => s.add_change(change),
         }
@@ -121,7 +111,6 @@ impl StateHistory {
             StateHistory::Linearizable(s) => s.max_revision(),
             StateHistory::MonotonicSession(s) => s.max_revision(),
             StateHistory::Session(s) => s.max_revision(),
-            StateHistory::Eventual(s) => s.max_revision(),
             StateHistory::OptimisticLinear(s) => s.max_revision(),
             StateHistory::Causal(s) => s.max_revision(),
         }
@@ -132,7 +121,6 @@ impl StateHistory {
             StateHistory::Linearizable(s) => s.state_at(revision),
             StateHistory::MonotonicSession(s) => s.state_at(revision),
             StateHistory::Session(s) => s.state_at(revision),
-            StateHistory::Eventual(s) => s.state_at(revision),
             StateHistory::OptimisticLinear(s) => s.state_at(revision),
             StateHistory::Causal(s) => s.state_at(revision),
         }
@@ -143,7 +131,6 @@ impl StateHistory {
             StateHistory::Linearizable(s) => s.states_for(min_revision),
             StateHistory::MonotonicSession(s) => s.states_for(min_revision),
             StateHistory::Session(s) => s.states_for(min_revision),
-            StateHistory::Eventual(s) => s.states_for(min_revision),
             StateHistory::OptimisticLinear(s) => s.states_for(min_revision),
             StateHistory::Causal(s) => s.states_for(min_revision),
         }
