@@ -189,7 +189,6 @@ async fn handle_action(action: ControllerAction, client: Client) {
         }
         ControllerAction::SoftDeletePod(_) => todo!(),
         ControllerAction::HardDeletePod(_) => todo!(),
-        ControllerAction::SchedulePod(_, _) => todo!(),
         ControllerAction::UpdatePod(_) => todo!(),
         ControllerAction::UpdateDeployment(mut dep) => {
             if dep.metadata.namespace.is_empty() {

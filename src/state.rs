@@ -312,12 +312,6 @@ impl StateView {
             ControllerAction::HardDeletePod(pod) => {
                 self.pods.remove(&pod.metadata.name);
             }
-            ControllerAction::SchedulePod(pod, node) => {
-                if let Some(mut pod) = self.pods.get(&pod).cloned() {
-                    pod.spec.node_name = Some(node.clone());
-                    self.pods.insert(pod, new_revision)?;
-                }
-            }
             ControllerAction::UpdateDeployment(dep) => {
                 self.deployments.insert(dep, new_revision)?;
             }

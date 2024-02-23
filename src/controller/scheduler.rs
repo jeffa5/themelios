@@ -16,13 +16,13 @@ pub struct SchedulerControllerState {
 
 #[derive(Debug)]
 pub enum SchedulerControllerAction {
-    SchedulePod(String, String),
+    UpdatePod(Pod),
 }
 
 impl From<SchedulerControllerAction> for ControllerAction {
     fn from(value: SchedulerControllerAction) -> Self {
         match value {
-            SchedulerControllerAction::SchedulePod(p, n) => ControllerAction::SchedulePod(p, n),
+            SchedulerControllerAction::UpdatePod(p) => ControllerAction::UpdatePod(p),
         }
     }
 }
@@ -102,10 +102,9 @@ fn schedule(
             continue;
         }
 
-        return Some(SchedulerControllerAction::SchedulePod(
-            pod.metadata.name.clone(),
-            node.metadata.name.clone(),
-        ));
+        let mut pod = pod.clone();
+        pod.spec.node_name = Some(node.metadata.name.clone());
+        return Some(SchedulerControllerAction::UpdatePod(pod));
     }
     None
 }

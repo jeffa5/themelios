@@ -204,8 +204,10 @@ async fn scheduler(
     let operation = s.step(&state_view, &mut local_state);
     debug!(?operation, "Got operation");
     match operation {
-        Some(SchedulerControllerAction::SchedulePod(_, node)) => {
-            Ok(Json(SchedulerResponse::SchedulePod { node_name: node }))
+        Some(SchedulerControllerAction::UpdatePod(pod)) => {
+            Ok(Json(SchedulerResponse::SchedulePod {
+                node_name: pod.spec.node_name.unwrap(),
+            }))
         }
         None => Err(ErrorResponse::NoOperation),
     }
