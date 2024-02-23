@@ -2,6 +2,7 @@ use crate::controller::job::JOB_TRACKING_FINALIZER;
 use crate::controller::util::is_pod_active;
 use crate::controller::util::is_pod_ready;
 use crate::resources::PodPhase;
+use crate::state::revision::Revision;
 use crate::utils::LogicalBoolExt;
 use stateright::Expectation;
 
@@ -16,10 +17,13 @@ impl ControllerProperties for JobController {
         properties.add(
             Expectation::Always,
             "job: when synced, status.active is correct",
-            |_model, s| {
-                let s = s.latest();
+            |_model, state| {
+                let s = state.latest();
                 s.jobs.iter().all(|r| {
-                    let active_pods = s
+                    let observed_revision =
+                        Revision::try_from(&r.status.observed_revision).unwrap();
+                    let observed = state.view_at(observed_revision);
+                    let active_pods = observed
                         .pods
                         .for_controller(&r.metadata.uid)
                         .filter(|p| is_pod_active(p))
@@ -37,10 +41,13 @@ impl ControllerProperties for JobController {
         properties.add(
             Expectation::Always,
             "job: when synced, status.ready is correct",
-            |_model, s| {
-                let s = s.latest();
+            |_model, state| {
+                let s = state.latest();
                 s.jobs.iter().all(|r| {
-                    let ready_pods = s
+                    let observed_revision =
+                        Revision::try_from(&r.status.observed_revision).unwrap();
+                    let observed = state.view_at(observed_revision);
+                    let ready_pods = observed
                         .pods
                         .for_controller(&r.metadata.uid)
                         .filter(|p| is_pod_ready(p))
@@ -75,11 +82,14 @@ impl ControllerProperties for JobController {
         properties.add(
             Expectation::Always,
             "job: observed finished pods have no finalizer",
-            |_model, s| {
-                let s = s.latest();
+            |_model, state| {
+                let s = state.latest();
                 s.jobs.iter().all(|r| {
+                    let observed_revision =
+                        Revision::try_from(&r.status.observed_revision).unwrap();
+                    let observed = state.view_at(observed_revision);
                     let stable = s.resource_stable(r);
-                    let old_pods_dont_have_finalizer = s
+                    let old_pods_dont_have_finalizer = observed
                         .pods
                         .for_controller(&r.metadata.uid)
                         .filter(|p| p.metadata.resource_version < r.metadata.resource_version)

@@ -98,7 +98,7 @@ impl Controller for JobController {
                 .filter(|p| job.spec.selector.matches(&p.metadata.labels))
                 .collect::<Vec<_>>();
             let mut job = job.clone();
-            if let Some(op) = reconcile(&mut job, &mut pods).0 {
+            if let Some(op) = reconcile(&mut job, &mut pods, &global_state.revision).0 {
                 return Some(op);
             }
         }
@@ -114,7 +114,11 @@ impl Controller for JobController {
     }
 }
 
-fn reconcile(job: &mut Job, pods: &mut [&Pod]) -> OptionalJobControllerAction {
+fn reconcile(
+    job: &mut Job,
+    pods: &mut [&Pod],
+    state_revision: &Revision,
+) -> OptionalJobControllerAction {
     let active_pods = util::filter_active_pods(pods);
     let active = active_pods.len();
     let expected_rm_finalizers = Vec::new();
@@ -294,6 +298,7 @@ fn reconcile(job: &mut Job, pods: &mut [&Pod]) -> OptionalJobControllerAction {
     job.status.ready = ready as u32;
 
     job.status.observed_generation = job.metadata.generation;
+    job.status.observed_revision = state_revision.to_string();
 
     track_job_status_and_remove_finalizers(
         needs_status_update,
