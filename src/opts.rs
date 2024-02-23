@@ -53,17 +53,9 @@ pub struct Opts {
     #[clap(long, global = true, default_value = "0")]
     pub max_depth: usize,
 
-    /// Model bounded staleness consistency for the state.
-    #[clap(long, global = true)]
-    pub bounded_staleness: Option<usize>,
-
     /// Model session consistency for the state.
     #[clap(long, global = true)]
     pub session: bool,
-
-    /// Model eventual consistency for the state.
-    #[clap(long, global = true)]
-    pub eventual: bool,
 
     /// Model optimistic linear consistency for the state.
     #[clap(long, global = true)]
