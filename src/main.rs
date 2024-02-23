@@ -146,12 +146,8 @@ fn main() {
             status: NodeStatus::default(),
         }));
 
-    let consistency_level = if let Some(k) = opts.bounded_staleness {
-        ConsistencySetup::BoundedStaleness(k)
-    } else if opts.session {
+    let consistency_level = if opts.session {
         ConsistencySetup::Session
-    } else if opts.eventual {
-        ConsistencySetup::Eventual
     } else if let Some(commit_every) = opts.optimistic_linear {
         ConsistencySetup::OptimisticLinear(commit_every)
     } else if opts.causal {
