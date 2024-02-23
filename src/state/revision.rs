@@ -22,7 +22,11 @@ impl TryFrom<&str> for Revision {
             .map(|s| s.parse())
             .collect();
         let parts = parts.map_err(|e| e.to_string())?;
-        Ok(Revision(parts))
+        if parts.is_empty() {
+            Ok(Revision::default())
+        } else {
+            Ok(Revision(parts))
+        }
     }
 }
 
