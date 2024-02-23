@@ -306,7 +306,7 @@ fn do_update_statefulset(
     }
 
     // for any empty indices in the sequence [0,set.Spec.Replicas) create a new Pod at the correct revision
-    for ord in get_start_ordinal(sts)..=get_end_ordinal(sts) {
+    for ord in get_start_ordinal(sts)..get_end_ordinal(sts).map_or(0, |v| v + 1) {
         let replica_index = ord - get_start_ordinal(sts);
         if let Some(replica) = replicas.get_mut(replica_index as usize) {
             if replica.is_none() {
@@ -777,13 +777,17 @@ fn get_start_ordinal(sts: &StatefulSet) -> u32 {
     }
 }
 
-fn get_end_ordinal(sts: &StatefulSet) -> u32 {
-    (get_start_ordinal(sts) + sts.spec.replicas.unwrap_or_default()).saturating_sub(1)
+fn get_end_ordinal(sts: &StatefulSet) -> Option<u32> {
+    (get_start_ordinal(sts) + sts.spec.replicas.unwrap_or(1)).checked_sub(1)
 }
 
 fn pod_in_ordinal_range(pod: &Pod, sts: &StatefulSet) -> bool {
     if let Some(ordinal) = get_ordinal(pod) {
-        ordinal >= get_start_ordinal(sts) && ordinal <= get_end_ordinal(sts)
+        if let Some(end) = get_end_ordinal(sts) {
+            ordinal >= get_start_ordinal(sts) && ordinal <= end
+        } else {
+            false
+        }
     } else {
         false
     }
