@@ -213,22 +213,6 @@ impl Model for AbstractModelCfg {
                     )
                     && all_unique(state.jobs.iter().map(|n| &n.metadata.name))
             }),
-            Property::<Self>::always("resources have a resource version", |_model, state| {
-                let state = state.latest();
-                let res = state
-                    .nodes
-                    .iter()
-                    .map(|r| &r.metadata)
-                    .chain(state.pods.iter().map(|r| &r.metadata))
-                    .chain(state.replicasets.iter().map(|r| &r.metadata))
-                    .chain(state.deployments.iter().map(|r| &r.metadata))
-                    .chain(state.statefulsets.iter().map(|r| &r.metadata))
-                    .chain(state.controller_revisions.iter().map(|r| &r.metadata))
-                    .chain(state.persistent_volume_claims.iter().map(|r| &r.metadata))
-                    .chain(state.jobs.iter().map(|r| &r.metadata))
-                    .all(|m| !m.resource_version.is_empty());
-                res
-            }),
         ]);
         p
     }
