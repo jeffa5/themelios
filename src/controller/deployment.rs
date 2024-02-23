@@ -170,6 +170,7 @@ fn reconcile(
         if deployment.status.observed_generation < deployment.metadata.generation {
             let mut deployment = deployment.clone();
             deployment.status.observed_generation = deployment.metadata.generation;
+            deployment.status.observed_revision = state_revision.to_string();
             return Some(DeploymentControllerAction::UpdateDeploymentStatus(
                 deployment,
             ));
