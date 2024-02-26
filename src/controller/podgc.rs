@@ -4,7 +4,7 @@ use crate::{
     state::{revision::Revision, StateView},
 };
 
-use super::Controller;
+use super::{util::is_pod_terminating, Controller};
 
 #[derive(Clone, Debug)]
 pub struct PodGCController;
@@ -47,6 +47,9 @@ impl Controller for PodGCController {
                 }
             }
             // - are unscheduled terminating Pods,
+            if pod.spec.node_name.is_none() && is_pod_terminating(pod) {
+                return Some(PodGCAction::DeletePod(pod.clone()));
+            }
             // - are terminating Pods, bound to a non-ready node tainted with node.kubernetes.io/out-of-service, when the NodeOutOfServiceVolumeDetach feature gate is enabled.
         }
         None
