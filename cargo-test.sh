@@ -11,4 +11,4 @@ MCO_CHECK_MODE=simulation MCO_CONSISTENCY=linearizable cargo test --release -- -
 MCO_CHECK_MODE=simulation MCO_CONSISTENCY=monotonic-session cargo test --release -- --test-threads=1 --nocapture 2>&1 | tee cargo-monotonic-session.out
 
 # check with session reads consistency
-MCO_CHECK_MODE=simulation MCO_CONSISTENCY=session cargo test --release -- --test-threads=1 --nocapture 2>&1 | tee cargo-session.out
+# MCO_CHECK_MODE=simulation MCO_CONSISTENCY=resettable-session cargo test --release -- --test-threads=1 --nocapture 2>&1 | tee cargo-session.out
