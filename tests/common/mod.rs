@@ -8,6 +8,9 @@ use themelios::report::Reporter;
 use themelios::state::history::ConsistencySetup;
 use tracing::info;
 
+// TODO: add macro for tests that creates a _linearizable, _monotonic_session, and _session
+// version.
+
 pub fn run(mut model: OrchestrationModelCfg, default_check_mode: CheckMode, fn_name: &str) {
     println!("Running test {:?}", fn_name);
 
