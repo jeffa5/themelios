@@ -31,11 +31,10 @@ pub fn run(mut model: OrchestrationModelCfg, default_check_mode: CheckMode, fn_n
         if fn_name.ends_with(&explore_test) {
             let path = std::env::var("MCO_EXPLORE_PATH").unwrap_or_default();
             explore(model, path);
-            return;
         } else {
             // skip others
-            return;
         }
+        return;
     }
 
     check(model, default_check_mode)
