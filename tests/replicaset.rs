@@ -1,4 +1,5 @@
 use common::run;
+use common::test_table;
 use std::collections::BTreeMap;
 use stdext::function_name;
 use themelios::model::OrchestrationModelCfg;
@@ -52,62 +53,46 @@ fn new_replicaset(name: &str, _namespace: &str, replicas: u32) -> ReplicaSet {
     d
 }
 
-macro_rules! test_spec_replicas_change {
-    { $name:ident($consistency:expr, $controllers:expr) } => {
-        // TestSpecReplicasChange
-        #[test_log::test]
-        fn $name() {
-            let mut replicaset = new_replicaset("test-spec-replicas-change", "", 2);
+// TestSpecReplicasChange
+fn test_spec_replicas_change(consistency: ConsistencySetup, controllers: usize) {
+    let mut replicaset = new_replicaset("test-spec-replicas-change", "", 2);
 
-            replicaset
-                .metadata
-                .annotations
-                .insert("test".to_owned(), "should-copy-to-replica-set".to_owned());
+    replicaset
+        .metadata
+        .annotations
+        .insert("test".to_owned(), "should-copy-to-replica-set".to_owned());
 
-            let m = model([replicaset], $consistency, $controllers);
-            run(m, function_name!())
-        }
-    };
-    { $name:ident($consistency:expr, $controllers:expr), $($x:ident($y:expr, $z:expr)),+ } => {
-        test_spec_replicas_change! { $name($consistency, $controllers) }
-        test_spec_replicas_change! { $($x($y, $z)),+ }
-    }
+    let m = model([replicaset], consistency, controllers);
+    run(m, function_name!())
 }
 
-test_spec_replicas_change! {
-    test_spec_replicas_change_linearizable_1(ConsistencySetup::Linearizable, 1),
-    test_spec_replicas_change_linearizable_2(ConsistencySetup::Linearizable, 2),
-    test_spec_replicas_change_monotonic_session_1(ConsistencySetup::MonotonicSession, 1),
-    test_spec_replicas_change_monotonic_session_2(ConsistencySetup::MonotonicSession, 2),
-    test_spec_replicas_change_resettable_session_1(ConsistencySetup::ResettableSession, 1),
-    test_spec_replicas_change_resettable_session_2(ConsistencySetup::ResettableSession, 2)
+test_table! {
+    test_spec_replicas_change,
+    linearizable_1(ConsistencySetup::Linearizable, 1),
+    linearizable_2(ConsistencySetup::Linearizable, 2),
+    monotonic_session_1(ConsistencySetup::MonotonicSession, 1),
+    monotonic_session_2(ConsistencySetup::MonotonicSession, 2),
+    resettable_session_1(ConsistencySetup::ResettableSession, 1),
+    resettable_session_2(ConsistencySetup::ResettableSession, 2)
 }
 
-macro_rules! test_overlapping_rss {
-    { $name:ident($consistency:expr, $controllers:expr) } => {
-        // TestOverlappingRSs
-        #[test_log::test]
-        fn $name() {
-            let replicaset_1 = new_replicaset("test-overlapping-rss-1", "", 1);
-            let replicaset_2 = new_replicaset("test-overlapping-rss-2", "", 2);
+// TestOverlappingRSs
+fn test_overlapping_rss(consistency: ConsistencySetup, controllers: usize) {
+    let replicaset_1 = new_replicaset("test-overlapping-rss-1", "", 1);
+    let replicaset_2 = new_replicaset("test-overlapping-rss-2", "", 2);
 
-            let m = model([replicaset_1, replicaset_2], $consistency, $controllers);
-            run(m, function_name!())
-        }
-    };
-    { $name:ident($consistency:expr, $controllers:expr), $($x:ident($y:expr, $z:expr)),+ } => {
-        test_overlapping_rss! { $name($consistency, $controllers) }
-        test_overlapping_rss! { $($x($y, $z)),+ }
-    }
+    let m = model([replicaset_1, replicaset_2], consistency, controllers);
+    run(m, function_name!())
 }
 
-test_overlapping_rss! {
-    test_overlapping_rss_linearizable_1(ConsistencySetup::Linearizable, 1),
-    test_overlapping_rss_linearizable_2(ConsistencySetup::Linearizable, 2),
-    test_overlapping_rss_monotonic_session_1(ConsistencySetup::MonotonicSession, 1),
-    test_overlapping_rss_monotonic_session_2(ConsistencySetup::MonotonicSession, 2),
-    test_overlapping_rss_resettable_session_1(ConsistencySetup::ResettableSession, 1),
-    test_overlapping_rss_resettable_session_2(ConsistencySetup::ResettableSession, 2)
+test_table! {
+    test_overlapping_rss,
+    linearizable_1(ConsistencySetup::Linearizable, 1),
+    linearizable_2(ConsistencySetup::Linearizable, 2),
+    monotonic_session_1(ConsistencySetup::MonotonicSession, 1),
+    monotonic_session_2(ConsistencySetup::MonotonicSession, 2),
+    resettable_session_1(ConsistencySetup::ResettableSession, 1),
+    resettable_session_2(ConsistencySetup::ResettableSession, 2)
 }
 
 // TESTS TO DO

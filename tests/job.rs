@@ -1,4 +1,5 @@
 use common::run;
+use common::test_table;
 use std::collections::BTreeMap;
 use stdext::function_name;
 use themelios::model::OrchestrationModelCfg;
@@ -51,55 +52,39 @@ fn new_job(name: &str, _namespace: &str) -> Job {
     d
 }
 
-macro_rules! test_non_parallel_job {
-    { $name:ident($consistency:expr, $controllers:expr) } => {
-        // TestNonParallelJob
-        #[test_log::test]
-        fn $name() {
-            let job = new_job("simple", "");
-            let m = model([job], $consistency, $controllers);
-            run(m, function_name!())
-        }
-    };
-    { $name:ident($consistency:expr, $controllers:expr), $($x:ident($y:expr, $z:expr)),+ } => {
-        test_non_parallel_job! { $name($consistency, $controllers) }
-        test_non_parallel_job! { $($x($y, $z)),+ }
-    }
+// TestNonParallelJob
+fn test_non_parallel_job(consistency: ConsistencySetup, controllers: usize) {
+    let job = new_job("simple", "");
+    let m = model([job], consistency, controllers);
+    run(m, function_name!())
 }
 
-test_non_parallel_job! {
-    test_non_parallel_job_linearizable_1(ConsistencySetup::Linearizable, 1),
-    test_non_parallel_job_linearizable_2(ConsistencySetup::Linearizable, 2),
-    test_non_parallel_job_monotonic_session_1(ConsistencySetup::MonotonicSession, 1),
-    test_non_parallel_job_monotonic_session_2(ConsistencySetup::MonotonicSession, 2),
-    test_non_parallel_job_resettable_session_1(ConsistencySetup::ResettableSession, 1),
-    test_non_parallel_job_resettable_session_2(ConsistencySetup::ResettableSession, 2)
+test_table! {
+    test_non_parallel_job,
+    linearizable_1(ConsistencySetup::Linearizable, 1),
+    linearizable_2(ConsistencySetup::Linearizable, 2),
+    monotonic_session_1(ConsistencySetup::MonotonicSession, 1),
+    monotonic_session_2(ConsistencySetup::MonotonicSession, 2),
+    resettable_session_1(ConsistencySetup::ResettableSession, 1),
+    resettable_session_2(ConsistencySetup::ResettableSession, 2)
 }
 
-macro_rules! test_parallel_job {
-    { $name:ident($consistency:expr, $controllers:expr) } => {
-        // TestParallelJob
-        #[test_log::test]
-        fn $name() {
-            let mut job = new_job("simple", "");
-            job.spec.parallelism = 5;
-            let m = model([job], $consistency, $controllers);
-            run(m, function_name!())
-        }
-    };
-    { $name:ident($consistency:expr, $controllers:expr), $($x:ident($y:expr, $z:expr)),+ } => {
-        test_parallel_job! { $name($consistency, $controllers) }
-        test_parallel_job! { $($x($y, $z)),+ }
-    }
+// TestParallelJob
+fn test_parallel_job(consistency: ConsistencySetup, controllers: usize) {
+    let mut job = new_job("simple", "");
+    job.spec.parallelism = 5;
+    let m = model([job], consistency, controllers);
+    run(m, function_name!())
 }
 
-test_parallel_job! {
-    test_parallel_job_linearizable_1(ConsistencySetup::Linearizable, 1),
-    test_parallel_job_linearizable_2(ConsistencySetup::Linearizable, 2),
-    test_parallel_job_monotonic_session_1(ConsistencySetup::MonotonicSession, 1),
-    test_parallel_job_monotonic_session_2(ConsistencySetup::MonotonicSession, 2),
-    test_parallel_job_resettable_session_1(ConsistencySetup::ResettableSession, 1),
-    test_parallel_job_resettable_session_2(ConsistencySetup::ResettableSession, 2)
+test_table! {
+    test_parallel_job,
+    linearizable_1(ConsistencySetup::Linearizable, 1),
+    linearizable_2(ConsistencySetup::Linearizable, 2),
+    monotonic_session_1(ConsistencySetup::MonotonicSession, 1),
+    monotonic_session_2(ConsistencySetup::MonotonicSession, 2),
+    resettable_session_1(ConsistencySetup::ResettableSession, 1),
+    resettable_session_2(ConsistencySetup::ResettableSession, 2)
 }
 
 // TESTS TO DO
