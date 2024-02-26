@@ -70,7 +70,7 @@ macro_rules! test_spec_replicas_change {
 
             let m = model([statefulset], 1, $consistency, $controllers);
             // TODO: fix up what this test is supposed to be doing
-            run(m, common::CheckMode::Bfs, function_name!())
+            run(m, function_name!())
         }
     };
     { $name:ident($consistency:expr, $controllers:expr), $($x:ident($y:expr, $z:expr)),+ } => {
@@ -97,7 +97,7 @@ macro_rules! test_statefulset_available {
 
             let m = model([statefulset], 1, $consistency, $controllers);
             // TODO: fix up what this test is supposed to be doing
-            run(m, common::CheckMode::Bfs, function_name!())
+            run(m, function_name!())
         }
     };
     { $name:ident($consistency:expr, $controllers:expr), $($x:ident($y:expr, $z:expr)),+ } => {
@@ -129,7 +129,7 @@ macro_rules! test_stale_reads {
                 status: Default::default(),
             }));
             m.consistency_level = ConsistencySetup::ResettableSession;
-            run(m, common::CheckMode::Dfs, function_name!())
+            run(m, function_name!())
         }
     };
     { $name:ident($consistency:expr, $controllers:expr), $($x:ident($y:expr, $z:expr)),+ } => {

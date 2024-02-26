@@ -65,7 +65,7 @@ macro_rules! test_spec_replicas_change {
                 .insert("test".to_owned(), "should-copy-to-replica-set".to_owned());
 
             let m = model([replicaset], $consistency, $controllers);
-            run(m, common::CheckMode::Bfs, function_name!())
+            run(m, function_name!())
         }
     };
     { $name:ident($consistency:expr, $controllers:expr), $($x:ident($y:expr, $z:expr)),+ } => {
@@ -92,7 +92,7 @@ macro_rules! test_overlapping_rss {
             let replicaset_2 = new_replicaset("test-overlapping-rss-2", "", 2);
 
             let m = model([replicaset_1, replicaset_2], $consistency, $controllers);
-            run(m, common::CheckMode::Bfs, function_name!())
+            run(m, function_name!())
         }
     };
     { $name:ident($consistency:expr, $controllers:expr), $($x:ident($y:expr, $z:expr)),+ } => {

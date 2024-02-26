@@ -58,7 +58,7 @@ macro_rules! test_non_parallel_job {
         fn $name() {
             let job = new_job("simple", "");
             let m = model([job], $consistency, $controllers);
-            run(m, common::CheckMode::Bfs, function_name!())
+            run(m, function_name!())
         }
     };
     { $name:ident($consistency:expr, $controllers:expr), $($x:ident($y:expr, $z:expr)),+ } => {
@@ -84,7 +84,7 @@ macro_rules! test_parallel_job {
             let mut job = new_job("simple", "");
             job.spec.parallelism = 5;
             let m = model([job], $consistency, $controllers);
-            run(m, common::CheckMode::Bfs, function_name!())
+            run(m, function_name!())
         }
     };
     { $name:ident($consistency:expr, $controllers:expr), $($x:ident($y:expr, $z:expr)),+ } => {

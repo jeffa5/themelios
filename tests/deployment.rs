@@ -83,7 +83,7 @@ macro_rules! test_new_deployment {
             );
 
             let m = model([deployment], $consistency, $controllers);
-            run(m, common::CheckMode::Bfs, function_name!())
+            run(m, function_name!())
         }
     };
     { $name:ident($consistency:expr, $controllers:expr), $($x:ident($y:expr, $z:expr)),+ } => {
@@ -131,7 +131,7 @@ macro_rules! test_deployment_rolling_update {
             });
 
             let m = model([deployment], $consistency, $controllers);
-            run(m, common::CheckMode::Bfs, function_name!())
+            run(m, function_name!())
         }
     };
     { $name:ident($consistency:expr, $controllers:expr), $($x:ident($y:expr, $z:expr)),+ } => {
@@ -166,7 +166,7 @@ macro_rules! test_paused_deployment {
                 .termination_grace_period_seconds = Some(1);
 
             let m = model([deployment], $consistency, $controllers);
-            run(m, common::CheckMode::Bfs, function_name!())
+            run(m, function_name!())
         }
     };
     { $name:ident($consistency:expr, $controllers:expr), $($x:ident($y:expr, $z:expr)),+ } => {

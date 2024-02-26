@@ -7,7 +7,7 @@ use themelios::model::OrchestrationModelCfg;
 use themelios::report::Reporter;
 use tracing::info;
 
-pub fn run(model: OrchestrationModelCfg, default_check_mode: CheckMode, fn_name: &str) {
+pub fn run(model: OrchestrationModelCfg, fn_name: &str) {
     println!("Running test {:?}", fn_name);
 
     if let Ok(explore_test) = std::env::var("MCO_EXPLORE_TEST") {
@@ -20,17 +20,10 @@ pub fn run(model: OrchestrationModelCfg, default_check_mode: CheckMode, fn_name:
         return;
     }
 
-    check(model, default_check_mode)
+    check(model)
 }
 
-#[allow(dead_code)]
-pub enum CheckMode {
-    Bfs,
-    Dfs,
-    Simulation(Duration),
-}
-
-fn check(model: OrchestrationModelCfg, default_check_mode: CheckMode) {
+fn check(model: OrchestrationModelCfg) {
     println!("Checking model");
     let am = model.into_abstract_model();
     let mut reporter = Reporter::new(&am);
@@ -41,14 +34,8 @@ fn check(model: OrchestrationModelCfg, default_check_mode: CheckMode) {
         .target_max_depth(100)
         .timeout(Duration::from_secs(60));
     let check_mode = std::env::var("MCO_CHECK_MODE").unwrap_or_else(|_| String::new());
+    #[allow(clippy::wildcard_in_or_patterns)]
     let check_result = match check_mode.as_str() {
-        "simulation" => {
-            info!(check_mode, "Running checking");
-            checker
-                .spawn_simulation(0, UniformChooser)
-                .report(&mut reporter)
-                .check_properties()
-        }
         "dfs" => {
             info!(check_mode, "Running checking");
             checker.spawn_dfs().report(&mut reporter).check_properties()
@@ -57,15 +44,13 @@ fn check(model: OrchestrationModelCfg, default_check_mode: CheckMode) {
             info!(check_mode, "Running checking");
             checker.spawn_bfs().report(&mut reporter).check_properties()
         }
-        _ => match default_check_mode {
-            CheckMode::Bfs => checker.spawn_bfs().report(&mut reporter).check_properties(),
-            CheckMode::Dfs => checker.spawn_dfs().report(&mut reporter).check_properties(),
-            CheckMode::Simulation(timeout) => checker
-                .timeout(timeout)
+        "simulation" | _ => {
+            info!(check_mode, "Running checking");
+            checker
                 .spawn_simulation(0, UniformChooser)
                 .report(&mut reporter)
-                .check_properties(),
-        },
+                .check_properties()
+        }
     };
     if !check_result.iter().all(|(_, ok)| *ok) {
         panic!("Some properties failed");
