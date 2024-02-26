@@ -14,13 +14,11 @@ pub fn run(model: OrchestrationModelCfg, fn_name: &str) {
         if fn_name.ends_with(&explore_test) {
             let path = std::env::var("MCO_EXPLORE_PATH").unwrap_or_default();
             explore(model, path);
-        } else {
-            // skip others
         }
-        return;
+        // skip others
+    } else {
+        check(model)
     }
-
-    check(model)
 }
 
 fn check(model: OrchestrationModelCfg) {
