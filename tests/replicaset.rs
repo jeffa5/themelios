@@ -14,9 +14,13 @@ use themelios::utils;
 
 mod common;
 
-fn model(replicasets: impl IntoIterator<Item = ReplicaSet>) -> OrchestrationModelCfg {
+fn model(
+    replicasets: impl IntoIterator<Item = ReplicaSet>,
+    consistency: ConsistencySetup,
+    controllers: usize,
+) -> OrchestrationModelCfg {
     let initial_state = RawState::default().with_replicasets(replicasets);
-    OrchestrationModelCfg::new(initial_state, ConsistencySetup::Linearizable, 1)
+    OrchestrationModelCfg::new(initial_state, consistency, controllers)
 }
 
 fn new_replicaset(name: &str, _namespace: &str, replicas: u32) -> ReplicaSet {
@@ -48,28 +52,62 @@ fn new_replicaset(name: &str, _namespace: &str, replicas: u32) -> ReplicaSet {
     d
 }
 
-// TestSpecReplicasChange
-#[test_log::test]
-fn test_spec_replicas_change() {
-    let mut replicaset = new_replicaset("test-spec-replicas-change", "", 2);
+macro_rules! test_spec_replicas_change {
+    { $name:ident($consistency:expr, $controllers:expr) } => {
+        // TestSpecReplicasChange
+        #[test_log::test]
+        fn $name() {
+            let mut replicaset = new_replicaset("test-spec-replicas-change", "", 2);
 
-    replicaset
-        .metadata
-        .annotations
-        .insert("test".to_owned(), "should-copy-to-replica-set".to_owned());
+            replicaset
+                .metadata
+                .annotations
+                .insert("test".to_owned(), "should-copy-to-replica-set".to_owned());
 
-    let m = model([replicaset]);
-    run(m, common::CheckMode::Bfs, function_name!())
+            let m = model([replicaset], $consistency, $controllers);
+            run(m, common::CheckMode::Bfs, function_name!())
+        }
+    };
+    { $name:ident($consistency:expr, $controllers:expr), $($x:ident($y:expr, $z:expr)),+ } => {
+        test_spec_replicas_change! { $name($consistency, $controllers) }
+        test_spec_replicas_change! { $($x($y, $z)),+ }
+    }
 }
 
-// TestOverlappingRSs
-#[test_log::test]
-fn test_overlapping_rss() {
-    let replicaset_1 = new_replicaset("test-overlapping-rss-1", "", 1);
-    let replicaset_2 = new_replicaset("test-overlapping-rss-2", "", 2);
+test_spec_replicas_change! {
+    test_spec_replicas_change_linearizable_1(ConsistencySetup::Linearizable, 1),
+    test_spec_replicas_change_linearizable_2(ConsistencySetup::Linearizable, 2),
+    test_spec_replicas_change_monotonic_session_1(ConsistencySetup::MonotonicSession, 1),
+    test_spec_replicas_change_monotonic_session_2(ConsistencySetup::MonotonicSession, 2),
+    test_spec_replicas_change_resettable_session_1(ConsistencySetup::ResettableSession, 1),
+    test_spec_replicas_change_resettable_session_2(ConsistencySetup::ResettableSession, 2)
+}
 
-    let m = model([replicaset_1, replicaset_2]);
-    run(m, common::CheckMode::Bfs, function_name!())
+macro_rules! test_overlapping_rss {
+    { $name:ident($consistency:expr, $controllers:expr) } => {
+        // TestOverlappingRSs
+        #[test_log::test]
+        fn $name() {
+            let replicaset_1 = new_replicaset("test-overlapping-rss-1", "", 1);
+            let replicaset_2 = new_replicaset("test-overlapping-rss-2", "", 2);
+
+            let m = model([replicaset_1, replicaset_2], $consistency, $controllers);
+            run(m, common::CheckMode::Bfs, function_name!())
+        }
+    };
+    { $name:ident($consistency:expr, $controllers:expr), $($x:ident($y:expr, $z:expr)),+ } => {
+        test_overlapping_rss! { $name($consistency, $controllers) }
+        test_overlapping_rss! { $($x($y, $z)),+ }
+    }
+}
+
+test_overlapping_rss! {
+    test_overlapping_rss_linearizable_1(ConsistencySetup::Linearizable, 1),
+    test_overlapping_rss_linearizable_2(ConsistencySetup::Linearizable, 2),
+    test_overlapping_rss_monotonic_session_1(ConsistencySetup::MonotonicSession, 1),
+    test_overlapping_rss_monotonic_session_2(ConsistencySetup::MonotonicSession, 2),
+    test_overlapping_rss_resettable_session_1(ConsistencySetup::ResettableSession, 1),
+    test_overlapping_rss_resettable_session_2(ConsistencySetup::ResettableSession, 2)
 }
 
 // TESTS TO DO

@@ -5,30 +5,10 @@ use stateright::UniformChooser;
 use std::time::Duration;
 use themelios::model::OrchestrationModelCfg;
 use themelios::report::Reporter;
-use themelios::state::history::ConsistencySetup;
 use tracing::info;
 
-// TODO: add macro for tests that creates a _linearizable, _monotonic_session, and _session
-// version.
-
-pub fn run(mut model: OrchestrationModelCfg, default_check_mode: CheckMode, fn_name: &str) {
+pub fn run(model: OrchestrationModelCfg, default_check_mode: CheckMode, fn_name: &str) {
     println!("Running test {:?}", fn_name);
-
-    if let Ok(consistency_level) = std::env::var("MCO_CONSISTENCY") {
-        let consistency_level = match consistency_level.as_str() {
-            "linearizable" => ConsistencySetup::Linearizable,
-            "monotonic-session" => ConsistencySetup::MonotonicSession,
-            "resettable-session" => ConsistencySetup::ResettableSession,
-            _ => {
-                panic!(
-                    "Unknown consistency level from MCO_CONSISTENCY: {:?}",
-                    consistency_level
-                )
-            }
-        };
-        info!(?consistency_level, "Set consistency level from environment");
-        model.consistency_level = consistency_level;
-    }
 
     if let Ok(explore_test) = std::env::var("MCO_EXPLORE_TEST") {
         if fn_name.ends_with(&explore_test) {
