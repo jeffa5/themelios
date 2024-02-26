@@ -88,7 +88,9 @@ impl StateHistory {
             ConsistencySetup::MonotonicSession => {
                 Self::MonotonicSession(MonotonicSessionHistory::new(initial_state))
             }
-            ConsistencySetup::ResettableSession => Self::ResettableSession(ResettableSessionHistory::new(initial_state)),
+            ConsistencySetup::ResettableSession => {
+                Self::ResettableSession(ResettableSessionHistory::new(initial_state))
+            }
             ConsistencySetup::OptimisticLinear(commit_every) => {
                 Self::OptimisticLinear(OptimisticLinearHistory::new(initial_state, commit_every))
             }
