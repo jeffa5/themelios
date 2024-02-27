@@ -8,7 +8,9 @@ impl Default for Revision {
 }
 
 impl From<Vec<usize>> for Revision {
-    fn from(value: Vec<usize>) -> Self {
+    fn from(mut value: Vec<usize>) -> Self {
+        value.sort();
+        value.dedup();
         Revision(value)
     }
 }
@@ -25,7 +27,7 @@ impl TryFrom<&str> for Revision {
         if parts.is_empty() {
             Ok(Revision::default())
         } else {
-            Ok(Revision(parts))
+            Ok(Revision::from(parts))
         }
     }
 }
