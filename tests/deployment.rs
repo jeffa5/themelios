@@ -91,7 +91,9 @@ test_table! {
     monotonic_session_1(ConsistencySetup::MonotonicSession, 1),
     monotonic_session_2(ConsistencySetup::MonotonicSession, 2),
     resettable_session_1(ConsistencySetup::ResettableSession, 1),
-    resettable_session_2(ConsistencySetup::ResettableSession, 2)
+    resettable_session_2(ConsistencySetup::ResettableSession, 2),
+    causal_1(ConsistencySetup::Causal, 1),
+    causal_2(ConsistencySetup::Causal, 2)
 }
 
 // TestDeploymentRollingUpdate
@@ -131,7 +133,9 @@ test_table! {
     monotonic_session_1(ConsistencySetup::MonotonicSession, 1),
     monotonic_session_2(ConsistencySetup::MonotonicSession, 2),
     resettable_session_1(ConsistencySetup::ResettableSession, 1),
-    resettable_session_2(ConsistencySetup::ResettableSession, 2)
+    resettable_session_2(ConsistencySetup::ResettableSession, 2),
+    causal_1(ConsistencySetup::Causal, 1),
+    causal_2(ConsistencySetup::Causal, 2)
 }
 
 // TestPausedDeployment
@@ -158,7 +162,9 @@ test_table! {
     monotonic_session_1(ConsistencySetup::MonotonicSession, 1),
     monotonic_session_2(ConsistencySetup::MonotonicSession, 2),
     resettable_session_1(ConsistencySetup::ResettableSession, 1),
-    resettable_session_2(ConsistencySetup::ResettableSession, 2)
+    resettable_session_2(ConsistencySetup::ResettableSession, 2),
+    causal_1(ConsistencySetup::Causal, 1),
+    causal_2(ConsistencySetup::Causal, 2)
 }
 
 // TESTS TO DO
