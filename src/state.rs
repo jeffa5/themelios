@@ -239,6 +239,21 @@ impl RawState {
             .filter(|p| p.spec.node_name.as_ref().map_or(false, |n| n == node))
             .collect()
     }
+
+    pub fn merge(&self, other: &Self) -> Self {
+        Self {
+            nodes: self.nodes.merge(&other.nodes),
+            pods: self.pods.merge(&other.pods),
+            replicasets: self.replicasets.merge(&other.replicasets),
+            deployments: self.deployments.merge(&other.deployments),
+            statefulsets: self.statefulsets.merge(&other.statefulsets),
+            controller_revisions: self.controller_revisions.merge(&other.controller_revisions),
+            persistent_volume_claims: self
+                .persistent_volume_claims
+                .merge(&other.persistent_volume_claims),
+            jobs: self.jobs.merge(&other.jobs),
+        }
+    }
 }
 
 impl Deref for StateView {
@@ -407,5 +422,12 @@ impl StateView {
         resources: impl IntoIterator<Item = &'a T>,
     ) -> bool {
         resources.into_iter().all(|r| self.resource_current(r))
+    }
+
+    pub fn merge(&self, other: &Self) -> Self {
+        Self {
+            revision: self.revision.merge(&other.revision),
+            state: self.state.merge(&other.state),
+        }
     }
 }

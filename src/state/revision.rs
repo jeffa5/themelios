@@ -59,4 +59,12 @@ impl Revision {
     pub fn components(&self) -> &[usize] {
         &self.0
     }
+
+    pub fn merge(&self, other: &Self) -> Self {
+        let mut res = self.0.clone();
+        res.extend(&other.0);
+        res.sort();
+        res.dedup();
+        Self(res)
+    }
 }

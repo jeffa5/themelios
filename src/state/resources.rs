@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{collections::BTreeMap, sync::Arc};
 
 use tracing::warn;
 
@@ -165,12 +165,45 @@ impl<T: Meta + Spec + Clone> Resources<T> {
     pub fn to_vec(&self) -> Vec<&T> {
         self.iter().collect()
     }
+
+    pub fn merge(&self, other: &Self) -> Self {
+        let mut resources = BTreeMap::new();
+        for res in self.iter() {
+            resources.insert(res.metadata().name.clone(), res);
+        }
+        for res in other.iter() {
+            if let Some(self_res) = resources.get_mut(&res.metadata().name) {
+                if self_res.metadata().resource_version < res.metadata().resource_version {
+                    resources.insert(res.metadata().name.clone(), res);
+                }
+            } else {
+                resources.insert(res.metadata().name.clone(), res);
+            }
+        }
+        resources.values().copied().cloned().collect()
+    }
 }
 
 impl<T: Meta + Spec + Clone> From<Vec<T>> for Resources<T> {
     fn from(value: Vec<T>) -> Self {
         let mut rv = Resources::default();
         for v in value {
+            let revision = v
+                .metadata()
+                .resource_version
+                .as_str()
+                .try_into()
+                .unwrap_or_default();
+            rv.insert(v, revision).unwrap();
+        }
+        rv
+    }
+}
+
+impl<T: Meta + Spec + Clone> FromIterator<T> for Resources<T> {
+    fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
+        let mut rv = Resources::default();
+        for v in iter {
             let revision = v
                 .metadata()
                 .resource_version
