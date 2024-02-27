@@ -1,5 +1,7 @@
 use std::{collections::BTreeSet, sync::Arc};
 
+use itertools::Itertools;
+
 use crate::{
     abstract_model::Change,
     state::{revision::Revision, RawState, StateView},
@@ -86,11 +88,20 @@ impl History for CausalHistory {
                 .enumerate()
                 .filter(|(i, _)| !seen_indices.contains(i))
                 .map(|(_, s)| s.state.revision.clone())
-                .collect();
+                .collect::<Vec<_>>();
             // we can also find combinations of concurrent edits
-            // TODO: traverse the graph and build up valid states from the min revision
-
-            single_states
+            // traverse the graph and build up valid states from the min revision
+            let combinations = (1..=2)
+                .flat_map(|combinations| {
+                    single_states.iter().combinations(combinations).map(|rs| {
+                        rs.into_iter()
+                            .cloned()
+                            .reduce(|acc, r| acc.merge(&r))
+                            .unwrap()
+                    })
+                })
+                .collect();
+            combinations
         }
     }
 }
