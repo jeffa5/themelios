@@ -123,11 +123,6 @@ impl<T: Meta + Spec + Clone> Resources<T> {
             .and_then(|p| self.0.get(p).map(|r| r.as_ref()))
     }
 
-    fn get_mut(&mut self, name: &str) -> Option<&mut T> {
-        self.get_pos(name)
-            .and_then(|p| self.0.get_mut(p).map(|r| Arc::make_mut(r)))
-    }
-
     pub fn iter(&self) -> ResourcesIter<'_, T> {
         ResourcesIter {
             iter: self.0.iter(),
