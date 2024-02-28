@@ -188,8 +188,8 @@ pub struct Metadata {
     pub generation: u64,
 
     // An opaque value that represents the internal version of this object that can be used by clients to determine when objects have changed. May be used for optimistic concurrency, change detection, and the watch operation on a resource or set of resources. Clients must treat these values as opaque and passed unmodified back to the server. They may only be valid for a particular resource or set of resources.
-    #[serde(default, skip_serializing_if = "String::is_empty")]
-    pub resource_version: String,
+    #[serde(default)]
+    pub resource_version: Revision,
 
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub finalizers: Vec<String>,

@@ -42,15 +42,12 @@ impl<T: Meta + Spec + Clone> Resources<T> {
                     res.metadata().uid
                 );
                 Err(())
-            } else if !res.metadata().resource_version.is_empty()
-                && Revision::try_from(&existing.metadata().resource_version).unwrap()
-                    > Revision::try_from(&res.metadata().resource_version).unwrap()
-            {
+            } else if existing.metadata().resource_version > res.metadata().resource_version {
                 // ignore changes to resources when resource version is specified but the resource
                 // being inserted is old
                 let existing = &existing.metadata().resource_version;
                 let new = &res.metadata().resource_version;
-                warn!(existing, new, "Old resource");
+                warn!(?existing, ?new, "Old resource");
                 Err(())
             } else {
                 // set resource version to mod revision as per https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#concurrency-control-and-consistency
@@ -69,7 +66,7 @@ impl<T: Meta + Spec + Clone> Resources<T> {
                 {
                     res.metadata_mut().generation += 1;
                 }
-                res.metadata_mut().resource_version = revision.to_string();
+                res.metadata_mut().resource_version = revision;
                 self.0[existing_pos] = Arc::new(res);
                 Ok(())
             }
@@ -91,7 +88,7 @@ impl<T: Meta + Spec + Clone> Resources<T> {
                 res.metadata_mut().namespace = "default".to_owned();
             }
             // set resource version to mod revision as per https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#concurrency-control-and-consistency
-            res.metadata_mut().resource_version = revision.to_string();
+            res.metadata_mut().resource_version = revision;
             let pos = self.get_insertion_pos(&res.metadata().name);
             self.0.insert(pos, Arc::new(res));
             Ok(())
@@ -168,10 +165,8 @@ impl<T: Meta + Spec + Clone> Resources<T> {
         for resource in &other.0 {
             if let Some(existing_pos) = resources.get_pos(&resource.metadata().name) {
                 let existing = &resources.0[existing_pos];
-                let new_revision =
-                    Revision::try_from(&resource.metadata().resource_version).unwrap();
-                let existing_revision =
-                    Revision::try_from(&existing.metadata().resource_version).unwrap();
+                let new_revision = &resource.metadata().resource_version;
+                let existing_revision = &existing.metadata().resource_version;
                 if new_revision > existing_revision {
                     resources.0[existing_pos] = Arc::clone(resource);
                 }
@@ -188,12 +183,7 @@ impl<T: Meta + Spec + Clone> From<Vec<T>> for Resources<T> {
     fn from(value: Vec<T>) -> Self {
         let mut rv = Resources::default();
         for v in value {
-            let revision = v
-                .metadata()
-                .resource_version
-                .as_str()
-                .try_into()
-                .unwrap_or_default();
+            let revision = v.metadata().resource_version.clone();
             rv.insert(v, revision).unwrap();
         }
         rv
@@ -204,12 +194,7 @@ impl<T: Meta + Spec + Clone> FromIterator<T> for Resources<T> {
     fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
         let mut rv = Resources::default();
         for v in iter {
-            let revision = v
-                .metadata()
-                .resource_version
-                .as_str()
-                .try_into()
-                .unwrap_or_default();
+            let revision = v.metadata().resource_version.clone();
             rv.insert(v, revision).unwrap();
         }
         rv

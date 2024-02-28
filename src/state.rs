@@ -120,12 +120,7 @@ impl RawState {
 
     pub fn set_pods(&mut self, pods: impl IntoIterator<Item = Pod>) -> &mut Self {
         for pod in pods {
-            let revision = pod
-                .metadata
-                .resource_version
-                .as_str()
-                .try_into()
-                .unwrap_or_default();
+            let revision = pod.metadata.resource_version.clone();
             self.pods.insert(pod, revision).unwrap();
         }
         self
@@ -141,12 +136,7 @@ impl RawState {
         replicasets: impl IntoIterator<Item = ReplicaSet>,
     ) -> &mut Self {
         for replicaset in replicasets {
-            let revision = replicaset
-                .metadata
-                .resource_version
-                .as_str()
-                .try_into()
-                .unwrap_or_default();
+            let revision = replicaset.metadata.resource_version.clone();
             self.replicasets.insert(replicaset, revision).unwrap();
         }
         self
@@ -162,12 +152,7 @@ impl RawState {
         deployments: impl IntoIterator<Item = Deployment>,
     ) -> &mut Self {
         for deployment in deployments {
-            let revision = deployment
-                .metadata
-                .resource_version
-                .as_str()
-                .try_into()
-                .unwrap_or_default();
+            let revision = deployment.metadata.resource_version.clone();
             self.deployments.insert(deployment, revision).unwrap();
         }
         self
@@ -186,12 +171,7 @@ impl RawState {
         statefulsets: impl IntoIterator<Item = StatefulSet>,
     ) -> &mut Self {
         for statefulset in statefulsets {
-            let revision = statefulset
-                .metadata
-                .resource_version
-                .as_str()
-                .try_into()
-                .unwrap_or_default();
+            let revision = statefulset.metadata.resource_version.clone();
             self.statefulsets.insert(statefulset, revision).unwrap();
         }
         self
@@ -204,12 +184,7 @@ impl RawState {
 
     pub fn set_jobs(&mut self, jobs: impl IntoIterator<Item = Job>) -> &mut Self {
         for job in jobs {
-            let revision = job
-                .metadata
-                .resource_version
-                .as_str()
-                .try_into()
-                .unwrap_or_default();
+            let revision = job.metadata.resource_version.clone();
             self.jobs.insert(job, revision).unwrap();
         }
         self
@@ -222,12 +197,7 @@ impl RawState {
 
     pub fn set_nodes(&mut self, nodes: impl IntoIterator<Item = Node>) -> &mut Self {
         for node in nodes {
-            let revision = node
-                .metadata
-                .resource_version
-                .as_str()
-                .try_into()
-                .unwrap_or_default();
+            let revision = node.metadata.resource_version.clone();
             self.nodes.insert(node, revision).unwrap();
         }
         self
@@ -402,19 +372,13 @@ impl StateView {
         resource.observed_generation() >= resource.metadata().generation
                     // and no other things have happened in the cluster since the update (e.g. a
                     // node dying which happens to remove pods)
-                    && self.revision == resource.metadata().resource_version.as_str().try_into().unwrap()
+                    && self.revision == resource.metadata().resource_version
     }
 
     pub fn resource_current<T: Meta>(&self, resource: &T) -> bool {
         // no other things have happened in the cluster since the update (e.g. a
         // node dying which happens to remove pods)
-        self.revision
-            == resource
-                .metadata()
-                .resource_version
-                .as_str()
-                .try_into()
-                .unwrap()
+        self.revision == resource.metadata().resource_version
     }
 
     pub fn resources_current<'a, T: Meta + 'a>(

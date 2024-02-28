@@ -149,7 +149,7 @@ impl CausalHistory {
     }
 
     fn build_state(&self, indices: &[usize]) -> StateView {
-        let default_stateview = StateView{
+        let default_stateview = StateView {
             revision: Revision::from(vec![]),
             ..Default::default()
         };

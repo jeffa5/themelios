@@ -1,5 +1,30 @@
-#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+use diff::Diff;
+use serde::{Deserialize, Serialize};
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Diff)]
+#[diff(attr(
+    #[derive(Debug, PartialEq)]
+))]
 pub struct Revision(Vec<usize>);
+
+impl Serialize for Revision {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let s = self.to_string();
+        s.serialize(serializer)
+    }
+}
+impl<'de> Deserialize<'de> for Revision {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let s = <&str>::deserialize(deserializer)?;
+        Ok(Self::try_from(s).unwrap())
+    }
+}
 
 impl Default for Revision {
     fn default() -> Self {

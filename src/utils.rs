@@ -1,4 +1,4 @@
-use crate::resources::Time;
+use crate::{resources::Time, state::revision::Revision};
 use time::OffsetDateTime;
 
 use crate::resources::Metadata;
@@ -38,7 +38,7 @@ pub fn metadata(name: String) -> Metadata {
         deletion_grace_period_seconds: None,
         managed_fields: Vec::new(),
         owner_references: Vec::new(),
-        resource_version: String::new(),
+        resource_version: Revision::default(),
         finalizers: Vec::new(),
     }
 }
