@@ -19,6 +19,7 @@ struct CausalState {
     state: StateView,
     predecessors: Vec<usize>,
     successors: Vec<usize>,
+    // TODO: this could be a bitset? Then intersection would be pretty quick.
     concurrent: BTreeSet<usize>,
 }
 
