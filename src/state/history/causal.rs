@@ -11,6 +11,7 @@ use super::History;
 pub struct CausalHistory {
     /// Mapping of states and their dependencies.
     states: imbl::Vector<CausalState>,
+    heads: BTreeSet<usize>,
 }
 
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
@@ -23,6 +24,8 @@ struct CausalState {
 
 impl CausalHistory {
     pub fn new(initial_state: RawState) -> Self {
+        let mut heads = BTreeSet::new();
+        heads.insert(0);
         Self {
             states: imbl::vector![CausalState {
                 state: Arc::new(initial_state.into()),
@@ -30,6 +33,7 @@ impl CausalHistory {
                 successors: Vec::new(),
                 concurrent: BTreeSet::new(),
             }],
+            heads,
         }
     }
 }
@@ -54,7 +58,10 @@ impl History for CausalHistory {
 
         for &p in &predecessors {
             self.states[p].successors.push(new_index);
+            self.heads.remove(&p);
         }
+
+        self.heads.insert(new_index);
 
         self.states.push_back(CausalState {
             state: Arc::new(new_state),
@@ -67,7 +74,8 @@ impl History for CausalHistory {
     }
 
     fn max_revision(&self) -> Revision {
-        self.states.last().unwrap().state.revision.clone()
+        let indices = self.heads.iter().copied().collect::<Vec<_>>();
+        Revision::from(indices)
     }
 
     fn state_at(&self, revision: Revision) -> StateView {
