@@ -97,9 +97,14 @@ impl History for CausalHistory {
 
     fn valid_revisions(&self, min_revision: Revision) -> Vec<Revision> {
         if min_revision == Revision::default() {
-            // for a new requester who doesn't have a session we give them the latest (a quorum
-            // read sort of thing)
-            vec![self.max_revision()]
+            // for a new requester who doesn't have a session we give them a head state, e.g. they
+            // have connected to a single node of the datastore and can find that nodes latest
+            // state, or any combination of those with concurrent merges.
+            self.heads
+                .iter()
+                .flat_map(|i| self.concurrent_combinations(*i))
+                .map(Revision::from)
+                .collect::<Vec<_>>()
         } else {
             // A client can observe any state that has not been observed given their minimum
             // revision.
