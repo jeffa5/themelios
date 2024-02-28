@@ -175,6 +175,7 @@ async fn controller_loop<C: Controller>(
 async fn handle_action(action: ControllerAction, client: Client) {
     match action {
         ControllerAction::NodeJoin(_, _) => todo!(),
+        ControllerAction::DeleteNode(_) => todo!(),
         ControllerAction::CreatePod(mut pod) => {
             if pod.metadata.namespace.is_empty() {
                 pod.metadata.namespace = "default".to_owned();

@@ -281,6 +281,9 @@ impl StateView {
                     new_revision,
                 )?;
             }
+            ControllerAction::DeleteNode(name) => {
+                self.nodes.remove(&name);
+            }
             ControllerAction::CreatePod(mut pod) => {
                 pod.metadata.uid = self.revision.to_string();
                 self.fill_name(&mut pod);

@@ -41,6 +41,7 @@ pub struct Change {
 pub enum ControllerAction {
     /// Name and resources
     NodeJoin(String, ResourceQuantities),
+    DeleteNode(String),
 
     // Pods
     CreatePod(Pod),
@@ -88,6 +89,7 @@ pub enum Action {
 
     /// The controller at the given index restarts, losing its state.
     ControllerRestart(usize),
+    NodeRestart(usize),
 }
 
 impl Model for AbstractModelCfg {
@@ -158,7 +160,7 @@ impl Model for AbstractModelCfg {
                         if let Controllers::Node(n) = controller {
                             if n.name == node.metadata.name {
                                 // match
-                                actions.push(Action::ControllerRestart(i));
+                                actions.push(Action::NodeRestart(i));
                             }
                         }
                     }
@@ -188,6 +190,21 @@ impl Model for AbstractModelCfg {
                 let mut state = last_state.clone();
                 let controller_state = self.controllers[controller_index].new_state();
                 state.update_controller(controller_index, controller_state);
+                Some(state)
+            }
+            Action::NodeRestart(controller_index) => {
+                let mut state = last_state.clone();
+                let controller_state = self.controllers[controller_index].new_state();
+                state.update_controller(controller_index, controller_state);
+                let s = state.latest();
+                if let Controllers::Node(n) = &self.controllers[controller_index] {
+                    if let Some(node) = s.nodes.get(&n.name) {
+                        state.push_change(Change {
+                            revision: s.revision.clone(),
+                            operation: ControllerAction::DeleteNode(node.metadata.name.clone()),
+                        });
+                    }
+                }
                 Some(state)
             }
         }
