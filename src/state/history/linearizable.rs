@@ -22,11 +22,10 @@ impl LinearizableHistory {
 
 impl History for LinearizableHistory {
     fn add_change(&mut self, change: Change) -> Revision {
-        let mut new_state_ref = self.states.last().unwrap().clone();
-        let new_state = Arc::make_mut(&mut new_state_ref);
+        let mut new_state = (**self.states.last().unwrap()).clone();
         let new_revision = self.max_revision().increment();
         new_state.apply_operation(change.operation, new_revision);
-        self.states.push_back(new_state_ref);
+        self.states.push_back(Arc::new(new_state));
         self.max_revision()
     }
 

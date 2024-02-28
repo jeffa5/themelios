@@ -33,8 +33,7 @@ impl History for OptimisticLinearHistory {
             .states
             .binary_search_by_key(&&change.revision, |s| &s.revision)
             .unwrap();
-        let mut new_state_ref = Arc::clone(&self.states[index]);
-        let new_state = Arc::make_mut(&mut new_state_ref);
+        let mut new_state = (*self.states[index]).clone();
         let new_revision = self.max_revision().increment();
         new_state.apply_operation(change.operation, new_revision);
 
@@ -46,14 +45,14 @@ impl History for OptimisticLinearHistory {
             } else {
                 // we haven't reached a guaranteed commit yet, just extend the current states
             }
-            self.states.push(new_state_ref);
+            self.states.push(Arc::new(new_state));
         } else {
             // this was a mutation on a committed state (leader changed)
             // Discard all states before and after this one
             let committed_state = self.states.swap_remove(index);
             self.states.clear();
             self.states.push(committed_state);
-            self.states.push(new_state_ref);
+            self.states.push(Arc::new(new_state));
         }
 
         self.max_revision()
