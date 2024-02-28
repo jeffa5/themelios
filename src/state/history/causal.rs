@@ -10,13 +10,13 @@ use super::History;
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub struct CausalHistory {
     /// Mapping of states and their dependencies.
-    states: imbl::Vector<CausalState>,
+    states: imbl::Vector<Arc<CausalState>>,
     heads: BTreeSet<usize>,
 }
 
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
 struct CausalState {
-    state: Arc<StateView>,
+    state: StateView,
     predecessors: Vec<usize>,
     successors: Vec<usize>,
     concurrent: BTreeSet<usize>,
@@ -27,12 +27,12 @@ impl CausalHistory {
         let mut heads = BTreeSet::new();
         heads.insert(0);
         Self {
-            states: imbl::vector![CausalState {
-                state: Arc::new(initial_state.into()),
+            states: imbl::vector![Arc::new(CausalState {
+                state: initial_state.into(),
                 predecessors: Vec::new(),
                 successors: Vec::new(),
                 concurrent: BTreeSet::new(),
-            }],
+            })],
             heads,
         }
     }
@@ -63,12 +63,12 @@ impl History for CausalHistory {
 
         self.heads.insert(new_index);
 
-        self.states.push_back(CausalState {
-            state: Arc::new(new_state),
+        self.states.push_back(Arc::new(CausalState {
+            state: new_state,
             predecessors,
             successors: Vec::new(),
             concurrent,
-        });
+        }));
 
         self.max_revision()
     }
