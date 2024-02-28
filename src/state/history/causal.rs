@@ -18,6 +18,7 @@ struct CausalState {
     state: Arc<StateView>,
     predecessors: Vec<usize>,
     successors: Vec<usize>,
+    concurrent: BTreeSet<usize>,
 }
 
 impl CausalHistory {
@@ -27,6 +28,7 @@ impl CausalHistory {
                 state: Arc::new(initial_state.into()),
                 predecessors: Vec::new(),
                 successors: Vec::new(),
+                concurrent: BTreeSet::new(),
             }],
         }
     }
@@ -43,13 +45,22 @@ impl History for CausalHistory {
         let new_index = self.states.len();
         for index in self.indices_for_revision(&change.revision) {
             predecessors.push(index);
-            self.states[index].successors.push(new_index);
+        }
+
+        let concurrent = self.concurrent_many(&predecessors).collect::<BTreeSet<_>>();
+        for &c in &concurrent {
+            self.states[c].concurrent.insert(new_index);
+        }
+
+        for &p in &predecessors {
+            self.states[p].successors.push(new_index);
         }
 
         self.states.push_back(CausalState {
             state: Arc::new(new_state),
             predecessors,
             successors: Vec::new(),
+            concurrent,
         });
 
         self.max_revision()
@@ -72,6 +83,14 @@ impl History for CausalHistory {
             // read sort of thing)
             vec![self.max_revision()]
         } else {
+            // A client can observe any state that has not been observed given their minimum
+            // revision.
+            //
+            // This is every state not in the transitive closure from the min_revision.
+            //
+            // Additionally, we can have arbitrary 'merges' between these states and those that
+            // they are concurrent with.
+
             let mut seen_indices = BTreeSet::new();
             let mut stack = self.indices_for_revision(&min_revision);
             while let Some(index) = stack.pop() {
@@ -86,12 +105,11 @@ impl History for CausalHistory {
 
             // we can also find combinations of concurrent edits
             // traverse the graph and build up valid states from the min revision
-            let combinations = single_states
+            single_states
                 .iter()
                 .flat_map(|i| self.concurrent_combinations(*i))
                 .map(Revision::from)
-                .collect();
-            combinations
+                .collect::<Vec<_>>()
         }
     }
 }
@@ -113,36 +131,41 @@ impl CausalHistory {
     fn build_state(&self, indices: &[usize]) -> StateView {
         indices
             .iter()
-            .map(|i| &self.states[*i].state)
-            .fold(StateView::default(), |acc, s| acc.merge(s))
+            .map(|i| (*self.states[*i].state).clone())
+            .reduce(|acc, s| acc.merge(&s))
+            .unwrap()
     }
 
     /// Find all concurrent indices for the given index.
     fn concurrent_inner(&self, index: usize, seen: &mut BTreeSet<usize>) {
         let mut stack = vec![index];
+        let mut seen_pred = BTreeSet::new();
         while let Some(index) = stack.pop() {
-            seen.insert(index);
-            stack.extend(self.states[index].predecessors.iter().copied());
+            if seen_pred.insert(index) {
+                stack.extend(self.states[index].predecessors.iter().copied());
+            }
         }
         let mut stack = vec![index];
+        let mut seen_succ = BTreeSet::new();
         while let Some(index) = stack.pop() {
-            seen.insert(index);
-            stack.extend(self.states[index].successors.iter().copied());
+            if seen_succ.insert(index) {
+                stack.extend(self.states[index].successors.iter().copied());
+            }
         }
+        seen.append(&mut seen_pred);
+        seen.append(&mut seen_succ);
     }
 
     /// Find all indices that are concurrent with all indices given.
     ///
     /// Thus, all returned indices can be used on their own with the given indices to indicate a
     /// new merged state.
-    fn concurrent_many(&self, indices: &[usize]) -> Vec<usize> {
+    fn concurrent_many(&self, indices: &[usize]) -> impl Iterator<Item = usize> {
         let mut seen = BTreeSet::new();
         for &index in indices {
             self.concurrent_inner(index, &mut seen);
         }
-        (0..self.states.len())
-            .filter(|i| !seen.contains(i))
-            .collect()
+        (0..self.states.len()).filter(move |i| !seen.contains(i))
     }
 
     fn concurrent_combinations(&self, index: usize) -> Vec<Vec<usize>> {
@@ -157,13 +180,24 @@ impl CausalHistory {
         combinations: &mut Vec<Vec<usize>>,
     ) {
         combinations.push(indices.clone());
-        let concurrent = self.concurrent_many(&indices);
-        for conc in concurrent {
+        let concurrent = intersections(indices.iter().map(|&i| &self.states[i].concurrent));
+        for &conc in concurrent.iter().filter(|&c| c > indices.last().unwrap()) {
             let mut indices = indices.clone();
             indices.push(conc);
             indices.sort();
             indices.dedup();
             self.concurrent_combinations_inner(indices, combinations);
         }
+    }
+}
+
+fn intersections<'a>(sets: impl IntoIterator<Item = &'a BTreeSet<usize>>) -> BTreeSet<usize> {
+    let mut iter = sets.into_iter();
+    match iter.next() {
+        None => BTreeSet::new(),
+        Some(first) => iter.fold(first.clone(), |mut acc, set| {
+            acc.retain(|item| set.contains(item));
+            acc
+        }),
     }
 }
