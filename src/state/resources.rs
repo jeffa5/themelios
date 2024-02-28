@@ -1,4 +1,4 @@
-use std::{collections::BTreeMap, sync::Arc};
+use std::sync::Arc;
 
 use tracing::warn;
 
@@ -164,20 +164,23 @@ impl<T: Meta + Spec + Clone> Resources<T> {
     }
 
     pub fn merge(&self, other: &Self) -> Self {
-        let mut resources = BTreeMap::new();
-        for res in self.iter() {
-            resources.insert(res.metadata().name.clone(), res);
-        }
-        for res in other.iter() {
-            if let Some(self_res) = resources.get_mut(&res.metadata().name) {
-                if self_res.metadata().resource_version < res.metadata().resource_version {
-                    resources.insert(res.metadata().name.clone(), res);
+        let mut resources = self.clone();
+        for resource in &other.0 {
+            if let Some(existing_pos) = resources.get_pos(&resource.metadata().name) {
+                let existing = &resources.0[existing_pos];
+                let new_revision =
+                    Revision::try_from(&resource.metadata().resource_version).unwrap();
+                let existing_revision =
+                    Revision::try_from(&existing.metadata().resource_version).unwrap();
+                if new_revision > existing_revision {
+                    resources.0[existing_pos] = Arc::clone(resource);
                 }
             } else {
-                resources.insert(res.metadata().name.clone(), res);
+                let pos = resources.get_insertion_pos(&resource.metadata().name);
+                resources.0.insert(pos, Arc::clone(resource));
             }
         }
-        resources.values().copied().cloned().collect()
+        resources
     }
 }
 
