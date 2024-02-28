@@ -18,10 +18,9 @@ impl ControllerProperties for StatefulSetController {
                 let s = state.latest();
                 s.statefulsets
                     .iter()
-                    .filter(|r| !r.status.observed_revision.is_empty())
+                    .filter(|r| r.status.observed_revision != Revision::default())
                     .all(|sts| {
-                        let observed_revision =
-                            Revision::try_from(&sts.status.observed_revision).unwrap();
+                        let observed_revision = sts.status.observed_revision.clone();
                         let observed = state.view_at(observed_revision);
                         let pod_count = observed.pods.matching(&sts.spec.selector).count() as u32;
                         let stable = s.resource_stable(sts);
@@ -36,10 +35,9 @@ impl ControllerProperties for StatefulSetController {
                 let s = state.latest();
                 s.statefulsets
                     .iter()
-                    .filter(|r| !r.status.observed_revision.is_empty())
+                    .filter(|r| r.status.observed_revision != Revision::default())
                     .all(|sts| {
-                        let observed_revision =
-                            Revision::try_from(&sts.status.observed_revision).unwrap();
+                        let observed_revision = sts.status.observed_revision.clone();
                         let observed = state.view_at(observed_revision);
                         let pod_count = observed
                             .pods
@@ -58,10 +56,9 @@ impl ControllerProperties for StatefulSetController {
                 let s = state.latest();
                 s.statefulsets
                     .iter()
-                    .filter(|r| !r.status.observed_revision.is_empty())
+                    .filter(|r| r.status.observed_revision != Revision::default())
                     .all(|sts| {
-                        let observed_revision =
-                            Revision::try_from(&sts.status.observed_revision).unwrap();
+                        let observed_revision = sts.status.observed_revision.clone();
                         let observed = state.view_at(observed_revision);
                         let pod_count = observed
                             .pods
@@ -81,10 +78,9 @@ impl ControllerProperties for StatefulSetController {
                 let s = state.latest();
                 s.statefulsets
                     .iter()
-                    .filter(|r| !r.status.observed_revision.is_empty())
+                    .filter(|r| r.status.observed_revision != Revision::default())
                     .all(|sts| {
-                        let observed_revision =
-                            Revision::try_from(&sts.status.observed_revision).unwrap();
+                        let observed_revision = sts.status.observed_revision.clone();
                         let observed = state.view_at(observed_revision);
                         let mut ordinals = observed
                             .pods

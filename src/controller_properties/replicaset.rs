@@ -18,10 +18,9 @@ impl ControllerProperties for ReplicaSetController {
                 let s = state.latest();
                 s.replicasets
                     .iter()
-                    .filter(|r| !r.status.observed_revision.is_empty())
+                    .filter(|r| r.status.observed_revision != Revision::default())
                     .all(|r| {
-                        let observed_revision =
-                            Revision::try_from(&r.status.observed_revision).unwrap();
+                        let observed_revision = r.status.observed_revision.clone();
                         let observed = state.view_at(observed_revision);
                         // Despite the reference docs saying that the replicas field is
                         // quote: Replicas is the most recently oberved number of replicas.

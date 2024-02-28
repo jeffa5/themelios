@@ -275,7 +275,7 @@ fn update_replicaset_status(
     }
 
     new_status.observed_generation = rs.metadata.generation;
-    new_status.observed_revision = state_revision.to_string();
+    new_status.observed_revision = state_revision.clone();
 
     let mut rs = rs.clone();
     rs.status = new_status;

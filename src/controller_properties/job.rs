@@ -21,10 +21,9 @@ impl ControllerProperties for JobController {
                 let s = state.latest();
                 s.jobs
                     .iter()
-                    .filter(|r| !r.status.observed_revision.is_empty())
+                    .filter(|r| r.status.observed_revision != Revision::default())
                     .all(|r| {
-                        let observed_revision =
-                            Revision::try_from(&r.status.observed_revision).unwrap();
+                        let observed_revision = r.status.observed_revision.clone();
                         let observed = state.view_at(observed_revision);
                         let active_pods = observed
                             .pods
@@ -48,10 +47,9 @@ impl ControllerProperties for JobController {
                 let s = state.latest();
                 s.jobs
                     .iter()
-                    .filter(|r| !r.status.observed_revision.is_empty())
+                    .filter(|r| r.status.observed_revision != Revision::default())
                     .all(|r| {
-                        let observed_revision =
-                            Revision::try_from(&r.status.observed_revision).unwrap();
+                        let observed_revision = r.status.observed_revision.clone();
                         let observed = state.view_at(observed_revision);
                         let ready_pods = observed
                             .pods
@@ -92,10 +90,9 @@ impl ControllerProperties for JobController {
                 let s = state.latest();
                 s.jobs
                     .iter()
-                    .filter(|r| !r.status.observed_revision.is_empty())
+                    .filter(|r| r.status.observed_revision != Revision::default())
                     .all(|r| {
-                        let observed_revision =
-                            Revision::try_from(&r.status.observed_revision).unwrap();
+                        let observed_revision = r.status.observed_revision.clone();
                         let observed = state.view_at(observed_revision);
                         let stable = s.resource_stable(r);
                         let old_pods_dont_have_finalizer = observed

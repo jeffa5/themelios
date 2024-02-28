@@ -260,7 +260,7 @@ fn do_update_statefulset(
     // set the generation, and revisions in the returned status
     let mut status = StatefulSetStatus {
         observed_generation: sts.metadata.generation,
-        observed_revision: state_revision.to_string(),
+        observed_revision: state_revision.clone(),
         current_revision: current_revision.metadata.name.clone(),
         update_revision: update_revision.metadata.name.clone(),
         collision_count,

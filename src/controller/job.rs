@@ -298,7 +298,7 @@ fn reconcile(
     job.status.ready = ready as u32;
 
     job.status.observed_generation = job.metadata.generation;
-    job.status.observed_revision = state_revision.to_string();
+    job.status.observed_revision = state_revision.clone();
 
     track_job_status_and_remove_finalizers(
         needs_status_update,

@@ -170,7 +170,7 @@ fn reconcile(
         if deployment.status.observed_generation < deployment.metadata.generation {
             let mut deployment = deployment.clone();
             deployment.status.observed_generation = deployment.metadata.generation;
-            deployment.status.observed_revision = state_revision.to_string();
+            deployment.status.observed_revision = state_revision.clone();
             return Some(DeploymentControllerAction::UpdateDeploymentStatus(
                 deployment,
             ));
@@ -699,7 +699,7 @@ fn calculate_status(
 
     let mut status = DeploymentStatus {
         observed_generation: deployment.metadata.generation,
-        observed_revision: state_revision.to_string(),
+        observed_revision: state_revision.clone(),
         replicas: get_actual_replica_count_for_replicasets(all_replicasets),
         updated_replicas: get_actual_replica_count_for_replicasets(
             &new_replicaset.iter().collect::<Vec<_>>(),

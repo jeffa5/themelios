@@ -74,8 +74,7 @@ macro_rules! impl_observed_revision {
     ($r:ident) => {
         impl ObservedRevision for $r {
             fn observed_revision(&self) -> Revision {
-                let or = self.status.observed_revision.as_str();
-                Revision::try_from(or).unwrap()
+                self.status.observed_revision.clone()
             }
         }
     };
@@ -855,7 +854,7 @@ pub struct JobStatus {
     pub observed_generation: u64,
     // THEMELIOS: added field
     #[serde(default)]
-    pub observed_revision: String,
+    pub observed_revision: Revision,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff)]
@@ -986,7 +985,7 @@ pub struct ReplicaSetStatus {
 
     // THEMELIOS: added field
     #[serde(default)]
-    pub observed_revision: String,
+    pub observed_revision: Revision,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff)]
@@ -1174,7 +1173,7 @@ pub struct DeploymentStatus {
 
     // THEMELIOS: added field
     #[serde(default)]
-    pub observed_revision: String,
+    pub observed_revision: Revision,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff)]
@@ -1339,7 +1338,7 @@ pub struct StatefulSetStatus {
 
     // THEMELIOS: added field
     #[serde(default)]
-    pub observed_revision: String,
+    pub observed_revision: Revision,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff)]
