@@ -42,7 +42,15 @@ impl History for CausalHistory {
     fn add_change(&mut self, change: Change) -> Revision {
         let mut new_state = self.state_at(change.revision.clone());
 
-        new_state.apply_operation(change.operation, self.max_revision().increment());
+        let max_rev = self
+            .states
+            .last()
+            .unwrap()
+            .state
+            .revision
+            .clone()
+            .increment();
+        new_state.apply_operation(change.operation, max_rev);
 
         // find the dependencies of the change
         let mut predecessors = Vec::new();
