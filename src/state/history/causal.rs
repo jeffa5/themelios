@@ -53,11 +53,8 @@ impl History for CausalHistory {
         new_state.apply_operation(change.operation, max_rev);
 
         // find the dependencies of the change
-        let mut predecessors = Vec::new();
+        let predecessors = change.revision.components().to_owned();
         let new_index = self.states.len();
-        for index in self.indices_for_revision(&change.revision) {
-            predecessors.push(index);
-        }
 
         let concurrent = self.concurrent_many(&predecessors).collect::<BTreeSet<_>>();
         for &c in &concurrent {
@@ -91,8 +88,8 @@ impl History for CausalHistory {
     }
 
     fn state_at(&self, revision: Revision) -> StateView {
-        let state_indices = self.indices_for_revision(&revision);
-        let merged_states = self.build_state(&state_indices);
+        let state_indices = revision.components();
+        let merged_states = self.build_state(state_indices);
         assert_eq!(revision, merged_states.revision);
         merged_states
     }
@@ -112,7 +109,7 @@ impl History for CausalHistory {
             // they are concurrent with.
 
             let mut seen_indices = BTreeSet::new();
-            let mut stack = self.indices_for_revision(&min_revision);
+            let mut stack = min_revision.components().to_owned();
             while let Some(index) = stack.pop() {
                 seen_indices.insert(index);
                 stack.extend(&self.states[index].predecessors);
@@ -135,19 +132,6 @@ impl History for CausalHistory {
 }
 
 impl CausalHistory {
-    fn indices_for_revision(&self, revision: &Revision) -> Vec<usize> {
-        revision
-            .components()
-            .iter()
-            .map(|r| {
-                let rev = Revision::from(vec![*r]);
-                self.states
-                    .binary_search_by_key(&rev, |s| s.state.revision.clone())
-                    .unwrap()
-            })
-            .collect::<Vec<_>>()
-    }
-
     fn build_state(&self, indices: &[usize]) -> StateView {
         let default_stateview = StateView {
             revision: Revision::from(vec![]),
