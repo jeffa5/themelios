@@ -47,7 +47,6 @@ impl ArbitraryClient {
         macro_rules! scale_down {
             ($kind:ident, $update:expr) => {
                 for res in view.$kind.iter() {
-                    let res = res.clone();
                     if res.spec.replicas > 0 {
                         actions.push($update(res.metadata.name.clone(), -1));
                     }
@@ -59,7 +58,6 @@ impl ArbitraryClient {
         macro_rules! scale_down_option {
             ($kind:ident, $update:expr) => {
                 for res in view.$kind.iter() {
-                    let res = res.clone();
                     if res.spec.replicas.unwrap() > 0 {
                         actions.push($update(res.metadata.name.clone(), -1));
                     }
@@ -73,7 +71,6 @@ impl ArbitraryClient {
         macro_rules! change_image {
             ($kind:ident, $update:expr) => {
                 for res in view.$kind.iter() {
-                    let res = res.clone();
                     if res.spec.template.spec.containers.is_empty() {
                         continue;
                     }
