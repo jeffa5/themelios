@@ -32,7 +32,8 @@ impl<T: Meta + Spec + Clone> Resources<T> {
     ///
     /// It also sets the resource version on the resource before insertion.
     pub fn insert(&mut self, mut res: T, revision: Revision) -> Result<(), ()> {
-        if let Some(existing) = self.get_mut(&res.metadata().name) {
+        if let Some(existing_pos) = self.get_pos(&res.metadata().name) {
+            let existing = &self.0[existing_pos];
             if existing.metadata().uid != res.metadata().uid {
                 // TODO: update this to have some conflict-reconciliation thing?
                 warn!(
@@ -68,7 +69,7 @@ impl<T: Meta + Spec + Clone> Resources<T> {
                     res.metadata_mut().generation += 1;
                 }
                 res.metadata_mut().resource_version = revision.to_string();
-                *existing = res;
+                self.0[existing_pos] = Arc::new(res);
                 Ok(())
             }
         } else {
