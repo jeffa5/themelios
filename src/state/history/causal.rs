@@ -139,9 +139,8 @@ impl CausalHistory {
     fn build_state(&self, indices: &[usize]) -> StateView {
         indices
             .iter()
-            .map(|i| (*self.states[*i].state).clone())
-            .reduce(|acc, s| acc.merge(&s))
-            .unwrap()
+            .map(|i| &self.states[*i].state)
+            .fold(StateView::default(), |acc, s| acc.merge(&s))
     }
 
     /// Find all concurrent indices for the given index.
