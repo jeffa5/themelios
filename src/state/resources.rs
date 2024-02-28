@@ -43,7 +43,8 @@ impl<T: Meta + Spec + Clone> Resources<T> {
                 );
                 Err(())
             } else if !res.metadata().resource_version.is_empty()
-                && existing.metadata().resource_version > res.metadata().resource_version
+                && Revision::try_from(&existing.metadata().resource_version).unwrap()
+                    > Revision::try_from(&res.metadata().resource_version).unwrap()
             {
                 // ignore changes to resources when resource version is specified but the resource
                 // being inserted is old
