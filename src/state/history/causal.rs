@@ -61,11 +61,15 @@ impl History for CausalHistory {
 
         let concurrent = self.concurrent_many(&predecessors).collect::<BTreeSet<_>>();
         for &c in &concurrent {
-            self.states[c].concurrent.insert(new_index);
+            Arc::make_mut(&mut self.states[c])
+                .concurrent
+                .insert(new_index);
         }
 
         for &p in &predecessors {
-            self.states[p].successors.push(new_index);
+            Arc::make_mut(&mut self.states[p])
+                .successors
+                .push(new_index);
             self.heads.remove(&p);
         }
 
