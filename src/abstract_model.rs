@@ -173,17 +173,17 @@ impl Model for AbstractModelCfg {
         match action {
             Action::ControllerStep(from, cstate, change) => {
                 let mut state = last_state.clone();
-                state.push_changes(std::iter::once(change));
+                state.push_change(change);
                 state.update_controller(from, cstate);
                 Some(state)
             }
             Action::ArbitraryStep(action) => {
                 let mut state = last_state.clone();
                 let controller_action = ArbitraryClient::controller_action(&state.latest(), action);
-                state.push_changes(std::iter::once(Change {
+                state.push_change(Change {
                     revision: state.max_revision(),
                     operation: controller_action,
-                }));
+                });
                 Some(state)
             }
             Action::ControllerRestart(controller_index) => {
