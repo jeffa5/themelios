@@ -96,19 +96,14 @@ impl<T: Meta + Spec + Clone> Resources<T> {
     }
 
     fn get_insertion_pos(&self, k: &str) -> usize {
-        match self
-            .0
-            .binary_search_by_key(&k.to_owned(), |t| t.metadata().name.clone())
-        {
+        match self.0.binary_search_by(|v| k.cmp(&v.metadata().name)) {
             Ok(p) => p,
             Err(p) => p,
         }
     }
 
     fn get_pos(&self, k: &str) -> Option<usize> {
-        self.0
-            .binary_search_by_key(&k.to_owned(), |t| t.metadata().name.clone())
-            .ok()
+        self.0.binary_search_by(|v| k.cmp(&v.metadata().name)).ok()
     }
 
     pub fn has(&self, name: &str) -> bool {
