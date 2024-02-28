@@ -35,11 +35,8 @@ impl History for ResettableSessionHistory {
     }
 
     fn state_at(&self, revision: Revision) -> StateView {
-        let index = self
-            .states
-            .binary_search_by_key(&revision, |s| s.revision.clone())
-            .unwrap();
-        (*self.states[index]).clone()
+        let index = revision.components().first().unwrap();
+        (*self.states[*index]).clone()
     }
 
     fn valid_revisions(&self, min_revision: Revision) -> Vec<Revision> {
