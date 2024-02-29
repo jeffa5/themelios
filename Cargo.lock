@@ -1908,7 +1908,7 @@ checksum = "6980e8d7511241f8acf4aebddbb1ff938df5eebe98691418c4468d0b72a96a67"
 [[package]]
 name = "stateright"
 version = "0.30.1"
-source = "git+https://github.com/jeffa5/stateright?branch=mco#8f6f11778889526a383851c4dc51fd2c6e4602bd"
+source = "git+https://github.com/jeffa5/stateright?branch=mco#bc1f76053078194883dda6e2bc78423d0d85ca4d"
 dependencies = [
  "ahash",
  "choice",
