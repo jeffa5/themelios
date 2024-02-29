@@ -2,7 +2,7 @@ use crate::{abstract_model::ControllerAction, resources::PodPhase, state::StateV
 
 pub struct ArbitraryClient;
 
-#[derive(Debug, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum ArbitraryClientAction {
     ScaleDeployment(String, i32),
     ScaleStatefulSet(String, i32),

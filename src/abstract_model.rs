@@ -82,7 +82,7 @@ pub enum ControllerAction {
     UpdateJobStatus(Job),
 }
 
-#[derive(Debug, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Action {
     ControllerStep(usize, ControllerStates, Change),
     ArbitraryStep(ArbitraryClientAction),

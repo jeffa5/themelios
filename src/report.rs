@@ -1,18 +1,49 @@
+use stateright::report::Reporter;
 use std::collections::BTreeMap;
+use std::fs::File;
+use std::path::Path;
 use sysinfo::ProcessExt;
 use sysinfo::System;
 use sysinfo::SystemExt;
 
 use stateright::{Expectation, Model};
 
+pub struct JointReporter<M> {
+    pub reporters: Vec<Box<dyn Reporter<M>>>,
+}
+
+
+impl<M> Reporter<M> for JointReporter<M>
+where
+    M: Model,
+{
+    fn report_checking(&mut self, data: stateright::report::ReportData) {
+        for r in &mut self.reporters {
+            r.report_checking(data.clone())
+        }
+    }
+
+    fn report_discoveries(
+        &mut self,
+        discoveries: BTreeMap<&'static str, stateright::report::ReportDiscovery<M>>,
+    ) where
+        M::Action: std::fmt::Debug+Clone,
+        M::State: std::fmt::Debug + std::hash::Hash+Clone,
+    {
+        for r in &mut self.reporters {
+            r.report_discoveries(discoveries.clone())
+        }
+    }
+}
+
 #[derive(Debug, Default)]
-pub struct Reporter {
+pub struct StdoutReporter {
     last_total: usize,
     last_unique: usize,
     properties: BTreeMap<&'static str, Expectation>,
 }
 
-impl Reporter {
+impl StdoutReporter {
     /// Create a new reporter.
     pub fn new<M: Model>(model: &M) -> Self {
         let properties = model
@@ -28,7 +59,7 @@ impl Reporter {
     }
 }
 
-impl<M> stateright::report::Reporter<M> for Reporter
+impl<M> Reporter<M> for StdoutReporter
 where
     M: Model,
 {
@@ -120,5 +151,45 @@ fn property_holds(expectation: &Expectation, discovery: bool) -> bool {
         (Expectation::Sometimes, true) => true,
         // no example
         (Expectation::Sometimes, false) => false,
+    }
+}
+
+pub struct CSVReporter {
+    writer: csv::Writer<File>,
+}
+
+impl CSVReporter {
+    pub fn new(path: &Path) -> Self {
+        let mut writer = csv::Writer::from_path(path).unwrap();
+        writer
+            .write_record(["total_states,unique_states,max_depth,duration_ms,done"])
+            .unwrap();
+        Self { writer }
+    }
+}
+
+impl<M> Reporter<M> for CSVReporter
+where
+    M: Model,
+{
+    fn report_checking(&mut self, data: stateright::report::ReportData) {
+        self.writer
+            .write_record([
+                data.total_states.to_string(),
+                data.unique_states.to_string(),
+                data.max_depth.to_string(),
+                data.duration.as_millis().to_string(),
+                data.done.to_string(),
+            ])
+            .unwrap();
+    }
+
+    fn report_discoveries(
+        &mut self,
+        _discoveries: BTreeMap<&'static str, stateright::report::ReportDiscovery<M>>,
+    ) where
+        <M as Model>::Action: std::fmt::Debug,
+        <M as Model>::State: std::fmt::Debug + std::hash::Hash,
+    {
     }
 }

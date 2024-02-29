@@ -6,7 +6,7 @@ use stateright::Checker;
 use stateright::Model;
 use stateright::UniformChooser;
 use themelios::model;
-use themelios::report::Reporter;
+use themelios::report::StdoutReporter;
 use themelios::resources::Deployment;
 use themelios::resources::DeploymentSpec;
 use themelios::resources::DeploymentStatus;
@@ -174,11 +174,11 @@ fn main() {
 fn run<M>(opts: opts::Opts, model: M)
 where
     M: Model + Send + Sync + 'static,
-    M::State: Send + Sync + std::hash::Hash + std::fmt::Debug,
-    M::Action: Send + Sync + std::hash::Hash + std::fmt::Debug,
+    M::State: Send + Sync + std::hash::Hash + std::fmt::Debug + Clone,
+    M::Action: Send + Sync + std::hash::Hash + std::fmt::Debug + Clone,
 {
     println!("Running with config {:?}", opts);
-    let mut reporter = Reporter::new(&model);
+    let mut reporter = StdoutReporter::new(&model);
     let threads = opts.threads.unwrap_or_else(num_cpus::get);
     let checker = model
         .checker()
