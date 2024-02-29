@@ -849,7 +849,7 @@ fn scale(
                     rs.spec.replicas.unwrap() + proportion as u32
                 };
                 name_to_size.insert(&rs.metadata.name, new_size);
-                deployment_replicas_added += proportion;
+                deployment_replicas_added = deployment_replicas_added.saturating_add(proportion);
             } else {
                 name_to_size.insert(&rs.metadata.name, rs.spec.replicas.unwrap());
             }
