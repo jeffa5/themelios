@@ -2,12 +2,12 @@ use stateright::Checker;
 use stateright::HasDiscoveries;
 use stateright::Model;
 use stateright::UniformChooser;
-use std::path::Path;
+use std::path::PathBuf;
 use std::time::Duration;
 use themelios::model::OrchestrationModelCfg;
+use themelios::report::CSVReporter;
 use themelios::report::JointReporter;
 use themelios::report::StdoutReporter;
-use themelios::report::CSVReporter;
 use tracing::info;
 
 macro_rules! test_table {
@@ -41,13 +41,14 @@ pub fn run(model: OrchestrationModelCfg, fn_name: &str) {
     }
 }
 
-fn check(model: OrchestrationModelCfg, test_name:&str) {
+fn check(model: OrchestrationModelCfg, test_name: &str) {
     println!("Checking model");
     let am = model.into_abstract_model();
+    let report_path = PathBuf::from(format!("testout/{test_name}.csv"));
     let mut reporter = JointReporter {
         reporters: vec![
             Box::new(StdoutReporter::new(&am)),
-            Box::new(CSVReporter::new(Path::new(test_name))),
+            Box::new(CSVReporter::new(&report_path)),
         ],
     };
     let checker = am

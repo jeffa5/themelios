@@ -12,7 +12,6 @@ pub struct JointReporter<M> {
     pub reporters: Vec<Box<dyn Reporter<M>>>,
 }
 
-
 impl<M> Reporter<M> for JointReporter<M>
 where
     M: Model,
@@ -27,8 +26,8 @@ where
         &mut self,
         discoveries: BTreeMap<&'static str, stateright::report::ReportDiscovery<M>>,
     ) where
-        M::Action: std::fmt::Debug+Clone,
-        M::State: std::fmt::Debug + std::hash::Hash+Clone,
+        M::Action: std::fmt::Debug + Clone,
+        M::State: std::fmt::Debug + std::hash::Hash + Clone,
     {
         for r in &mut self.reporters {
             r.report_discoveries(discoveries.clone())
@@ -162,7 +161,13 @@ impl CSVReporter {
     pub fn new(path: &Path) -> Self {
         let mut writer = csv::Writer::from_path(path).unwrap();
         writer
-            .write_record(["total_states,unique_states,max_depth,duration_ms,done"])
+            .write_record([
+                "total_states",
+                "unique_states",
+                "max_depth",
+                "duration_ms",
+                "done",
+            ])
             .unwrap();
         Self { writer }
     }
