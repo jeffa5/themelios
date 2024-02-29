@@ -21,13 +21,12 @@ impl LinearizableHistory {
 }
 
 impl History for LinearizableHistory {
-    fn add_change(&mut self, change: Change) -> Revision {
+    fn add_change(&mut self, change: Change) {
         let mut new_state = (**self.states.last().unwrap()).clone();
         let new_revision = self.max_revision().increment();
         if new_state.apply_operation(change.operation, new_revision) {
             self.states.push_back(Arc::new(new_state));
         }
-        self.max_revision()
     }
 
     fn max_revision(&self) -> Revision {

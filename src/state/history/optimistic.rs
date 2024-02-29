@@ -26,7 +26,7 @@ impl OptimisticLinearHistory {
 }
 
 impl History for OptimisticLinearHistory {
-    fn add_change(&mut self, change: Change) -> Revision {
+    fn add_change(&mut self, change: Change) {
         // find the state for the revision that the change operated on, we'll treat this as the
         // committed one if they didn't operate on the latest (optimistic)
         let index = self
@@ -54,8 +54,6 @@ impl History for OptimisticLinearHistory {
                 self.states.push(Arc::new(new_state));
             }
         }
-
-        self.max_revision()
     }
 
     fn max_revision(&self) -> Revision {

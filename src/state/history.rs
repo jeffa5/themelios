@@ -42,7 +42,7 @@ pub enum ConsistencySetup {
 }
 
 pub trait History {
-    fn add_change(&mut self, change: Change) -> Revision;
+    fn add_change(&mut self, change: Change);
 
     fn max_revision(&self) -> Revision;
 
@@ -97,8 +97,10 @@ impl StateHistory {
             ConsistencySetup::Causal => Self::Causal(CausalHistory::new(initial_state)),
         }
     }
+}
 
-    pub fn add_change(&mut self, change: Change) -> Revision {
+impl History for StateHistory {
+    fn add_change(&mut self, change: Change) {
         match self {
             StateHistory::Linearizable(s) => s.add_change(change),
             StateHistory::MonotonicSession(s) => s.add_change(change),
@@ -108,7 +110,7 @@ impl StateHistory {
         }
     }
 
-    pub fn max_revision(&self) -> Revision {
+    fn max_revision(&self) -> Revision {
         match self {
             StateHistory::Linearizable(s) => s.max_revision(),
             StateHistory::MonotonicSession(s) => s.max_revision(),
@@ -118,7 +120,7 @@ impl StateHistory {
         }
     }
 
-    pub fn state_at(&self, revision: Revision) -> StateView {
+    fn state_at(&self, revision: Revision) -> StateView {
         match self {
             StateHistory::Linearizable(s) => s.state_at(revision),
             StateHistory::MonotonicSession(s) => s.state_at(revision),
@@ -128,13 +130,23 @@ impl StateHistory {
         }
     }
 
-    pub fn states_for(&self, min_revision: Revision) -> Vec<StateView> {
+    fn states_for(&self, min_revision: Revision) -> Vec<StateView> {
         match self {
             StateHistory::Linearizable(s) => s.states_for(min_revision),
             StateHistory::MonotonicSession(s) => s.states_for(min_revision),
             StateHistory::ResettableSession(s) => s.states_for(min_revision),
             StateHistory::OptimisticLinear(s) => s.states_for(min_revision),
             StateHistory::Causal(s) => s.states_for(min_revision),
+        }
+    }
+
+    fn valid_revisions(&self, min_revision: Revision) -> Vec<Revision> {
+        match self {
+            StateHistory::Linearizable(s) => s.valid_revisions(min_revision),
+            StateHistory::MonotonicSession(s) => s.valid_revisions(min_revision),
+            StateHistory::ResettableSession(s) => s.valid_revisions(min_revision),
+            StateHistory::OptimisticLinear(s) => s.valid_revisions(min_revision),
+            StateHistory::Causal(s) => s.valid_revisions(min_revision),
         }
     }
 }

@@ -11,7 +11,7 @@ use crate::{
     resources::{Deployment, Node, Pod, ReplicaSet, StatefulSet},
 };
 
-use self::history::{ConsistencySetup, StateHistory};
+use self::history::{ConsistencySetup, History, StateHistory};
 use self::resources::Resources;
 use self::revision::Revision;
 
@@ -37,16 +37,8 @@ impl State {
     }
 
     /// Record a change for this state from a given controller.
-    pub fn push_change(&mut self, change: Change) -> Revision {
+    pub fn push_change(&mut self, change: Change) {
         self.states.add_change(change)
-    }
-
-    /// Record changes for this state.
-    pub fn push_changes(&mut self, changes: impl IntoIterator<Item = Change>) -> Revision {
-        for change in changes {
-            self.push_change(change);
-        }
-        self.max_revision()
     }
 
     /// Get the maximum revision for this change.

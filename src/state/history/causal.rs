@@ -40,7 +40,7 @@ impl CausalHistory {
 }
 
 impl History for CausalHistory {
-    fn add_change(&mut self, change: Change) -> Revision {
+    fn add_change(&mut self, change: Change) {
         let mut new_state = self.state_at(change.revision.clone());
 
         let max_rev = self
@@ -79,8 +79,6 @@ impl History for CausalHistory {
                 concurrent,
             }));
         }
-
-        self.max_revision()
     }
 
     fn max_revision(&self) -> Revision {

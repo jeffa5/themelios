@@ -21,7 +21,7 @@ impl MonotonicSessionHistory {
 }
 
 impl History for MonotonicSessionHistory {
-    fn add_change(&mut self, change: Change) -> Revision {
+    fn add_change(&mut self, change: Change) {
         let mut new_state = (**self.states.last().unwrap()).clone();
         let new_revision = self.max_revision().increment();
         if new_state.apply_operation(change.operation, new_revision) {
@@ -31,7 +31,6 @@ impl History for MonotonicSessionHistory {
             // operation did not succeed, however client state may have changed so just return the
             // max revision still
         }
-        self.max_revision()
     }
 
     fn max_revision(&self) -> Revision {
