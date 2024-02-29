@@ -11,7 +11,7 @@ use themelios::report::StdoutReporter;
 use tracing::info;
 
 macro_rules! test_table {
-    { $globalname:ident, $name:ident($consistency:expr, $controllers:expr) } => {
+    { $globalname:ident, $name:ident($consistency:expr, $controllers:expr), } => {
         paste::item! {
             #[test_log::test]
             fn [< $globalname _ $name >]() {
@@ -20,13 +20,32 @@ macro_rules! test_table {
             }
         }
     };
-    { $global_name:ident, $name:ident($consistency:expr, $controllers:expr), $($x:ident($y:expr, $z:expr)),+ } => {
-        test_table! { $global_name, $name($consistency, $controllers) }
-        test_table! { $global_name, $($x($y, $z)),+ }
+    { $global_name:ident, $name:ident($consistency:expr, $controllers:expr), $($x:ident($y:expr, $z:expr)),+, } => {
+        test_table! { $global_name, $name($consistency, $controllers), }
+        test_table! { $global_name, $($x($y, $z)),+, }
     }
 }
 
+macro_rules! test_table_panic {
+    { $globalname:ident, $name:ident($consistency:expr, $controllers:expr), } => {
+        paste::item! {
+            #[test_log::test]
+            #[should_panic]
+            fn [< $globalname _ $name >]() {
+                let model = $globalname($consistency, $controllers);
+                run(model, function_name!())
+            }
+        }
+    };
+    { $global_name:ident, $name:ident($consistency:expr, $controllers:expr), $($x:ident($y:expr, $z:expr)),+, } => {
+        test_table_panic! { $global_name, $name($consistency, $controllers), }
+        test_table_panic! { $global_name, $($x($y, $z)),+, }
+    }
+}
+
+
 pub(crate) use test_table;
+pub(crate) use test_table_panic;
 
 pub fn run(model: OrchestrationModelCfg, fn_name: &str) {
     println!("Running test {:?}", fn_name);

@@ -1,5 +1,6 @@
 use common::run;
 use common::test_table;
+use common::test_table_panic;
 use std::collections::BTreeMap;
 use stdext::function_name;
 use themelios::controller::deployment::LAST_APPLIED_CONFIG_ANNOTATION;
@@ -90,9 +91,13 @@ test_table! {
     monotonic_session_1(ConsistencySetup::MonotonicSession, 1),
     monotonic_session_2(ConsistencySetup::MonotonicSession, 2),
     resettable_session_1(ConsistencySetup::ResettableSession, 1),
-    resettable_session_2(ConsistencySetup::ResettableSession, 2),
     causal_1(ConsistencySetup::Causal, 1),
-    causal_2(ConsistencySetup::Causal, 2)
+}
+
+test_table_panic! {
+    test_new_deployment,
+    resettable_session_2(ConsistencySetup::ResettableSession, 2),
+    causal_2(ConsistencySetup::Causal, 2),
 }
 
 // TestDeploymentRollingUpdate
@@ -134,9 +139,13 @@ test_table! {
     monotonic_session_1(ConsistencySetup::MonotonicSession, 1),
     monotonic_session_2(ConsistencySetup::MonotonicSession, 2),
     resettable_session_1(ConsistencySetup::ResettableSession, 1),
-    resettable_session_2(ConsistencySetup::ResettableSession, 2),
     causal_1(ConsistencySetup::Causal, 1),
-    causal_2(ConsistencySetup::Causal, 2)
+}
+
+test_table_panic! {
+    test_deployment_rolling_update,
+    resettable_session_2(ConsistencySetup::ResettableSession, 2),
+    causal_2(ConsistencySetup::Causal, 2),
 }
 
 // TestPausedDeployment
@@ -165,9 +174,13 @@ test_table! {
     monotonic_session_1(ConsistencySetup::MonotonicSession, 1),
     monotonic_session_2(ConsistencySetup::MonotonicSession, 2),
     resettable_session_1(ConsistencySetup::ResettableSession, 1),
-    resettable_session_2(ConsistencySetup::ResettableSession, 2),
     causal_1(ConsistencySetup::Causal, 1),
-    causal_2(ConsistencySetup::Causal, 2)
+}
+
+test_table_panic! {
+    test_paused_deployment,
+    resettable_session_2(ConsistencySetup::ResettableSession, 2),
+    causal_2(ConsistencySetup::Causal, 2),
 }
 
 // TESTS TO DO
