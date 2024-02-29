@@ -45,7 +45,10 @@ pub fn run(model: OrchestrationModelCfg, fn_name: &str) {
 fn check(model: OrchestrationModelCfg, test_name: &str) {
     println!("Checking model");
     let am = model.into_abstract_model();
-    let report_path = PathBuf::from(format!("testout/{test_name}.csv"));
+    let report_path =
+        PathBuf::from(std::env::var("MCO_REPORT_PATH").unwrap_or_else(|_| "testout".to_owned()));
+    let report_file = format!("{test_name}.csv");
+    let report_path = report_path.join(report_file);
     let mut reporter = JointReporter {
         reporters: vec![
             Box::new(StdoutReporter::new(&am)),
