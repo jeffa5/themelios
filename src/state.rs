@@ -241,15 +241,22 @@ impl DerefMut for StateView {
 }
 
 impl StateView {
-    pub fn apply_operation(&mut self, operation: ControllerAction, new_revision: Revision) {
+    /// Apply the operation to the state, using the new revision.
+    ///
+    /// On success it applies the new revision and returns true.
+    /// On failure it does nothing and returns false.
+    #[must_use]
+    pub fn apply_operation(&mut self, operation: ControllerAction, new_revision: Revision) -> bool {
         let mut s = self.clone();
         match s.apply_operation_inner(operation, new_revision.clone()) {
             Ok(()) => {
                 s.revision = new_revision;
                 *self = s;
+                true
             }
             Err(()) => {
                 // don't update our self, basically abort the transaction so no changes
+                false
             }
         }
     }

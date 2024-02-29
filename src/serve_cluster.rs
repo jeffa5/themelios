@@ -121,7 +121,9 @@ async fn controller_loop<C: Controller>(state: AppState, controller: C, shutdown
         if let Some(operation) = controller.step(&s, &mut cstate) {
             info!(name = controller.name(), "Got operation to perform");
             let revision = s.revision.clone();
-            s.apply_operation(operation.into(), revision.increment());
+            if !s.apply_operation(operation.into(), revision.increment()) {
+                warn!(name = controller.name(), "Failed to apply operation");
+            }
         }
         last_revision = s.revision.clone();
         debug!(name = controller.name(), "Finished processing step");

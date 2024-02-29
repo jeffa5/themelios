@@ -51,34 +51,34 @@ impl History for CausalHistory {
             .revision
             .clone()
             .increment();
-        new_state.apply_operation(change.operation, max_rev);
+        if new_state.apply_operation(change.operation, max_rev) {
+            // find the dependencies of the change
+            let predecessors = change.revision.components().to_owned();
+            let new_index = self.states.len();
 
-        // find the dependencies of the change
-        let predecessors = change.revision.components().to_owned();
-        let new_index = self.states.len();
+            let concurrent = self.concurrent_many(&predecessors).collect::<BTreeSet<_>>();
+            for &c in &concurrent {
+                Arc::make_mut(&mut self.states[c])
+                    .concurrent
+                    .insert(new_index);
+            }
 
-        let concurrent = self.concurrent_many(&predecessors).collect::<BTreeSet<_>>();
-        for &c in &concurrent {
-            Arc::make_mut(&mut self.states[c])
-                .concurrent
-                .insert(new_index);
+            for &p in &predecessors {
+                Arc::make_mut(&mut self.states[p])
+                    .successors
+                    .push(new_index);
+                self.heads.remove(&p);
+            }
+
+            self.heads.insert(new_index);
+
+            self.states.push_back(Arc::new(CausalState {
+                state: new_state,
+                predecessors,
+                successors: Vec::new(),
+                concurrent,
+            }));
         }
-
-        for &p in &predecessors {
-            Arc::make_mut(&mut self.states[p])
-                .successors
-                .push(new_index);
-            self.heads.remove(&p);
-        }
-
-        self.heads.insert(new_index);
-
-        self.states.push_back(Arc::new(CausalState {
-            state: new_state,
-            predecessors,
-            successors: Vec::new(),
-            concurrent,
-        }));
 
         self.max_revision()
     }

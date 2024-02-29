@@ -24,8 +24,9 @@ impl History for ResettableSessionHistory {
     fn add_change(&mut self, change: Change) -> Revision {
         let mut new_state = (**self.states.last().unwrap()).clone();
         let new_revision = self.max_revision().increment();
-        new_state.apply_operation(change.operation, new_revision);
-        self.states.push_back(Arc::new(new_state));
+        if new_state.apply_operation(change.operation, new_revision) {
+            self.states.push_back(Arc::new(new_state));
+        }
         self.max_revision()
     }
 

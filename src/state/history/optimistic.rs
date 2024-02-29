@@ -35,24 +35,24 @@ impl History for OptimisticLinearHistory {
             .unwrap();
         let mut new_state = (*self.states[index]).clone();
         let new_revision = self.max_revision().increment();
-        new_state.apply_operation(change.operation, new_revision);
-
-        if index + 1 == self.states.len() {
-            // this was a mutation on the optimistic state
-            if self.states.len() > self.commit_every {
-                // we have triggered a commit point, the last state is now the committed one
-                self.states.clear();
+        if new_state.apply_operation(change.operation, new_revision) {
+            if index + 1 == self.states.len() {
+                // this was a mutation on the optimistic state
+                if self.states.len() > self.commit_every {
+                    // we have triggered a commit point, the last state is now the committed one
+                    self.states.clear();
+                } else {
+                    // we haven't reached a guaranteed commit yet, just extend the current states
+                }
+                self.states.push(Arc::new(new_state));
             } else {
-                // we haven't reached a guaranteed commit yet, just extend the current states
+                // this was a mutation on a committed state (leader changed)
+                // Discard all states before and after this one
+                let committed_state = self.states.swap_remove(index);
+                self.states.clear();
+                self.states.push(committed_state);
+                self.states.push(Arc::new(new_state));
             }
-            self.states.push(Arc::new(new_state));
-        } else {
-            // this was a mutation on a committed state (leader changed)
-            // Discard all states before and after this one
-            let committed_state = self.states.swap_remove(index);
-            self.states.clear();
-            self.states.push(committed_state);
-            self.states.push(Arc::new(new_state));
         }
 
         self.max_revision()
