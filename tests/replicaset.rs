@@ -54,7 +54,10 @@ fn new_replicaset(name: &str, _namespace: &str, replicas: u32) -> ReplicaSet {
 }
 
 // TestSpecReplicasChange
-fn test_spec_replicas_change(consistency: ConsistencySetup, controllers: usize) {
+fn test_spec_replicas_change(
+    consistency: ConsistencySetup,
+    controllers: usize,
+) -> OrchestrationModelCfg {
     let mut replicaset = new_replicaset("test-spec-replicas-change", "", 2);
 
     replicaset
@@ -62,8 +65,7 @@ fn test_spec_replicas_change(consistency: ConsistencySetup, controllers: usize) 
         .annotations
         .insert("test".to_owned(), "should-copy-to-replica-set".to_owned());
 
-    let m = model([replicaset], consistency, controllers);
-    run(m, function_name!())
+    model([replicaset], consistency, controllers)
 }
 
 test_table! {
@@ -79,12 +81,14 @@ test_table! {
 }
 
 // TestOverlappingRSs
-fn test_overlapping_rss(consistency: ConsistencySetup, controllers: usize) {
+fn test_overlapping_rss(
+    consistency: ConsistencySetup,
+    controllers: usize,
+) -> OrchestrationModelCfg {
     let replicaset_1 = new_replicaset("test-overlapping-rss-1", "", 1);
     let replicaset_2 = new_replicaset("test-overlapping-rss-2", "", 2);
 
-    let m = model([replicaset_1, replicaset_2], consistency, controllers);
-    run(m, function_name!())
+    model([replicaset_1, replicaset_2], consistency, controllers)
 }
 
 test_table! {

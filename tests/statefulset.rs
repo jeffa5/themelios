@@ -70,7 +70,10 @@ test_table! {
 }
 
 // TestSpecReplicasChange
-fn test_spec_replicas_change(consistency: ConsistencySetup, controllers: usize) {
+fn test_spec_replicas_change(
+    consistency: ConsistencySetup,
+    controllers: usize,
+) -> OrchestrationModelCfg {
     let mut statefulset = new_statefulset("test-spec-replicas-change", "", 2);
 
     statefulset
@@ -78,9 +81,8 @@ fn test_spec_replicas_change(consistency: ConsistencySetup, controllers: usize) 
         .annotations
         .insert("test".to_owned(), "should-copy-to-replica-set".to_owned());
 
-    let m = model([statefulset], 1, consistency, controllers);
+    model([statefulset], 1, consistency, controllers)
     // TODO: fix up what this test is supposed to be doing
-    run(m, function_name!())
 }
 
 test_table! {
@@ -96,11 +98,13 @@ test_table! {
 }
 
 // TestStatefulSetAvailable
-fn test_statefulset_available(consistency: ConsistencySetup, controllers: usize) {
+fn test_statefulset_available(
+    consistency: ConsistencySetup,
+    controllers: usize,
+) -> OrchestrationModelCfg {
     let statefulset = new_statefulset("sts", "", 4);
-    let m = model([statefulset], 1, consistency, controllers);
+    model([statefulset], 1, consistency, controllers)
     // TODO: fix up what this test is supposed to be doing
-    run(m, function_name!())
 }
 
 test_table! {
@@ -116,7 +120,7 @@ test_table! {
 }
 
 // https://github.com/kubernetes/kubernetes/issues/59848
-fn test_stale_reads(consistency: ConsistencySetup, controllers: usize) {
+fn test_stale_reads(consistency: ConsistencySetup, controllers: usize) -> OrchestrationModelCfg {
     let statefulset = new_statefulset("stale-reads", "", 1);
     let mut m = model([statefulset], 2, consistency, controllers);
     m.initial_state.set_pods(std::iter::once(Pod {
@@ -125,7 +129,7 @@ fn test_stale_reads(consistency: ConsistencySetup, controllers: usize) {
         status: Default::default(),
     }));
     m.consistency_level = ConsistencySetup::ResettableSession;
-    run(m, function_name!())
+    m
 }
 
 // TESTS TO DO

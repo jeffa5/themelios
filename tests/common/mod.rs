@@ -15,7 +15,8 @@ macro_rules! test_table {
         paste::item! {
             #[test_log::test]
             fn [< $globalname _ $name >]() {
-                $globalname($consistency, $controllers)
+                let model = $globalname($consistency, $controllers);
+                run(model, function_name!())
             }
         }
     };

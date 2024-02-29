@@ -62,7 +62,7 @@ fn new_deployment(name: &str, _namespace: &str, replicas: u32) -> Deployment {
 }
 
 // TestNewDeployment
-fn test_new_deployment(consistency: ConsistencySetup, controllers: usize) {
+fn test_new_deployment(consistency: ConsistencySetup, controllers: usize) -> OrchestrationModelCfg {
     // initial state: deployment with some annotations, 2 replicas, another controller that marks pods as ready immediately
     // eventually: deployment completes when pods are marked ready
     // eventually: new replicaset is created
@@ -80,8 +80,7 @@ fn test_new_deployment(consistency: ConsistencySetup, controllers: usize) {
         "should-not-copy-to-replica-set".to_owned(),
     );
 
-    let m = model([deployment], consistency, controllers);
-    run(m, function_name!())
+    model([deployment], consistency, controllers)
 }
 
 test_table! {
@@ -97,7 +96,10 @@ test_table! {
 }
 
 // TestDeploymentRollingUpdate
-fn test_deployment_rolling_update(consistency: ConsistencySetup, controllers: usize) {
+fn test_deployment_rolling_update(
+    consistency: ConsistencySetup,
+    controllers: usize,
+) -> OrchestrationModelCfg {
     // initial state: deployment with some annotations, 2 replicas, another controller that marks pods as ready immediately
     // eventually: deployment completes when pods are marked ready
     // eventually: old replicasets have no pods
@@ -122,8 +124,7 @@ fn test_deployment_rolling_update(consistency: ConsistencySetup, controllers: us
         }),
     });
 
-    let m = model([deployment], consistency, controllers);
-    run(m, function_name!())
+    model([deployment], consistency, controllers)
 }
 
 test_table! {
@@ -139,7 +140,10 @@ test_table! {
 }
 
 // TestPausedDeployment
-fn test_paused_deployment(consistency: ConsistencySetup, controllers: usize) {
+fn test_paused_deployment(
+    consistency: ConsistencySetup,
+    controllers: usize,
+) -> OrchestrationModelCfg {
     // initial state: deployment with some annotations, 2 replicas, another controller that marks pods as ready immediately
     // always: no replicasets are created
     let name = "test-paused-deployment";
@@ -151,8 +155,7 @@ fn test_paused_deployment(consistency: ConsistencySetup, controllers: usize) {
         .spec
         .termination_grace_period_seconds = Some(1);
 
-    let m = model([deployment], consistency, controllers);
-    run(m, function_name!())
+    model([deployment], consistency, controllers)
 }
 
 test_table! {

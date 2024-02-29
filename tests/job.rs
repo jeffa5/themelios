@@ -53,10 +53,12 @@ fn new_job(name: &str, _namespace: &str) -> Job {
 }
 
 // TestNonParallelJob
-fn test_non_parallel_job(consistency: ConsistencySetup, controllers: usize) {
+fn test_non_parallel_job(
+    consistency: ConsistencySetup,
+    controllers: usize,
+) -> OrchestrationModelCfg {
     let job = new_job("simple", "");
-    let m = model([job], consistency, controllers);
-    run(m, function_name!())
+    model([job], consistency, controllers)
 }
 
 test_table! {
@@ -72,11 +74,10 @@ test_table! {
 }
 
 // TestParallelJob
-fn test_parallel_job(consistency: ConsistencySetup, controllers: usize) {
+fn test_parallel_job(consistency: ConsistencySetup, controllers: usize) -> OrchestrationModelCfg {
     let mut job = new_job("simple", "");
     job.spec.parallelism = 5;
-    let m = model([job], consistency, controllers);
-    run(m, function_name!())
+    model([job], consistency, controllers)
 }
 
 test_table! {
