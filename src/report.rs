@@ -187,6 +187,7 @@ where
                 data.done.to_string(),
             ])
             .unwrap();
+        self.writer.flush().unwrap();
     }
 
     fn report_discoveries(
