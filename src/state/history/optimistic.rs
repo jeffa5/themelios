@@ -60,15 +60,15 @@ impl History for OptimisticLinearHistory {
         self.states.last().unwrap().revision.clone()
     }
 
-    fn state_at(&self, revision: Revision) -> StateView {
+    fn state_at(&self, revision: &Revision) -> StateView {
         let index = self
             .states
-            .binary_search_by_key(&&revision, |s| &s.revision)
+            .binary_search_by_key(&revision, |s| &s.revision)
             .unwrap();
         (*self.states[index]).clone()
     }
 
-    fn valid_revisions(&self, _min_revision: Revision) -> Vec<Revision> {
+    fn valid_revisions(&self, _min_revision: &Revision) -> Vec<Revision> {
         self.states.iter().map(|s| s.revision.clone()).collect()
     }
 }

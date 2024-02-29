@@ -113,8 +113,8 @@ impl Controller for StatefulSetController {
         "StatefulSet".to_owned()
     }
 
-    fn min_revision_accepted(&self, state: &Self::State) -> Revision {
-        state.revision.clone()
+    fn min_revision_accepted<'a>(&self, state: &'a Self::State) -> &'a Revision {
+        &state.revision
     }
 }
 

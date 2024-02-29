@@ -47,12 +47,12 @@ impl State {
     }
 
     /// Get a view for a specific revision in the change history.
-    pub fn view_at(&self, revision: Revision) -> StateView {
+    pub fn view_at(&self, revision: &Revision) -> StateView {
         self.states.state_at(revision)
     }
 
     /// Get all the possible views under the given consistency level.
-    pub fn views(&self, min_revision: Revision) -> Vec<StateView> {
+    pub fn views(&self, min_revision: &Revision) -> Vec<StateView> {
         self.states.states_for(min_revision)
     }
 
@@ -69,7 +69,7 @@ impl State {
     }
 
     pub fn latest(&self) -> StateView {
-        self.states.state_at(self.max_revision())
+        self.states.state_at(&self.max_revision())
     }
 }
 

@@ -41,7 +41,7 @@ impl CausalHistory {
 
 impl History for CausalHistory {
     fn add_change(&mut self, change: Change) {
-        let mut new_state = self.state_at(change.revision.clone());
+        let mut new_state = self.state_at(&change.revision);
 
         let max_rev = self
             .states
@@ -86,15 +86,15 @@ impl History for CausalHistory {
         Revision::from(indices)
     }
 
-    fn state_at(&self, revision: Revision) -> StateView {
+    fn state_at(&self, revision: &Revision) -> StateView {
         let state_indices = revision.components();
         let merged_states = self.build_state(state_indices);
-        assert_eq!(revision, merged_states.revision);
+        assert_eq!(revision, &merged_states.revision);
         merged_states
     }
 
-    fn valid_revisions(&self, min_revision: Revision) -> Vec<Revision> {
-        if min_revision == Revision::default() {
+    fn valid_revisions(&self, min_revision: &Revision) -> Vec<Revision> {
+        if min_revision == &Revision::default() {
             // for a new requester who doesn't have a session we give them a head state, e.g. they
             // have connected to a single node of the datastore and can find that nodes latest
             // state, or any combination of those with concurrent merges.

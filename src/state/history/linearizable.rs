@@ -33,12 +33,12 @@ impl History for LinearizableHistory {
         self.states.last().unwrap().revision.clone()
     }
 
-    fn state_at(&self, revision: Revision) -> StateView {
+    fn state_at(&self, revision: &Revision) -> StateView {
         let index = revision.components().first().unwrap();
         (*self.states[*index]).clone()
     }
 
-    fn valid_revisions(&self, _min_revision: Revision) -> Vec<Revision> {
+    fn valid_revisions(&self, _min_revision: &Revision) -> Vec<Revision> {
         vec![self.max_revision()]
     }
 }

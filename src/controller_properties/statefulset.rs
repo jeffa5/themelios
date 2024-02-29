@@ -20,7 +20,7 @@ impl ControllerProperties for StatefulSetController {
                     .iter()
                     .filter(|r| r.status.observed_revision != Revision::default())
                     .all(|sts| {
-                        let observed_revision = sts.status.observed_revision.clone();
+                        let observed_revision = &sts.status.observed_revision;
                         let observed = state.view_at(observed_revision);
                         let pod_count = observed.pods.matching(&sts.spec.selector).count() as u32;
                         let stable = s.resource_stable(sts);
@@ -37,7 +37,7 @@ impl ControllerProperties for StatefulSetController {
                     .iter()
                     .filter(|r| r.status.observed_revision != Revision::default())
                     .all(|sts| {
-                        let observed_revision = sts.status.observed_revision.clone();
+                        let observed_revision = &sts.status.observed_revision;
                         let observed = state.view_at(observed_revision);
                         let pod_count = observed
                             .pods
@@ -58,7 +58,7 @@ impl ControllerProperties for StatefulSetController {
                     .iter()
                     .filter(|r| r.status.observed_revision != Revision::default())
                     .all(|sts| {
-                        let observed_revision = sts.status.observed_revision.clone();
+                        let observed_revision = &sts.status.observed_revision;
                         let observed = state.view_at(observed_revision);
                         let pod_count = observed
                             .pods
@@ -80,7 +80,7 @@ impl ControllerProperties for StatefulSetController {
                     .iter()
                     .filter(|r| r.status.observed_revision != Revision::default())
                     .all(|sts| {
-                        let observed_revision = sts.status.observed_revision.clone();
+                        let observed_revision = &sts.status.observed_revision;
                         let observed = state.view_at(observed_revision);
                         let mut ordinals = observed
                             .pods
