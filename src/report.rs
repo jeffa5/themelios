@@ -158,10 +158,16 @@ pub struct CSVReporter {
     writer: csv::Writer<File>,
     consistency: ConsistencySetup,
     controllers: usize,
+    function: String,
 }
 
 impl CSVReporter {
-    pub fn new(path: &Path, consistency: ConsistencySetup, controllers: usize) -> Self {
+    pub fn new(
+        path: &Path,
+        consistency: ConsistencySetup,
+        controllers: usize,
+        function: String,
+    ) -> Self {
         let mut writer = csv::Writer::from_path(path).unwrap();
         writer
             .write_record([
@@ -172,12 +178,14 @@ impl CSVReporter {
                 "done",
                 "consistency",
                 "controllers",
+                "function",
             ])
             .unwrap();
         Self {
             writer,
             consistency,
             controllers,
+            function,
         }
     }
 }
@@ -196,6 +204,7 @@ where
                 data.done.to_string(),
                 self.consistency.to_string(),
                 self.controllers.to_string(),
+                self.function.to_owned(),
             ])
             .unwrap();
         self.writer.flush().unwrap();

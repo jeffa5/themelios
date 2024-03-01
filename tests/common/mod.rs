@@ -62,6 +62,8 @@ pub fn run(model: OrchestrationModelCfg, fn_name: &str) {
 
 fn check(model: OrchestrationModelCfg, test_name: &str) {
     println!("Checking model");
+    let consistency = model.consistency_level.clone();
+    let controllers = model.nodes;
     let am = model.into_abstract_model();
     let report_path =
         PathBuf::from(std::env::var("MCO_REPORT_PATH").unwrap_or_else(|_| "testout".to_owned()));
@@ -70,7 +72,12 @@ fn check(model: OrchestrationModelCfg, test_name: &str) {
     let mut reporter = JointReporter {
         reporters: vec![
             Box::new(StdoutReporter::new(&am)),
-            Box::new(CSVReporter::new(&report_path)),
+            Box::new(CSVReporter::new(
+                &report_path,
+                consistency,
+                controllers,
+                test_name.to_owned(),
+            )),
         ],
     };
     let checker = am
