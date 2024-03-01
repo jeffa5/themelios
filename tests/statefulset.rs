@@ -128,7 +128,6 @@ fn test_stale_reads(consistency: ConsistencySetup, controllers: usize) -> Orches
         spec: PodSpec::default(),
         status: Default::default(),
     }));
-    m.consistency_level = ConsistencySetup::ResettableSession;
     m
 }
 
