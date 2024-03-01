@@ -48,7 +48,7 @@ pub struct JobController;
 
 #[derive(Debug, Default, Hash, Clone, PartialEq, Eq)]
 pub struct JobControllerState {
-    revision: Revision,
+    revision: Option<Revision>,
 }
 
 #[derive(Debug, Hash, Clone, PartialEq, Eq)]
@@ -90,7 +90,7 @@ impl Controller for JobController {
         global_state: &StateView,
         local_state: &mut Self::State,
     ) -> Option<Self::Action> {
-        local_state.revision = global_state.revision.clone();
+        local_state.revision = Some(global_state.revision.clone());
         for job in global_state.jobs.iter() {
             let mut pods = global_state
                 .pods
@@ -109,8 +109,8 @@ impl Controller for JobController {
         "Job".to_owned()
     }
 
-    fn min_revision_accepted<'a>(&self, state: &'a Self::State) -> &'a Revision {
-        &state.revision
+    fn min_revision_accepted<'a>(&self, state: &'a Self::State) -> Option<&'a Revision> {
+        state.revision.as_ref()
     }
 }
 

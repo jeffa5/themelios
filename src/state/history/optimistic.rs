@@ -68,7 +68,7 @@ impl History for OptimisticLinearHistory {
         (*self.states[index]).clone()
     }
 
-    fn valid_revisions(&self, _min_revision: &Revision) -> Vec<Revision> {
+    fn valid_revisions(&self, _min_revision: Option<&Revision>) -> Vec<Revision> {
         self.states.iter().map(|s| s.revision.clone()).collect()
     }
 }

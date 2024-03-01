@@ -30,7 +30,7 @@ pub struct ReplicaSetController;
 
 #[derive(Debug, Default, Hash, Clone, PartialEq, Eq)]
 pub struct ReplicaSetControllerState {
-    revision: Revision,
+    revision: Option<Revision>,
 }
 
 #[derive(Debug, Hash, Clone, PartialEq, Eq)]
@@ -63,7 +63,7 @@ impl Controller for ReplicaSetController {
         global_state: &StateView,
         local_state: &mut Self::State,
     ) -> Option<Self::Action> {
-        local_state.revision = global_state.revision.clone();
+        local_state.revision = Some(global_state.revision.clone());
         for replicaset in global_state.replicasets.iter() {
             let pods = global_state.pods.iter().collect::<Vec<_>>();
             if let Some(op) = reconcile(replicaset, &pods, &global_state.revision) {
@@ -77,8 +77,8 @@ impl Controller for ReplicaSetController {
         "ReplicaSet".to_owned()
     }
 
-    fn min_revision_accepted<'a>(&self, state: &'a Self::State) -> &'a Revision {
-        &state.revision
+    fn min_revision_accepted<'a>(&self, state: &'a Self::State) -> Option<&'a Revision> {
+        state.revision.as_ref()
     }
 }
 

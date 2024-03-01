@@ -82,7 +82,7 @@ pub struct DeploymentController;
 
 #[derive(Debug, Default, Hash, Clone, PartialEq, Eq)]
 pub struct DeploymentControllerState {
-    revision: Revision,
+    revision: Option<Revision>,
 }
 
 #[derive(Debug)]
@@ -137,7 +137,7 @@ impl Controller for DeploymentController {
         global_state: &StateView,
         local_state: &mut Self::State,
     ) -> Option<DeploymentControllerAction> {
-        local_state.revision = global_state.revision.clone();
+        local_state.revision = Some(global_state.revision.clone());
         for deployment in global_state.deployments.iter() {
             let replicasets = global_state.replicasets.iter().collect::<Vec<_>>();
             let pod_map = BTreeMap::new();
@@ -153,8 +153,8 @@ impl Controller for DeploymentController {
         "Deployment".to_owned()
     }
 
-    fn min_revision_accepted<'a>(&self, state: &'a Self::State) -> &'a Revision {
-        &state.revision
+    fn min_revision_accepted<'a>(&self, state: &'a Self::State) -> Option<&'a Revision> {
+        state.revision.as_ref()
     }
 }
 

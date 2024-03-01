@@ -52,7 +52,7 @@ impl State {
     }
 
     /// Get all the possible views under the given consistency level.
-    pub fn views(&self, min_revision: &Revision) -> Vec<StateView> {
+    pub fn views(&self, min_revision: Option<&Revision>) -> Vec<StateView> {
         self.states.states_for(min_revision)
     }
 

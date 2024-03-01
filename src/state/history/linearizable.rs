@@ -38,7 +38,7 @@ impl History for LinearizableHistory {
         (*self.states[*index]).clone()
     }
 
-    fn valid_revisions(&self, _min_revision: &Revision) -> Vec<Revision> {
+    fn valid_revisions(&self, _min_revision: Option<&Revision>) -> Vec<Revision> {
         vec![self.max_revision()]
     }
 }

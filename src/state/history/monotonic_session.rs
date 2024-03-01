@@ -42,17 +42,17 @@ impl History for MonotonicSessionHistory {
         (*self.states[*index]).clone()
     }
 
-    fn valid_revisions(&self, min_revision: &Revision) -> Vec<Revision> {
-        if min_revision == &Revision::default() {
-            // for a new requester who doesn't have a session we give them the latest (a quorum
-            // read sort of thing)
-            vec![self.max_revision()]
-        } else {
+    fn valid_revisions(&self, min_revision: Option<&Revision>) -> Vec<Revision> {
+        if let Some(min_revision) = min_revision {
             self.states
                 .iter()
                 .filter(|s| &s.revision > min_revision)
                 .map(|s| s.revision.clone())
                 .collect()
+        } else {
+            // for a new requester who doesn't have a session we give them the latest (a quorum
+            // read sort of thing)
+            vec![self.max_revision()]
         }
     }
 }

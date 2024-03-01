@@ -40,7 +40,7 @@ pub trait Controller {
     fn name(&self) -> String;
 
     /// The minimum revision that this controller will accept state at.
-    fn min_revision_accepted<'a>(&self, state: &'a Self::State) -> &'a Revision;
+    fn min_revision_accepted<'a>(&self, state: &'a Self::State) -> Option<&'a Revision>;
 }
 
 #[derive(Clone, Debug)]
@@ -119,7 +119,7 @@ impl Controller for Controllers {
         }
     }
 
-    fn min_revision_accepted<'a>(&self, state: &'a Self::State) -> &'a Revision {
+    fn min_revision_accepted<'a>(&self, state: &'a Self::State) -> Option<&'a Revision> {
         match (self, state) {
             (Controllers::Node(c), ControllerStates::Node(s)) => c.min_revision_accepted(s),
             (Controllers::Scheduler(c), ControllerStates::Scheduler(s)) => {

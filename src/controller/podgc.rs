@@ -11,7 +11,7 @@ pub struct PodGCController;
 
 #[derive(Debug, Default, Hash, Clone, PartialEq, Eq)]
 pub struct PodGCControllerState {
-    revision: Revision,
+    revision: Option<Revision>,
 }
 
 #[derive(Debug)]
@@ -37,7 +37,7 @@ impl Controller for PodGCController {
         global_state: &StateView,
         local_state: &mut Self::State,
     ) -> Option<Self::Action> {
-        local_state.revision = global_state.revision.clone();
+        local_state.revision = Some(global_state.revision.clone());
         for pod in global_state.pods.iter() {
             // PodGC cleans up any Pods which satisfy any of the following conditions:
             // - are orphan Pods - bound to a node which no longer exists,
@@ -59,7 +59,7 @@ impl Controller for PodGCController {
         "PodGC".to_owned()
     }
 
-    fn min_revision_accepted<'a>(&self, state: &'a Self::State) -> &'a Revision {
-        &state.revision
+    fn min_revision_accepted<'a>(&self, state: &'a Self::State) -> Option<&'a Revision> {
+        state.revision.as_ref()
     }
 }

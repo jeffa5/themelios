@@ -29,7 +29,7 @@ pub struct StatefulSetController;
 
 #[derive(Debug, Default, Hash, Clone, PartialEq, Eq)]
 pub struct StatefulSetControllerState {
-    revision: Revision,
+    revision: Option<Revision>,
 }
 
 #[derive(Debug)]
@@ -88,7 +88,7 @@ impl Controller for StatefulSetController {
         global_state: &StateView,
         local_state: &mut Self::State,
     ) -> Option<StatefulSetControllerAction> {
-        local_state.revision = global_state.revision.clone();
+        local_state.revision = Some(global_state.revision.clone());
         for statefulset in global_state.statefulsets.iter() {
             let pods = global_state.pods.iter().collect::<Vec<_>>();
             let revisions = global_state.controller_revisions.iter().collect::<Vec<_>>();
@@ -113,8 +113,8 @@ impl Controller for StatefulSetController {
         "StatefulSet".to_owned()
     }
 
-    fn min_revision_accepted<'a>(&self, state: &'a Self::State) -> &'a Revision {
-        &state.revision
+    fn min_revision_accepted<'a>(&self, state: &'a Self::State) -> Option<&'a Revision> {
+        state.revision.as_ref()
     }
 }
 

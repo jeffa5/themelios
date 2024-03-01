@@ -11,7 +11,7 @@ pub struct SchedulerController;
 
 #[derive(Debug, Default, Hash, Clone, PartialEq, Eq)]
 pub struct SchedulerControllerState {
-    revision: Revision,
+    revision: Option<Revision>,
 }
 
 #[derive(Debug)]
@@ -37,7 +37,7 @@ impl Controller for SchedulerController {
         global_state: &StateView,
         local_state: &mut Self::State,
     ) -> Option<SchedulerControllerAction> {
-        local_state.revision = global_state.revision.clone();
+        local_state.revision = Some(global_state.revision.clone());
         let mut nodes = global_state
             .nodes
             .iter()
@@ -68,8 +68,8 @@ impl Controller for SchedulerController {
         "Scheduler".to_owned()
     }
 
-    fn min_revision_accepted<'a>(&self, state: &'a Self::State) -> &'a Revision {
-        &state.revision
+    fn min_revision_accepted<'a>(&self, state: &'a Self::State) -> Option<&'a Revision> {
+        state.revision.as_ref()
     }
 }
 

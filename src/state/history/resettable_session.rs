@@ -38,11 +38,15 @@ impl History for ResettableSessionHistory {
         (*self.states[*index]).clone()
     }
 
-    fn valid_revisions(&self, min_revision: &Revision) -> Vec<Revision> {
-        self.states
-            .iter()
-            .filter(|s| &s.revision > min_revision)
-            .map(|s| s.revision.clone())
-            .collect()
+    fn valid_revisions(&self, min_revision: Option<&Revision>) -> Vec<Revision> {
+        if let Some(min_revision) = min_revision {
+            self.states
+                .iter()
+                .filter(|s| &s.revision > min_revision)
+                .map(|s| s.revision.clone())
+                .collect()
+        } else {
+            self.states.iter().map(|s| s.revision.clone()).collect()
+        }
     }
 }

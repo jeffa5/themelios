@@ -16,7 +16,7 @@ pub struct NodeController {
 #[derive(Debug, Default, Hash, Clone, PartialEq, Eq)]
 pub struct NodeControllerState {
     pub running: Vec<String>,
-    revision: Revision,
+    revision: Option<Revision>,
 }
 
 #[derive(Debug)]
@@ -47,7 +47,7 @@ impl Controller for NodeController {
         global_state: &StateView,
         local_state: &mut Self::State,
     ) -> Option<NodeControllerAction> {
-        local_state.revision = global_state.revision.clone();
+        local_state.revision = Some(global_state.revision.clone());
         if let Some(_node) = global_state.nodes.get(&self.name) {
             let pods_for_this_node = global_state
                 .pods
@@ -111,7 +111,7 @@ impl Controller for NodeController {
         "Node".to_owned()
     }
 
-    fn min_revision_accepted<'a>(&self, state: &'a Self::State) -> &'a Revision {
-        &state.revision
+    fn min_revision_accepted<'a>(&self, state: &'a Self::State) -> Option<&'a Revision> {
+        state.revision.as_ref()
     }
 }
