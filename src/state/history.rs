@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use crate::abstract_model::Change;
 
 use self::{
@@ -39,6 +41,22 @@ pub enum ConsistencySetup {
     OptimisticLinear(usize),
     /// Apply changes to a causal graph.
     Causal,
+}
+
+impl Display for ConsistencySetup {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                ConsistencySetup::Linearizable => "linearizable",
+                ConsistencySetup::MonotonicSession => "monotonic-session",
+                ConsistencySetup::ResettableSession => "resettable-session",
+                ConsistencySetup::OptimisticLinear(_) => "optimistic-linear",
+                ConsistencySetup::Causal => "causal",
+            }
+        )
+    }
 }
 
 pub trait History {

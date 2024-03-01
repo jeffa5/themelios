@@ -1,3 +1,4 @@
+use crate::state::history::ConsistencySetup;
 use stateright::report::Reporter;
 use std::collections::BTreeMap;
 use std::fs::File;
@@ -155,10 +156,12 @@ fn property_holds(expectation: &Expectation, discovery: bool) -> bool {
 
 pub struct CSVReporter {
     writer: csv::Writer<File>,
+    consistency: ConsistencySetup,
+    controllers: usize,
 }
 
 impl CSVReporter {
-    pub fn new(path: &Path) -> Self {
+    pub fn new(path: &Path, consistency: ConsistencySetup, controllers: usize) -> Self {
         let mut writer = csv::Writer::from_path(path).unwrap();
         writer
             .write_record([
@@ -167,9 +170,15 @@ impl CSVReporter {
                 "max_depth",
                 "duration_ms",
                 "done",
+                "consistency",
+                "controllers",
             ])
             .unwrap();
-        Self { writer }
+        Self {
+            writer,
+            consistency,
+            controllers,
+        }
     }
 }
 
@@ -185,6 +194,8 @@ where
                 data.max_depth.to_string(),
                 data.duration.as_millis().to_string(),
                 data.done.to_string(),
+                self.consistency.to_string(),
+                self.controllers.to_string(),
             ])
             .unwrap();
         self.writer.flush().unwrap();
