@@ -1,8 +1,13 @@
 use stateright::Checker;
+use stateright::CheckerVisitor;
 use stateright::HasDiscoveries;
 use stateright::Model;
 use stateright::UniformChooser;
+use std::collections::BTreeMap;
+use std::path::Path;
 use std::path::PathBuf;
+use std::sync::atomic::AtomicU64;
+use std::sync::Arc;
 use std::time::Duration;
 use themelios::model::OrchestrationModelCfg;
 use themelios::report::CSVReporter;
@@ -65,10 +70,13 @@ fn check(model: OrchestrationModelCfg, test_name: &str) {
     let consistency = model.consistency_level.clone();
     let controllers = model.nodes;
     let am = model.into_abstract_model();
-    let report_path =
+    let report_dir =
         PathBuf::from(std::env::var("MCO_REPORT_PATH").unwrap_or_else(|_| "testout".to_owned()));
     let report_file = format!("{test_name}.csv");
-    let report_path = report_path.join(report_file);
+    let report_path = report_dir.join(report_file);
+    let max = 100;
+    let depths = DepthTracker::new(max);
+    let depths2 = depths.clone();
     let mut reporter = JointReporter {
         reporters: vec![
             Box::new(StdoutReporter::new(&am)),
@@ -82,10 +90,11 @@ fn check(model: OrchestrationModelCfg, test_name: &str) {
     };
     let checker = am
         .checker()
+        .terminal_visitor(depths)
         .threads(num_cpus::get())
         .finish_when(HasDiscoveries::AnyFailures)
-        .target_max_depth(100)
-        .timeout(Duration::from_secs(60));
+        .target_max_depth(max)
+        .timeout(Duration::from_secs(10));
     let check_mode = std::env::var("MCO_CHECK_MODE").unwrap_or_else(|_| String::new());
     #[allow(clippy::wildcard_in_or_patterns)]
     let check_result = match check_mode.as_str() {
@@ -105,6 +114,8 @@ fn check(model: OrchestrationModelCfg, test_name: &str) {
                 .check_properties()
         }
     };
+    let depth_file = format!("{test_name}-depths.csv");
+    depths2.to_csv(&report_dir.join(depth_file));
     if !check_result.iter().all(|(_, ok)| *ok) {
         panic!("Some properties failed");
     }
@@ -122,4 +133,47 @@ fn explore(model: OrchestrationModelCfg, mut path: String) {
     );
     let am = model.into_abstract_model();
     am.checker().serve((host, port));
+}
+
+#[derive(Clone, Debug)]
+struct DepthTracker {
+    depths: Arc<BTreeMap<usize, Arc<AtomicU64>>>,
+}
+
+impl DepthTracker {
+    fn new(max: usize) -> Self {
+        let mut depths = BTreeMap::new();
+        for i in 0..=max {
+            depths.insert(i, Arc::new(AtomicU64::new(0)));
+        }
+        Self {
+            depths: Arc::new(depths),
+        }
+    }
+
+    fn to_csv(&self, path: &Path) {
+        let mut writer = csv::Writer::from_path(path).unwrap();
+        writer.write_record(["depth", "count"]).unwrap();
+        for (d, c) in &*self.depths {
+            writer
+                .write_record([
+                    d.to_string(),
+                    c.load(std::sync::atomic::Ordering::Relaxed).to_string(),
+                ])
+                .unwrap();
+        }
+    }
+}
+
+impl<M> CheckerVisitor<M> for DepthTracker
+where
+    M: Model,
+{
+    fn visit(&self, _model: &M, path: stateright::Path<M::State, M::Action>) {
+        let len = path.into_vec().len();
+        self.depths
+            .get(&len)
+            .unwrap()
+            .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    }
 }
