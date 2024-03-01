@@ -162,6 +162,7 @@ impl DepthTracker {
                 ])
                 .unwrap();
         }
+        writer.flush().unwrap()
     }
 }
 
