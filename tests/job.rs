@@ -73,7 +73,7 @@ test_table! {
     causal_1(ConsistencySetup::Causal, 1),
 }
 
-test_table_panic!{
+test_table_panic! {
     test_non_parallel_job,
     causal_2(ConsistencySetup::Causal, 2),
 }
@@ -95,7 +95,7 @@ test_table! {
     causal_1(ConsistencySetup::Causal, 1),
 }
 
-test_table_panic!{
+test_table_panic! {
     test_parallel_job,
     resettable_session_2(ConsistencySetup::ResettableSession, 2),
     causal_2(ConsistencySetup::Causal, 2),

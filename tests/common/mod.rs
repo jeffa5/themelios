@@ -43,7 +43,6 @@ macro_rules! test_table_panic {
     }
 }
 
-
 pub(crate) use test_table;
 pub(crate) use test_table_panic;
 

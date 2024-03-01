@@ -124,7 +124,6 @@ test_table_panic! {
     causal_2(ConsistencySetup::Causal, 2),
 }
 
-
 // https://github.com/kubernetes/kubernetes/issues/59848
 fn test_stale_reads(consistency: ConsistencySetup, controllers: usize) -> OrchestrationModelCfg {
     let statefulset = new_statefulset("stale-reads", "", 1);
