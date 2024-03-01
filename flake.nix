@@ -48,6 +48,8 @@
           pkgs.kind
           pkgs.etcd
           pkgs.cargo-tarpaulin
+
+          (pkgs.python3.withPackages (ps: [ps.pandas ps.seaborn]))
         ];
       };
     });
