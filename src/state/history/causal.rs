@@ -1,4 +1,4 @@
-use std::{collections::BTreeSet, sync::Arc};
+use std::{collections::BTreeSet, sync::Arc, borrow::Cow};
 
 use bit_set::BitSet;
 
@@ -42,7 +42,7 @@ impl CausalHistory {
 
 impl History for CausalHistory {
     fn add_change(&mut self, change: Change) {
-        let mut new_state = self.state_at(&change.revision);
+        let mut new_state = self.state_at(&change.revision).into_owned();
 
         let max_rev = self
             .states
@@ -89,11 +89,11 @@ impl History for CausalHistory {
         Revision::from(indices)
     }
 
-    fn state_at(&self, revision: &Revision) -> StateView {
+    fn state_at(&self, revision: &Revision) -> Cow<StateView> {
         let state_indices = revision.components();
         let merged_states = self.build_state(state_indices);
         assert_eq!(revision, &merged_states.revision);
-        merged_states
+        Cow::Owned(merged_states)
     }
 
     fn valid_revisions(&self, min_revision: Option<&Revision>) -> Vec<Revision> {

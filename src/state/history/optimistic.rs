@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{sync::Arc, borrow::Cow};
 
 use crate::{
     abstract_model::Change,
@@ -60,12 +60,12 @@ impl History for OptimisticLinearHistory {
         self.states.last().unwrap().revision.clone()
     }
 
-    fn state_at(&self, revision: &Revision) -> StateView {
+    fn state_at(&self, revision: &Revision) -> Cow<StateView> {
         let index = self
             .states
             .binary_search_by_key(&revision, |s| &s.revision)
             .unwrap();
-        (*self.states[index]).clone()
+        Cow::Borrowed(&self.states[index])
     }
 
     fn valid_revisions(&self, _min_revision: Option<&Revision>) -> Vec<Revision> {

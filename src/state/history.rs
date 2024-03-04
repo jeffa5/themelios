@@ -1,4 +1,4 @@
-use std::fmt::Display;
+use std::{fmt::Display, borrow::Cow};
 
 use crate::abstract_model::Change;
 
@@ -64,7 +64,7 @@ pub trait History {
 
     fn max_revision(&self) -> Revision;
 
-    fn state_at(&self, revision: &Revision) -> StateView;
+    fn state_at(&self, revision: &Revision) -> Cow<'_, StateView>;
 
     fn valid_revisions(&self, min_revision: Option<&Revision>) -> Vec<Revision>;
 }
@@ -133,7 +133,7 @@ impl History for StateHistory {
         }
     }
 
-    fn state_at(&self, revision: &Revision) -> StateView {
+    fn state_at(&self, revision: &Revision) -> Cow<StateView> {
         match self {
             StateHistory::Linearizable(s) => s.state_at(revision),
             StateHistory::MonotonicSession(s) => s.state_at(revision),

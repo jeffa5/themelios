@@ -131,7 +131,7 @@ impl Model for AbstractModelCfg {
         }
 
         // at max revision as this isn't a controller event
-        for node in state.latest().nodes.iter() {
+        for node in latest_view.nodes.iter() {
             if let Some(cond) =
                 get_node_condition(&node.status.conditions, NodeConditionType::Ready)
             {

@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{sync::Arc, borrow::Cow};
 
 use crate::{
     abstract_model::Change,
@@ -33,9 +33,9 @@ impl History for ResettableSessionHistory {
         self.states.last().unwrap().revision.clone()
     }
 
-    fn state_at(&self, revision: &Revision) -> StateView {
+    fn state_at(&self, revision: &Revision) -> Cow<StateView> {
         let index = revision.components().first().unwrap();
-        (*self.states[*index]).clone()
+        Cow::Borrowed(&self.states[*index])
     }
 
     fn valid_revisions(&self, min_revision: Option<&Revision>) -> Vec<Revision> {

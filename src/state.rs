@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::ops::{Deref, DerefMut};
 
 use crate::controller::ControllerStates;
@@ -47,7 +48,7 @@ impl State {
     }
 
     /// Get a view for a specific revision in the change history.
-    pub fn view_at(&self, revision: &Revision) -> StateView {
+    pub fn view_at(&self, revision: &Revision) -> Cow<StateView> {
         self.states.state_at(revision)
     }
 
@@ -68,7 +69,7 @@ impl State {
         &self.controller_states[controller]
     }
 
-    pub fn latest(&self) -> StateView {
+    pub fn latest(&self) -> Cow<StateView> {
         self.states.state_at(&self.max_revision())
     }
 }
