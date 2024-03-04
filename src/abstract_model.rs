@@ -7,7 +7,7 @@ use stateright::{Model, Property};
 use crate::arbitrary_client::ArbitraryClient;
 use crate::arbitrary_client::ArbitraryClientAction;
 use crate::controller::util::get_node_condition;
-use crate::controller::{Controller, ControllerStates, Controllers};
+use crate::controller::{Controller, Controllers};
 use crate::resources::{
     ConditionStatus, ControllerRevision, Deployment, Job, NodeConditionType, PersistentVolumeClaim,
     Pod, ReplicaSet, ResourceQuantities, StatefulSet,
@@ -84,7 +84,7 @@ pub enum ControllerAction {
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Action {
-    ControllerStep(usize, ControllerStates, Change),
+    ControllerStep(Revision, usize),
     ArbitraryStep(ArbitraryClientAction),
 
     /// The controller at the given index restarts, losing its state.
@@ -109,28 +109,9 @@ impl Model for AbstractModelCfg {
         for (i, controller) in self.controllers.iter().enumerate() {
             let cstate = state.get_controller(i);
             let min_revision = controller.min_revision_accepted(cstate);
-            for view in state.views(min_revision) {
-                // if view.revision < min_revision {
-                //     panic!(
-                //         "Tried to give a controller an old revision! {} vs {}",
-                //         view.revision, min_revision
-                //     );
-                // }
-                debug!(rev = ?view.revision, "Reconciling state");
-                let mut cstate = cstate.clone();
-                let action = controller.step(&view, &mut cstate);
-                debug!(
-                    controller = controller.name(),
-                    ?action,
-                    "Controller step completed"
-                );
-                let change = action.map(|action| Change {
-                    revision: view.revision.clone(),
-                    operation: action,
-                });
-                if let Some(change) = change {
-                    actions.push(Action::ControllerStep(i, cstate, change));
-                }
+            for revision in state.revisions(min_revision) {
+                debug!(?revision, "Adding revision choice");
+                actions.push(Action::ControllerStep(revision, i));
             }
         }
 
@@ -171,10 +152,18 @@ impl Model for AbstractModelCfg {
 
     fn next_state(&self, last_state: &Self::State, action: Self::Action) -> Option<Self::State> {
         match action {
-            Action::ControllerStep(from, cstate, change) => {
+            Action::ControllerStep(revision, controller_index) => {
+                let controller = &self.controllers[controller_index];
+                let mut cstate = last_state.get_controller(controller_index).clone();
+                let view = &last_state.view_at(&revision);
                 let mut state = last_state.clone();
-                state.push_change(change);
-                state.update_controller(from, cstate);
+                if let Some(action) = controller.step(view, &mut cstate) {
+                    state.push_change(Change {
+                        revision,
+                        operation: action,
+                    });
+                }
+                state.update_controller(controller_index, cstate);
                 Some(state)
             }
             Action::ArbitraryStep(action) => {

@@ -51,9 +51,9 @@ impl State {
         self.states.state_at(revision)
     }
 
-    /// Get all the possible views under the given consistency level.
-    pub fn views(&self, min_revision: Option<&Revision>) -> Vec<StateView> {
-        self.states.states_for(min_revision)
+    /// Get all the possible revisions under the given consistency level.
+    pub fn revisions(&self, min_revision: Option<&Revision>) -> Vec<Revision> {
+        self.states.valid_revisions(min_revision)
     }
 
     pub fn add_controller(&mut self, controller_state: ControllerStates) {
