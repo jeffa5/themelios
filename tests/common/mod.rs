@@ -100,7 +100,7 @@ fn check(model: OrchestrationModelCfg, test_name: &str) {
         .threads(num_cpus::get())
         .finish_when(HasDiscoveries::AnyFailures)
         .target_max_depth(max)
-        .timeout(Duration::from_secs(600));
+        .timeout(Duration::from_secs(60));
     let check_mode = std::env::var("MCO_CHECK_MODE").unwrap_or_else(|_| String::new());
     #[allow(clippy::wildcard_in_or_patterns)]
     let check_result = match check_mode.as_str() {
