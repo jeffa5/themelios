@@ -67,11 +67,6 @@ pub trait History {
     fn state_at(&self, revision: &Revision) -> StateView;
 
     fn valid_revisions(&self, min_revision: Option<&Revision>) -> Vec<Revision>;
-
-    fn states_for(&self, min_revision: Option<&Revision>) -> Vec<StateView> {
-        let revisions = self.valid_revisions(min_revision);
-        revisions.iter().map(|r| self.state_at(r)).collect()
-    }
 }
 
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
@@ -145,16 +140,6 @@ impl History for StateHistory {
             StateHistory::ResettableSession(s) => s.state_at(revision),
             StateHistory::OptimisticLinear(s) => s.state_at(revision),
             StateHistory::Causal(s) => s.state_at(revision),
-        }
-    }
-
-    fn states_for(&self, min_revision: Option<&Revision>) -> Vec<StateView> {
-        match self {
-            StateHistory::Linearizable(s) => s.states_for(min_revision),
-            StateHistory::MonotonicSession(s) => s.states_for(min_revision),
-            StateHistory::ResettableSession(s) => s.states_for(min_revision),
-            StateHistory::OptimisticLinear(s) => s.states_for(min_revision),
-            StateHistory::Causal(s) => s.states_for(min_revision),
         }
     }
 
