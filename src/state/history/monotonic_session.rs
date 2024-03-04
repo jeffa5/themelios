@@ -1,4 +1,4 @@
-use std::{sync::Arc, borrow::Cow};
+use std::{borrow::Cow, sync::Arc};
 
 use crate::{
     abstract_model::Change,

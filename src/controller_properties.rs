@@ -1,7 +1,7 @@
 use stateright::{Expectation, Property};
 
 use crate::{
-    abstract_model::AbstractModelCfg,
+    abstract_model::AbstractModel,
     controller::{
         job::JobController, podgc::PodGCController, Controllers, DeploymentController,
         NodeController, ReplicaSetController, SchedulerController, StatefulSetController,
@@ -36,14 +36,14 @@ impl ControllerProperties for Controllers {
 }
 
 #[derive(Default)]
-pub struct Properties(Vec<Property<AbstractModelCfg>>);
+pub struct Properties(Vec<Property<AbstractModel>>);
 
 impl Properties {
     pub fn add(
         &mut self,
         expectation: Expectation,
         name: &'static str,
-        condition: fn(&AbstractModelCfg, &State) -> bool,
+        condition: fn(&AbstractModel, &State) -> bool,
     ) {
         self.0.push(Property {
             expectation,
@@ -58,7 +58,7 @@ impl Properties {
 }
 
 impl IntoIterator for Properties {
-    type Item = Property<AbstractModelCfg>;
+    type Item = Property<AbstractModel>;
 
     type IntoIter = std::vec::IntoIter<Self::Item>;
 

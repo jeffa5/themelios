@@ -1,7 +1,7 @@
 use stateright::{Expectation, Property};
 
 use crate::{
-    abstract_model::AbstractModelCfg,
+    abstract_model::{AbstractModel, AbstractModelCfg},
     controller::{
         job::JobController, podgc::PodGCController, Controllers, DeploymentController,
         NodeController, ReplicaSetController, SchedulerController, StatefulSetController,
@@ -30,7 +30,7 @@ pub struct OrchestrationModelCfg {
     pub podgc_controllers: usize,
 
     #[derivative(Debug = "ignore")]
-    pub properties: Vec<Property<AbstractModelCfg>>,
+    pub properties: Vec<Property<AbstractModel>>,
 }
 
 impl OrchestrationModelCfg {
@@ -53,10 +53,10 @@ impl OrchestrationModelCfg {
         }
     }
 
-    pub fn into_abstract_model(mut self) -> AbstractModelCfg {
+    pub fn into_abstract_model(mut self) -> AbstractModel {
         self.auto_add_properties();
 
-        let mut model = AbstractModelCfg {
+        let mut cfg = AbstractModelCfg {
             controllers: Vec::new(),
             initial_state: self.initial_state,
             consistency_level: self.consistency_level,
@@ -64,51 +64,47 @@ impl OrchestrationModelCfg {
         };
 
         for i in 0..self.nodes {
-            model.controllers.push(Controllers::Node(NodeController {
+            cfg.controllers.push(Controllers::Node(NodeController {
                 name: format!("node-{i}"),
             }));
         }
 
         for _ in 0..self.schedulers {
-            model
-                .controllers
+            cfg.controllers
                 .push(Controllers::Scheduler(SchedulerController));
         }
 
         for _ in 0..self.replicaset_controllers {
-            model
-                .controllers
+            cfg.controllers
                 .push(Controllers::ReplicaSet(ReplicaSetController));
         }
 
         for _ in 0..self.deployment_controllers {
-            model
-                .controllers
+            cfg.controllers
                 .push(Controllers::Deployment(DeploymentController));
         }
 
         for _ in 0..self.statefulset_controllers {
-            model
-                .controllers
+            cfg.controllers
                 .push(Controllers::StatefulSet(StatefulSetController));
         }
 
         for _ in 0..self.job_controllers {
-            model.controllers.push(Controllers::Job(JobController));
+            cfg.controllers.push(Controllers::Job(JobController));
         }
 
         for _ in 0..self.podgc_controllers {
-            model.controllers.push(Controllers::PodGC(PodGCController));
+            cfg.controllers.push(Controllers::PodGC(PodGCController));
         }
 
-        model
+        AbstractModel::new(cfg)
     }
 
     pub fn add_property(
         &mut self,
         expectation: Expectation,
         name: &'static str,
-        condition: fn(&AbstractModelCfg, &State) -> bool,
+        condition: fn(&AbstractModel, &State) -> bool,
     ) {
         self.properties.push(Property {
             expectation,
@@ -119,7 +115,7 @@ impl OrchestrationModelCfg {
 
     pub fn add_properties(
         &mut self,
-        properties: impl IntoIterator<Item = Property<AbstractModelCfg>>,
+        properties: impl IntoIterator<Item = Property<AbstractModel>>,
     ) {
         self.properties.extend(properties)
     }

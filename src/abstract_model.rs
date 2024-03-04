@@ -25,7 +25,31 @@ pub struct AbstractModelCfg {
     /// The consistency level of the state.
     pub consistency_level: ConsistencySetup,
     #[derivative(Debug = "ignore")]
+    pub properties: Vec<Property<AbstractModel>>,
+}
+
+#[derive(derivative::Derivative)]
+#[derivative(Debug)]
+pub struct AbstractModel {
+    pub controllers: Vec<Controllers>,
+    pub initial_states: Vec<State>,
+    #[derivative(Debug = "ignore")]
     pub properties: Vec<Property<Self>>,
+}
+
+impl AbstractModel {
+    pub fn new(cfg: AbstractModelCfg) -> Self {
+        let mut state = State::new(cfg.initial_state, cfg.consistency_level);
+        for c in &cfg.controllers {
+            state.add_controller(c.new_state());
+        }
+        let initial_states = vec![state];
+        Self {
+            controllers: cfg.controllers,
+            initial_states,
+            properties: cfg.properties,
+        }
+    }
 }
 
 /// Changes to a state.
@@ -92,17 +116,13 @@ pub enum Action {
     NodeRestart(usize),
 }
 
-impl Model for AbstractModelCfg {
+impl Model for AbstractModel {
     type State = State;
 
     type Action = Action;
 
     fn init_states(&self) -> Vec<Self::State> {
-        let mut state = State::new(self.initial_state.clone(), self.consistency_level.clone());
-        for c in &self.controllers {
-            state.add_controller(c.new_state());
-        }
-        vec![state]
+        self.initial_states.clone()
     }
 
     fn actions(&self, state: &Self::State, actions: &mut Vec<Self::Action>) {

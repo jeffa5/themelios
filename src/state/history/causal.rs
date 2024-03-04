@@ -1,4 +1,4 @@
-use std::{collections::BTreeSet, sync::Arc, borrow::Cow};
+use std::{borrow::Cow, collections::BTreeSet, sync::Arc};
 
 use bit_set::BitSet;
 
