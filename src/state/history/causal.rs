@@ -109,8 +109,9 @@ impl History for CausalHistory {
             let mut seen_indices = BTreeSet::new();
             let mut stack = min_revision.components().to_owned();
             while let Some(index) = stack.pop() {
-                seen_indices.insert(index);
-                stack.extend(&self.states[index].predecessors);
+                if seen_indices.insert(index) {
+                    stack.extend(&self.states[index].predecessors);
+                }
             }
 
             // all individual revisions are valid to work from
