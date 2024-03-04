@@ -43,9 +43,17 @@ def plot_states(files: List[Path]):
     plt.close()
 
     plt.figure()
-    ax = sns.ecdfplot(data, x="total_states", hue="consistency")
+    datamax = data.groupby(["function", "consistency"]).max("total_states")
+    ax = sns.ecdfplot(datamax, x="total_states", hue="consistency")
     plt.tight_layout()
     plt.savefig(plots / "ecdf-states-consistency-all.png")
+    plt.close()
+
+    plt.figure()
+    datamax = data.groupby(["function", "consistency"]).max("total_states")
+    ax = sns.boxplot(datamax, x="consistency", y="total_states")
+    plt.tight_layout()
+    plt.savefig(plots / "box-consistency-states-all.png")
     plt.close()
 
 
@@ -70,5 +78,6 @@ def main():
 
     print("Plotting all states")
     plot_states(run_data_paths(out))
+
 
 main()
