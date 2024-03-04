@@ -4,6 +4,7 @@ use stateright::HasDiscoveries;
 use stateright::Model;
 use stateright::UniformChooser;
 use std::collections::BTreeMap;
+use std::fs::create_dir;
 use std::path::Path;
 use std::path::PathBuf;
 use std::sync::atomic::AtomicU64;
@@ -72,6 +73,11 @@ fn check(model: OrchestrationModelCfg, test_name: &str) {
     let am = model.into_abstract_model();
     let report_dir =
         PathBuf::from(std::env::var("MCO_REPORT_PATH").unwrap_or_else(|_| "testout".to_owned()));
+    if !report_dir.exists() {
+        create_dir(&report_dir).unwrap();
+    } else if !report_dir.is_dir() {
+        panic!("Report dir {report_dir:?} should be a directory!");
+    }
     let report_file = format!("{test_name}.csv");
     let report_path = report_dir.join(report_file);
     let max = 100;
