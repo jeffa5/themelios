@@ -12,7 +12,6 @@ use crate::{
     state::{revision::Revision, StateView},
     utils::now,
 };
-use diff::Diff;
 use tracing::debug;
 
 use super::Controller;
@@ -673,10 +672,7 @@ fn sync_deployment_status(
     debug!("Syncing deployment status");
     let new_status = calculate_status(all_replicasets, new_replicaset, deployment, state_revision);
     if deployment.status != new_status {
-        debug!(
-            status_diff = ?deployment.status.diff(&new_status),
-            "Setting new status"
-        );
+        debug!("Setting new status");
         let mut new_deployment = deployment.clone();
         new_deployment.status = new_status;
         Some(DeploymentControllerAction::UpdateDeploymentStatus(
@@ -1836,7 +1832,7 @@ fn sync_rollout_status(
     state_revision: &Revision,
 ) -> Option<DeploymentControllerAction> {
     let mut new_status = calculate_status(all_rss, new_rs, deployment, state_revision);
-    debug!(status_diff = ?deployment.status.diff(&new_status), "Checking new status");
+    debug!("Checking new status");
 
     if !has_progress_deadline(deployment) {
         remove_deployment_condition(&mut new_status, DeploymentConditionType::Progressing);

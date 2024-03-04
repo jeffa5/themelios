@@ -1,4 +1,3 @@
-use diff::Diff;
 use serde::{Deserialize, Serialize};
 use std::{
     collections::BTreeMap,
@@ -121,12 +120,7 @@ impl Spec for ControllerRevision {
     }
 }
 
-#[derive(
-    Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff,
-)]
-#[diff(attr(
-    #[derive(Debug, PartialEq)]
-))]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Metadata {
     // Name must be unique within a namespace. Is required when creating resources, although some
@@ -198,10 +192,7 @@ fn u64_is_zero(val: &u64) -> bool {
     *val == 0
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff)]
-#[diff(attr(
-    #[derive(Debug, PartialEq)]
-))]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ManagedFieldsEntry {
     #[serde(default)]
@@ -224,10 +215,7 @@ pub struct ManagedFieldsEntry {
     pub time: Option<Time>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff)]
-#[diff(attr(
-    #[derive(Debug, PartialEq)]
-))]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", untagged)]
 pub enum FieldsV1 {
     Map(BTreeMap<String, FieldsV1>),
@@ -235,10 +223,7 @@ pub enum FieldsV1 {
     Str(String),
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff)]
-#[diff(attr(
-    #[derive(Debug, PartialEq)]
-))]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct OwnerReference {
     pub api_version: String,
@@ -256,12 +241,7 @@ pub struct OwnerReference {
     pub controller: bool,
 }
 
-#[derive(
-    Default, Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff,
-)]
-#[diff(attr(
-    #[derive(Debug, PartialEq)]
-))]
+#[derive(Default, Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Pod {
     pub metadata: Metadata,
     pub spec: PodSpec,
@@ -276,12 +256,7 @@ impl Pod {
     };
 }
 
-#[derive(
-    Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff,
-)]
-#[diff(attr(
-    #[derive(Debug, PartialEq)]
-))]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PodSpec {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -318,22 +293,14 @@ pub struct PodSpec {
     pub node_selector: BTreeMap<String, String>,
 }
 
-#[derive(
-    Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff,
-)]
-#[diff(attr(
-    #[derive(Debug, PartialEq)]
-))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum PodRestartPolicy {
     Never,
     OnFailure,
     Always,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff)]
-#[diff(attr(
-    #[derive(Debug, PartialEq)]
-))]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Toleration {
     #[serde(default)]
@@ -347,46 +314,28 @@ pub struct Toleration {
     pub toleration_seconds: Option<u64>,
 }
 
-#[derive(
-    Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff,
-)]
-#[diff(attr(
-    #[derive(Debug, PartialEq)]
-))]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum Operator {
     #[default]
     Equal,
     Exists,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff)]
-#[diff(attr(
-    #[derive(Debug, PartialEq)]
-))]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum TaintEffect {
     NoSchedule,
     PreferNoSchedule,
     NoExecute,
 }
 
-#[derive(
-    Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff,
-)]
-#[diff(attr(
-    #[derive(Debug, PartialEq)]
-))]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Volume {
     pub name: String,
     pub persistent_volume_claim: Option<PersistentVolumeClaimVolumeSource>,
 }
 
-#[derive(
-    Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff,
-)]
-#[diff(attr(
-    #[derive(Debug, PartialEq)]
-))]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PersistentVolumeClaimVolumeSource {
     pub claim_name: String,
@@ -394,12 +343,7 @@ pub struct PersistentVolumeClaimVolumeSource {
     pub read_only: bool,
 }
 
-#[derive(
-    Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff,
-)]
-#[diff(attr(
-    #[derive(Debug, PartialEq)]
-))]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Container {
     #[serde(skip_serializing_if = "String::is_empty")]
     pub name: String,
@@ -415,10 +359,7 @@ fn is_default<D: Default + PartialEq>(val: &D) -> bool {
     val == &D::default()
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff)]
-#[diff(attr(
-    #[derive(Debug, PartialEq)]
-))]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct EnvVar {
     pub name: String,
@@ -426,10 +367,7 @@ pub struct EnvVar {
     pub value_from: Option<EnvVarSource>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff)]
-#[diff(attr(
-    #[derive(Debug, PartialEq)]
-))]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct EnvVarSource {
     // pub config_map_key_ref: Option<ConfigMapKeySelector>,
@@ -438,22 +376,14 @@ pub struct EnvVarSource {
     // pub secret_key_ref: Option<SecretKeySelector>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff)]
-#[diff(attr(
-    #[derive(Debug, PartialEq)]
-))]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ObjectFieldSelector {
     pub field_path: String,
     pub api_version: Option<String>,
 }
 
-#[derive(
-    Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff,
-)]
-#[diff(attr(
-    #[derive(Debug, PartialEq)]
-))]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PodStatus {
     // The phase of a Pod is a simple, high-level summary of where the Pod is in its lifecycle. The conditions array, the reason and message fields, and the individual container status arrays contain more detail about the pod's status. There are five possible phase values.
@@ -471,10 +401,7 @@ pub struct PodStatus {
     pub init_container_statuses: Vec<ContainerStatus>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff)]
-#[diff(attr(
-    #[derive(Debug, PartialEq)]
-))]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PodCondition {
     // Status of the condition, one of True, False, Unknown.
@@ -491,12 +418,7 @@ pub struct PodCondition {
     pub reason: Option<String>,
 }
 
-#[derive(
-    Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff,
-)]
-#[diff(attr(
-    #[derive(Debug, PartialEq)]
-))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum PodConditionType {
     DisruptionTarget,
     PodScheduled,
@@ -507,11 +429,8 @@ pub enum PodConditionType {
 }
 
 #[derive(
-    Clone, Copy, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff,
+    Clone, Copy, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize,
 )]
-#[diff(attr(
-    #[derive(Debug, PartialEq)]
-))]
 pub enum PodPhase {
     // Pending: The pod has been accepted by the Kubernetes system, but one or more of the container images has not been created. This includes time before being scheduled as well as time spent downloading images over the network, which could take a while.
     Pending,
@@ -526,10 +445,7 @@ pub enum PodPhase {
     Failed,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff)]
-#[diff(attr(
-    #[derive(Debug, PartialEq)]
-))]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ContainerStatus {
     pub name: String,
@@ -552,12 +468,7 @@ pub struct ContainerStatus {
     pub resources: ResourceRequirements,
 }
 
-#[derive(
-    Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff,
-)]
-#[diff(attr(
-    #[derive(Debug, PartialEq)]
-))]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ContainerState {
     pub waiting: Option<ContainerStateWaiting>,
@@ -565,10 +476,7 @@ pub struct ContainerState {
     pub terminated: Option<ContainerStateTerminated>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff)]
-#[diff(attr(
-    #[derive(Debug, PartialEq)]
-))]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ContainerStateWaiting {
     #[serde(default)]
@@ -577,19 +485,13 @@ pub struct ContainerStateWaiting {
     message: String,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff)]
-#[diff(attr(
-    #[derive(Debug, PartialEq)]
-))]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ContainerStateRunning {
     started_at: Option<Time>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff)]
-#[diff(attr(
-    #[derive(Debug, PartialEq)]
-))]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ContainerStateTerminated {
     pub exit_code: u32,
@@ -605,12 +507,7 @@ pub struct ContainerStateTerminated {
     pub container_id: String,
 }
 
-#[derive(
-    Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff,
-)]
-#[diff(attr(
-    #[derive(Debug, PartialEq)]
-))]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct ResourceRequirements {
     /// What a pod/container is guaranteed to have (minimums).
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -622,12 +519,7 @@ pub struct ResourceRequirements {
     pub claims: Vec<ResourceClaim>,
 }
 
-#[derive(
-    Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff,
-)]
-#[diff(attr(
-    #[derive(Debug, PartialEq)]
-))]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct ResourceQuantities {
     // catch other resource types that we haven't included here yet
     #[serde(flatten)]
@@ -652,12 +544,7 @@ impl<'a> Sum<&'a ResourceQuantities> for ResourceQuantities {
     }
 }
 
-#[derive(
-    Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff,
-)]
-#[diff(attr(
-    #[derive(Debug, PartialEq)]
-))]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct ResourceClaim {
     pub name: String,
 }
@@ -682,12 +569,7 @@ impl SubAssign for ResourceQuantities {
     }
 }
 
-#[derive(
-    Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff,
-)]
-#[diff(attr(
-    #[derive(Debug, PartialEq)]
-))]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Job {
     pub metadata: Metadata,
@@ -707,10 +589,7 @@ fn u32_one() -> u32 {
     1
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff)]
-#[diff(attr(
-    #[derive(Debug, PartialEq)]
-))]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct JobSpec {
     pub template: PodTemplateSpec,
@@ -746,19 +625,13 @@ impl Default for JobSpec {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff)]
-#[diff(attr(
-    #[derive(Debug, PartialEq)]
-))]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct JobPodFailurePolicy {
     pub rules: Vec<JobPodFailurePolicyRule>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff)]
-#[diff(attr(
-    #[derive(Debug, PartialEq)]
-))]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct JobPodFailurePolicyRule {
     pub action: JobPodFailurePolicyRuleAction,
@@ -766,12 +639,7 @@ pub struct JobPodFailurePolicyRule {
     pub on_exit_codes: Option<JobPodFailurePolicyRuleOnExitCodesRequirement>,
 }
 
-#[derive(
-    Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff,
-)]
-#[diff(attr(
-    #[derive(Debug, PartialEq)]
-))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum JobPodFailurePolicyRuleAction {
     Ignore,
     FailIndex,
@@ -779,20 +647,14 @@ pub enum JobPodFailurePolicyRuleAction {
     FailJob,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff)]
-#[diff(attr(
-    #[derive(Debug, PartialEq)]
-))]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct JobPodFailurePolicyRuleOnPodConditionsPattern {
     pub status: ConditionStatus,
     pub r#type: PodConditionType,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff)]
-#[diff(attr(
-    #[derive(Debug, PartialEq)]
-))]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct JobPodFailurePolicyRuleOnExitCodesRequirement {
     pub operator: JobPodFailurePolicyRuleOnExitCodesRequirementOperator,
@@ -800,35 +662,20 @@ pub struct JobPodFailurePolicyRuleOnExitCodesRequirement {
     pub container_name: Option<String>,
 }
 
-#[derive(
-    Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff,
-)]
-#[diff(attr(
-    #[derive(Debug, PartialEq)]
-))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum JobPodFailurePolicyRuleOnExitCodesRequirementOperator {
     In,
     NotIn,
 }
 
-#[derive(
-    Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff,
-)]
-#[diff(attr(
-    #[derive(Debug, PartialEq)]
-))]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum JobCompletionMode {
     #[default]
     NonIndexed,
     Indexed,
 }
 
-#[derive(
-    Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff,
-)]
-#[diff(attr(
-    #[derive(Debug, PartialEq)]
-))]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct JobStatus {
     pub start_time: Option<Time>,
@@ -857,10 +704,7 @@ pub struct JobStatus {
     pub observed_revision: Revision,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff)]
-#[diff(attr(
-    #[derive(Debug, PartialEq)]
-))]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct JobCondition {
     pub status: ConditionStatus,
@@ -873,12 +717,7 @@ pub struct JobCondition {
     pub reason: String,
 }
 
-#[derive(
-    Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff,
-)]
-#[diff(attr(
-    #[derive(Debug, PartialEq)]
-))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum JobConditionType {
     Suspended,
     Complete,
@@ -886,12 +725,7 @@ pub enum JobConditionType {
     FailureTarget,
 }
 
-#[derive(
-    Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff,
-)]
-#[diff(attr(
-    #[derive(Debug, PartialEq)]
-))]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct UncountedTerminatedPods {
     #[serde(default)]
@@ -900,12 +734,7 @@ pub struct UncountedTerminatedPods {
     pub succeeded: Vec<String>,
 }
 
-#[derive(
-    Default, Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff,
-)]
-#[diff(attr(
-    #[derive(Debug, PartialEq)]
-))]
+#[derive(Default, Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct ReplicaSet {
     pub metadata: Metadata,
     pub spec: ReplicaSetSpec,
@@ -926,12 +755,7 @@ impl ReplicaSet {
     }
 }
 
-#[derive(
-    Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff,
-)]
-#[diff(attr(
-    #[derive(Debug, PartialEq)]
-))]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ReplicaSetSpec {
     // Label selector for pods. Existing ReplicaSets whose pods are selected by this will be the ones affected by this deployment. It must match the pod template's labels.
@@ -943,23 +767,13 @@ pub struct ReplicaSetSpec {
     pub min_ready_seconds: u32,
 }
 
-#[derive(
-    Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff,
-)]
-#[diff(attr(
-    #[derive(Debug, PartialEq)]
-))]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct PodTemplateSpec {
     pub metadata: Metadata,
     pub spec: PodSpec,
 }
 
-#[derive(
-    Clone, Default, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff,
-)]
-#[diff(attr(
-    #[derive(Debug, PartialEq)]
-))]
+#[derive(Clone, Default, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ReplicaSetStatus {
     pub replicas: u32,
@@ -988,10 +802,7 @@ pub struct ReplicaSetStatus {
     pub observed_revision: Revision,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff)]
-#[diff(attr(
-    #[derive(Debug, PartialEq)]
-))]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ReplicaSetCondition {
     // Status of the condition, one of True, False, Unknown.
@@ -1006,12 +817,7 @@ pub struct ReplicaSetCondition {
     pub reason: Option<String>,
 }
 
-#[derive(
-    Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff,
-)]
-#[diff(attr(
-    #[derive(Debug, PartialEq)]
-))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum ReplicaSetConditionType {
     // ReplicaSetReplicaFailure is added in a replica set when one of its pods fails to be created
     // due to insufficient quota, limit ranges, pod security policy, node selectors, etc. or deleted
@@ -1020,11 +826,8 @@ pub enum ReplicaSetConditionType {
 }
 
 #[derive(
-    Clone, Copy, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff,
+    Clone, Copy, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize,
 )]
-#[diff(attr(
-    #[derive(Debug, PartialEq)]
-))]
 pub enum ConditionStatus {
     True,
     False,
@@ -1032,12 +835,7 @@ pub enum ConditionStatus {
     Unknown,
 }
 
-#[derive(
-    Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff,
-)]
-#[diff(attr(
-    #[derive(Debug, PartialEq)]
-))]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Deployment {
     pub metadata: Metadata,
     pub spec: DeploymentSpec,
@@ -1056,12 +854,7 @@ impl Deployment {
     }
 }
 
-#[derive(
-    Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff,
-)]
-#[diff(attr(
-    #[derive(Debug, PartialEq)]
-))]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DeploymentSpec {
     #[serde(default)]
@@ -1100,10 +893,7 @@ fn bool_is_false(val: &bool) -> bool {
     !val
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff)]
-#[diff(attr(
-    #[derive(Debug, PartialEq)]
-))]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DeploymentStrategy {
     #[serde(default)]
@@ -1112,12 +902,7 @@ pub struct DeploymentStrategy {
     pub rolling_update: Option<RollingUpdate>,
 }
 
-#[derive(
-    Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff,
-)]
-#[diff(attr(
-    #[derive(Debug, PartialEq)]
-))]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RollingUpdate {
     // The maximum number of pods that can be scheduled above the desired number of pods. Value can be an absolute number (ex: 5) or a percentage of desired pods (ex: 10%). This can not be 0 if MaxUnavailable is 0. Absolute number is calculated from percentage by rounding up. Defaults to 25%. Example: when this is set to 30%, the new ReplicaSet can be scaled up immediately when the rolling update starts, such that the total number of old and new pods do not exceed 130% of desired pods. Once old pods have been killed, new ReplicaSet can be scaled up further, ensuring that total number of pods running at any time during the update is at most 130% of desired pods.
@@ -1127,23 +912,15 @@ pub struct RollingUpdate {
 }
 
 #[derive(
-    Clone, Copy, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff,
+    Clone, Copy, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize,
 )]
-#[diff(attr(
-    #[derive(Debug, PartialEq)]
-))]
 pub enum DeploymentStrategyType {
     #[default]
     RollingUpdate,
     Recreate,
 }
 
-#[derive(
-    Clone, Default, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff,
-)]
-#[diff(attr(
-    #[derive(Debug, PartialEq)]
-))]
+#[derive(Clone, Default, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DeploymentStatus {
     // Total number of non-terminated pods targeted by this deployment (their labels match the selector).
@@ -1176,10 +953,7 @@ pub struct DeploymentStatus {
     pub observed_revision: Revision,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff)]
-#[diff(attr(
-    #[derive(Debug, PartialEq)]
-))]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DeploymentCondition {
     // Status of the condition, one of True, False, Unknown.
@@ -1196,12 +970,7 @@ pub struct DeploymentCondition {
     pub reason: Option<String>,
 }
 
-#[derive(
-    Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff,
-)]
-#[diff(attr(
-    #[derive(Debug, PartialEq)]
-))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum DeploymentConditionType {
     // Progressing means the deployment is progressing. Progress for a deployment is
     // considered when a new replica set is created or adopted, and when new pods scale
@@ -1216,12 +985,7 @@ pub enum DeploymentConditionType {
     ReplicaFailure,
 }
 
-#[derive(
-    Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff,
-)]
-#[diff(attr(
-    #[derive(Debug, PartialEq)]
-))]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LabelSelector {
     // matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels map is equivalent to an element of matchExpressions, whose key field is "key", the operator is "In", and the values array contains only "value". The requirements are ANDed.
@@ -1237,12 +1001,7 @@ impl LabelSelector {
     }
 }
 
-#[derive(
-    Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff,
-)]
-#[diff(attr(
-    #[derive(Debug, PartialEq)]
-))]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ControllerRevision {
     pub metadata: Metadata,
@@ -1250,12 +1009,7 @@ pub struct ControllerRevision {
     pub data: String,
 }
 
-#[derive(
-    Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff,
-)]
-#[diff(attr(
-    #[derive(Debug, PartialEq)]
-))]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct StatefulSet {
     pub metadata: Metadata,
@@ -1271,12 +1025,7 @@ impl StatefulSet {
     };
 }
 
-#[derive(
-    Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff,
-)]
-#[diff(attr(
-    #[derive(Debug, PartialEq)]
-))]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct StatefulSetSpec {
     pub service_name: String,
@@ -1296,24 +1045,14 @@ pub struct StatefulSetSpec {
     pub ordinals: Option<StatefulSetOrdinals>,
 }
 
-#[derive(
-    Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff,
-)]
-#[diff(attr(
-    #[derive(Debug, PartialEq)]
-))]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum PodManagementPolicyType {
     #[default]
     OrderedReady,
     Parallel,
 }
 
-#[derive(
-    Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff,
-)]
-#[diff(attr(
-    #[derive(Debug, PartialEq)]
-))]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct StatefulSetStatus {
     pub replicas: u32,
@@ -1341,10 +1080,7 @@ pub struct StatefulSetStatus {
     pub observed_revision: Revision,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff)]
-#[diff(attr(
-    #[derive(Debug, PartialEq)]
-))]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct StatefulSetCondition {
     // Status of the condition, one of True, False, Unknown.
@@ -1359,20 +1095,12 @@ pub struct StatefulSetCondition {
     pub reason: Option<String>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff)]
-#[diff(attr(
-    #[derive(Debug, PartialEq)]
-))]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum StatefulSetConditionType {
     Unknown,
 }
 
-#[derive(
-    Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff,
-)]
-#[diff(attr(
-    #[derive(Debug, PartialEq)]
-))]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct StatefulSetPersistentVolumeClaimRetentionPolicy {
     #[serde(default)]
@@ -1382,34 +1110,21 @@ pub struct StatefulSetPersistentVolumeClaimRetentionPolicy {
 }
 
 #[derive(
-    Clone, Copy, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff,
+    Clone, Copy, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize,
 )]
-#[diff(attr(
-    #[derive(Debug, PartialEq)]
-))]
 pub enum StatefulSetPersistentVolumeClaimRetentionPolicyType {
     #[default]
     Retain,
     Delete,
 }
 
-#[derive(
-    Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff,
-)]
-#[diff(attr(
-    #[derive(Debug, PartialEq)]
-))]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct StatefulSetOrdinals {
     pub start: u32,
 }
 
-#[derive(
-    Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff,
-)]
-#[diff(attr(
-    #[derive(Debug, PartialEq)]
-))]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct StatefulSetUpdateStrategy {
     #[serde(default)]
@@ -1418,24 +1133,14 @@ pub struct StatefulSetUpdateStrategy {
     pub rolling_update: Option<RollingUpdateStatefulSetStrategy>,
 }
 
-#[derive(
-    Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff,
-)]
-#[diff(attr(
-    #[derive(Debug, PartialEq)]
-))]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RollingUpdateStatefulSetStrategy {
     pub max_unavailable: Option<IntOrString>,
     pub partition: u32,
 }
 
-#[derive(
-    Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff,
-)]
-#[diff(attr(
-    #[derive(Debug, PartialEq)]
-))]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PersistentVolumeClaim {
     pub metadata: Metadata,
@@ -1443,12 +1148,7 @@ pub struct PersistentVolumeClaim {
     pub status: PersistentVolumeClaimStatus,
 }
 
-#[derive(
-    Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff,
-)]
-#[diff(attr(
-    #[derive(Debug, PartialEq)]
-))]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PersistentVolumeClaimSpec {
     #[serde(default)]
@@ -1464,36 +1164,21 @@ pub struct PersistentVolumeClaimSpec {
     pub volume_mode: Option<String>,
 }
 
-#[derive(
-    Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff,
-)]
-#[diff(attr(
-    #[derive(Debug, PartialEq)]
-))]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PersistentVolumeClaimStatus {
     #[serde(default)]
     pub access_modes: Vec<String>,
 }
 
-#[derive(
-    Clone, Default, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff,
-)]
-#[diff(attr(
-    #[derive(Debug, PartialEq)]
-))]
+#[derive(Clone, Default, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Node {
     pub metadata: Metadata,
     pub spec: NodeSpec,
     pub status: NodeStatus,
 }
 
-#[derive(
-    Clone, Default, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff,
-)]
-#[diff(attr(
-    #[derive(Debug, PartialEq)]
-))]
+#[derive(Clone, Default, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct NodeSpec {
     #[serde(default)]
@@ -1502,10 +1187,7 @@ pub struct NodeSpec {
     pub unschedulable: bool,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff)]
-#[diff(attr(
-    #[derive(Debug, PartialEq)]
-))]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Taint {
     pub effect: TaintEffect,
@@ -1515,12 +1197,7 @@ pub struct Taint {
     pub value: String,
 }
 
-#[derive(
-    Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff,
-)]
-#[diff(attr(
-    #[derive(Debug, PartialEq)]
-))]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct NodeStatus {
     /// The total resources of the node.
     #[serde(default)]
@@ -1533,12 +1210,7 @@ pub struct NodeStatus {
     pub conditions: Vec<NodeCondition>,
 }
 
-#[derive(
-    Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff,
-)]
-#[diff(attr(
-    #[derive(Debug, PartialEq)]
-))]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct NodeCondition {
     pub r#type: NodeConditionType,
@@ -1551,12 +1223,7 @@ pub struct NodeCondition {
     pub last_transition_time: Option<Time>,
 }
 
-#[derive(
-    Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff,
-)]
-#[diff(attr(
-    #[derive(Debug, PartialEq)]
-))]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum NodeConditionType {
     #[default]
     Ready,
@@ -1566,10 +1233,7 @@ pub enum NodeConditionType {
     NetworkUnavailable,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff)]
-#[diff(attr(
-    #[derive(Debug, PartialEq)]
-))]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum Quantity {
     Str(String),
@@ -1659,10 +1323,7 @@ impl SubAssign<Quantity> for Quantity {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff)]
-#[diff(attr(
-    #[derive(Debug, PartialEq)]
-))]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum IntOrString {
     Int(u32),
@@ -1703,25 +1364,6 @@ impl From<String> for IntOrString {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct Time(#[serde(with = "time::serde::rfc3339")] pub time::OffsetDateTime);
-
-impl Diff for Time {
-    type Repr = Option<time::OffsetDateTime>;
-    fn diff(&self, other: &Self) -> Self::Repr {
-        if self != other {
-            Some(other.0)
-        } else {
-            None
-        }
-    }
-    fn apply(&mut self, diff: &Self::Repr) {
-        if let Some(diff) = diff {
-            *self = Time(*diff)
-        }
-    }
-    fn identity() -> Self {
-        Time(time::OffsetDateTime::UNIX_EPOCH)
-    }
-}
 
 pub struct GroupVersionKind {
     pub group: &'static str,
@@ -1770,12 +1412,7 @@ impl Display for GroupVersion {
     }
 }
 
-#[derive(
-    Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff,
-)]
-#[diff(attr(
-    #[derive(Debug, PartialEq)]
-))]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Scale {
     #[serde(default)]
     pub metadata: Metadata,
@@ -1784,22 +1421,12 @@ pub struct Scale {
     pub status: ScaleStatus,
 }
 
-#[derive(
-    Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff,
-)]
-#[diff(attr(
-    #[derive(Debug, PartialEq)]
-))]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct ScaleSpec {
     pub replicas: u32,
 }
 
-#[derive(
-    Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Diff,
-)]
-#[diff(attr(
-    #[derive(Debug, PartialEq)]
-))]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct ScaleStatus {
     #[serde(default)]
     pub replicas: u32,

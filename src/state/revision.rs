@@ -1,10 +1,6 @@
-use diff::Diff;
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Diff)]
-#[diff(attr(
-    #[derive(Debug, PartialEq)]
-))]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct Revision(Vec<usize>);
 
 impl Serialize for Revision {
