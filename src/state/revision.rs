@@ -1,7 +1,8 @@
 use serde::{Deserialize, Serialize};
+use smallvec::SmallVec;
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub struct Revision(Vec<usize>);
+pub struct Revision(SmallVec<[usize; 1]>);
 
 impl Serialize for Revision {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
@@ -24,7 +25,7 @@ impl<'de> Deserialize<'de> for Revision {
 
 impl Default for Revision {
     fn default() -> Self {
-        Self(vec![0])
+        Self(SmallVec::from_buf([0]))
     }
 }
 
@@ -32,7 +33,7 @@ impl From<Vec<usize>> for Revision {
     fn from(mut value: Vec<usize>) -> Self {
         value.sort();
         value.dedup();
-        Revision(value)
+        Revision(value.into())
     }
 }
 
@@ -84,7 +85,7 @@ impl Revision {
     }
 
     pub fn merge(&mut self, other: &Self) {
-        self.0.extend(&other.0);
+        self.0.extend_from_slice(&other.0);
         self.0.sort();
         self.0.dedup();
     }
