@@ -40,9 +40,10 @@ impl History for ResettableSessionHistory {
 
     fn valid_revisions(&self, min_revision: Option<&Revision>) -> Vec<Revision> {
         if let Some(min_revision) = min_revision {
+            let index = min_revision.components().first().unwrap();
             self.states
                 .iter()
-                .filter(|s| &s.revision > min_revision)
+                .skip(*index)
                 .map(|s| s.revision.clone())
                 .collect()
         } else {
