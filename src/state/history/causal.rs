@@ -148,7 +148,10 @@ impl CausalHistory {
         indices
             .iter()
             .map(|i| &self.states[*i].state)
-            .fold(default_stateview, |acc, s| acc.merge(s))
+            .fold(default_stateview, |mut acc, s| {
+                acc.merge(s);
+                acc
+            })
     }
 
     /// Find all concurrent indices for the given index.

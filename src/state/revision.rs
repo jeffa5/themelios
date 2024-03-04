@@ -87,11 +87,9 @@ impl Revision {
         &self.0
     }
 
-    pub fn merge(&self, other: &Self) -> Self {
-        let mut res = self.0.clone();
-        res.extend(&other.0);
-        res.sort();
-        res.dedup();
-        Self(res)
+    pub fn merge(&mut self, other: &Self) {
+        self.0.extend(&other.0);
+        self.0.sort();
+        self.0.dedup();
     }
 }

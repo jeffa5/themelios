@@ -202,19 +202,16 @@ impl RawState {
             .collect()
     }
 
-    pub fn merge(&self, other: &Self) -> Self {
-        Self {
-            nodes: self.nodes.merge(&other.nodes),
-            pods: self.pods.merge(&other.pods),
-            replicasets: self.replicasets.merge(&other.replicasets),
-            deployments: self.deployments.merge(&other.deployments),
-            statefulsets: self.statefulsets.merge(&other.statefulsets),
-            controller_revisions: self.controller_revisions.merge(&other.controller_revisions),
-            persistent_volume_claims: self
-                .persistent_volume_claims
-                .merge(&other.persistent_volume_claims),
-            jobs: self.jobs.merge(&other.jobs),
-        }
+    pub fn merge(&mut self, other: &Self) {
+        self.nodes.merge(&other.nodes);
+        self.pods.merge(&other.pods);
+        self.replicasets.merge(&other.replicasets);
+        self.deployments.merge(&other.deployments);
+        self.statefulsets.merge(&other.statefulsets);
+        self.controller_revisions.merge(&other.controller_revisions);
+        self.persistent_volume_claims
+            .merge(&other.persistent_volume_claims);
+        self.jobs.merge(&other.jobs);
     }
 }
 
@@ -390,10 +387,8 @@ impl StateView {
         resources.into_iter().all(|r| self.resource_current(r))
     }
 
-    pub fn merge(&self, other: &Self) -> Self {
-        Self {
-            revision: self.revision.merge(&other.revision),
-            state: self.state.merge(&other.state),
-        }
+    pub fn merge(&mut self, other: &Self) {
+        self.revision.merge(&other.revision);
+        self.state.merge(&other.state);
     }
 }

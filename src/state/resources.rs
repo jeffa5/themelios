@@ -155,22 +155,20 @@ impl<T: Meta + Spec + Clone> Resources<T> {
         self.iter().collect()
     }
 
-    pub fn merge(&self, other: &Self) -> Self {
-        let mut resources = self.clone();
+    pub fn merge(&mut self, other: &Self) {
         for resource in &other.0 {
-            if let Some(existing_pos) = resources.get_pos(&resource.metadata().name) {
-                let existing = &resources.0[existing_pos];
+            if let Some(existing_pos) = self.get_pos(&resource.metadata().name) {
+                let existing = &self.0[existing_pos];
                 let new_revision = &resource.metadata().resource_version;
                 let existing_revision = &existing.metadata().resource_version;
                 if new_revision > existing_revision {
-                    resources.0[existing_pos] = Arc::clone(resource);
+                    self.0[existing_pos] = Arc::clone(resource);
                 }
             } else {
-                let pos = resources.get_insertion_pos(&resource.metadata().name);
-                resources.0.insert(pos, Arc::clone(resource));
+                let pos = self.get_insertion_pos(&resource.metadata().name);
+                self.0.insert(pos, Arc::clone(resource));
             }
         }
-        resources
     }
 }
 
