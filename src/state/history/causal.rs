@@ -106,7 +106,7 @@ impl History for CausalHistory {
             // Additionally, we can have arbitrary 'merges' between these states and those that
             // they are concurrent with.
 
-            let mut seen_indices = BTreeSet::new();
+            let mut seen_indices = BitSet::<usize>::default();
             let mut stack = min_revision.components().to_owned();
             while let Some(index) = stack.pop() {
                 if seen_indices.insert(index) {
@@ -115,15 +115,12 @@ impl History for CausalHistory {
             }
 
             // all individual revisions are valid to work from
-            let single_states = (0..self.states.len())
-                .filter(|i| !seen_indices.contains(i))
-                .collect::<Vec<_>>();
+            let single_states = (0..self.states.len()).filter(|i| !seen_indices.contains(*i));
 
             // we can also find combinations of concurrent edits
             // traverse the graph and build up valid states from the min revision
             single_states
-                .iter()
-                .flat_map(|i| self.concurrent_combinations(*i))
+                .flat_map(|i| self.concurrent_combinations(i))
                 .map(Revision::from)
                 .collect::<Vec<_>>()
         } else {
