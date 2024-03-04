@@ -1,5 +1,7 @@
 use std::{collections::BTreeSet, sync::Arc};
 
+use bit_set::BitSet;
+
 use crate::{
     abstract_model::Change,
     state::{revision::Revision, RawState, StateView},
@@ -19,8 +21,7 @@ struct CausalState {
     state: StateView,
     predecessors: Vec<usize>,
     successors: Vec<usize>,
-    // TODO: this could be a bitset? Then intersection would be pretty quick.
-    concurrent: BTreeSet<usize>,
+    concurrent: BitSet<usize>,
 }
 
 impl CausalHistory {
@@ -32,7 +33,7 @@ impl CausalHistory {
                 state: initial_state.into(),
                 predecessors: Vec::new(),
                 successors: Vec::new(),
-                concurrent: BTreeSet::new(),
+                concurrent: BitSet::default(),
             })],
             heads,
         }
@@ -56,8 +57,10 @@ impl History for CausalHistory {
             let predecessors = change.revision.components().to_owned();
             let new_index = self.states.len();
 
-            let concurrent = self.concurrent_many(&predecessors).collect::<BTreeSet<_>>();
-            for &c in &concurrent {
+            let concurrent = self
+                .concurrent_many(&predecessors)
+                .collect::<BitSet<usize>>();
+            for c in &concurrent {
                 Arc::make_mut(&mut self.states[c])
                     .concurrent
                     .insert(new_index);
@@ -148,23 +151,23 @@ impl CausalHistory {
     }
 
     /// Find all concurrent indices for the given index.
-    fn concurrent_inner(&self, index: usize, seen: &mut BTreeSet<usize>) {
+    fn concurrent_inner(&self, index: usize, seen: &mut BitSet<usize>) {
         let mut stack = vec![index];
-        let mut seen_pred = BTreeSet::new();
+        let mut seen_pred = BitSet::default();
         while let Some(index) = stack.pop() {
             if seen_pred.insert(index) {
                 stack.extend(self.states[index].predecessors.iter().copied());
             }
         }
         let mut stack = vec![index];
-        let mut seen_succ = BTreeSet::new();
+        let mut seen_succ = BitSet::default();
         while let Some(index) = stack.pop() {
             if seen_succ.insert(index) {
                 stack.extend(self.states[index].successors.iter().copied());
             }
         }
-        seen.append(&mut seen_pred);
-        seen.append(&mut seen_succ);
+        seen.union_with(&seen_pred);
+        seen.union_with(&seen_succ);
     }
 
     /// Find all indices that are concurrent with all indices given.
@@ -172,11 +175,11 @@ impl CausalHistory {
     /// Thus, all returned indices can be used on their own with the given indices to indicate a
     /// new merged state.
     fn concurrent_many(&self, indices: &[usize]) -> impl Iterator<Item = usize> {
-        let mut seen = BTreeSet::new();
+        let mut seen = BitSet::default();
         for &index in indices {
             self.concurrent_inner(index, &mut seen);
         }
-        (0..self.states.len()).filter(move |i| !seen.contains(i))
+        (0..self.states.len()).filter(move |i| !seen.contains(*i))
     }
 
     fn concurrent_combinations(&self, index: usize) -> Vec<Vec<usize>> {
@@ -192,7 +195,7 @@ impl CausalHistory {
     ) {
         combinations.push(indices.clone());
         let concurrent = intersections(indices.iter().map(|&i| &self.states[i].concurrent));
-        for &conc in concurrent.iter().filter(|&c| c > indices.last().unwrap()) {
+        for conc in concurrent.iter().filter(|c| c > indices.last().unwrap()) {
             let mut indices = indices.clone();
             indices.push(conc);
             indices.sort();
@@ -202,12 +205,12 @@ impl CausalHistory {
     }
 }
 
-fn intersections<'a>(sets: impl IntoIterator<Item = &'a BTreeSet<usize>>) -> BTreeSet<usize> {
+fn intersections<'a>(sets: impl IntoIterator<Item = &'a BitSet<usize>>) -> BitSet<usize> {
     let mut iter = sets.into_iter();
     match iter.next() {
-        None => BTreeSet::new(),
+        None => BitSet::default(),
         Some(first) => iter.fold(first.clone(), |mut acc, set| {
-            acc.retain(|item| set.contains(item));
+            acc.intersect_with(set);
             acc
         }),
     }

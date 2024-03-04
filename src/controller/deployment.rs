@@ -484,14 +484,17 @@ pub fn find_old_replicasets<'a>(
 
 // FindNewReplicaSet returns the new RS this given deployment targets (the one with the same pod template).
 #[tracing::instrument(skip_all)]
-fn find_new_replicaset(deployment: &Deployment, replicasets: &[&ReplicaSet]) -> Option<ReplicaSet> {
+fn find_new_replicaset<'a>(
+    deployment: &Deployment,
+    replicasets: &[&'a ReplicaSet],
+) -> Option<&'a ReplicaSet> {
     let mut replicasets = replicasets.to_vec();
     replicasets.sort_by_key(|r| r.metadata.creation_timestamp);
 
     for rs in replicasets {
         if equal_ignore_hash(&rs.spec.template, &deployment.spec.template) {
             debug!("found new replicaset");
-            return Some(rs.clone());
+            return Some(rs);
         }
     }
     debug!("Didn't find new replicaset");
