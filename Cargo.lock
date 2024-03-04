@@ -182,6 +182,21 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9d297deb1925b89f2ccc13d7635fa0714f12c87adce1c75356b39ca9b7178567"
 
 [[package]]
+name = "bit-set"
+version = "0.5.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0700ddab506f33b20a03b13996eccd309a48e5ff77d0d95926aa0210fb4e95f1"
+dependencies = [
+ "bit-vec",
+]
+
+[[package]]
+name = "bit-vec"
+version = "0.6.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "349f9b6a179ed607305526ca489b34ad0a41aed5f7980fa90eb03160b69598fb"
+
+[[package]]
 name = "bitflags"
 version = "1.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1908,7 +1923,7 @@ checksum = "6980e8d7511241f8acf4aebddbb1ff938df5eebe98691418c4468d0b72a96a67"
 [[package]]
 name = "stateright"
 version = "0.30.1"
-source = "git+https://github.com/jeffa5/stateright?branch=mco#2572a12b7ab88f43a64d431b2d1972c80c211da9"
+source = "git+https://github.com/jeffa5/stateright?branch=mco#a7ae2b8254c7615cc9fd0c7c2b43b2efbdf1ffcc"
 dependencies = [
  "ahash",
  "choice",
@@ -2010,6 +2025,7 @@ name = "themelios"
 version = "0.1.0"
 dependencies = [
  "axum",
+ "bit-set",
  "clap",
  "csv",
  "derivative",
