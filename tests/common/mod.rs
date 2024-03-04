@@ -1,10 +1,10 @@
 use stateright::Checker;
-use stateright::CheckerVisitor;
 use stateright::HasDiscoveries;
 use stateright::Model;
 use stateright::UniformChooser;
 use std::collections::BTreeMap;
 use std::fs::create_dir;
+use std::num::NonZeroU64;
 use std::path::Path;
 use std::path::PathBuf;
 use std::sync::atomic::AtomicU64;
@@ -172,12 +172,12 @@ impl DepthTracker {
     }
 }
 
-impl<M> CheckerVisitor<M> for DepthTracker
+impl<M> stateright::CheckerTerminalVisitor<M> for DepthTracker
 where
     M: Model,
 {
-    fn visit(&self, _model: &M, path: stateright::Path<M::State, M::Action>) {
-        let len = path.into_vec().len();
+    fn visit(&self, _model: &M, path: &[NonZeroU64]) {
+        let len = path.len();
         self.depths
             .get(&len)
             .unwrap()
