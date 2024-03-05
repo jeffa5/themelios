@@ -14,6 +14,7 @@ use themelios::model::OrchestrationModelCfg;
 use themelios::report::CSVReporter;
 use themelios::report::JointReporter;
 use themelios::report::StdoutReporter;
+use themelios::state::history::ConsistencySetup;
 use tracing::info;
 
 macro_rules! test_table {
@@ -81,7 +82,7 @@ fn check(model: OrchestrationModelCfg, test_name: &str) {
     let report_file = format!("{test_name}.csv");
     let report_path = report_dir.join(report_file);
     let max = 100;
-    let depths = DepthTracker::new(max);
+    let depths = DepthTracker::new(max, consistency.clone(), controllers, test_name.to_owned());
     let depths2 = depths.clone();
     let mut reporter = JointReporter {
         reporters: vec![
@@ -144,27 +145,43 @@ fn explore(model: OrchestrationModelCfg, mut path: String) {
 #[derive(Clone, Debug)]
 struct DepthTracker {
     depths: Arc<BTreeMap<usize, Arc<AtomicU64>>>,
+    consistency: ConsistencySetup,
+    controllers: usize,
+    function: String,
 }
 
 impl DepthTracker {
-    fn new(max: usize) -> Self {
+    fn new(
+        max: usize,
+        consistency: ConsistencySetup,
+        controllers: usize,
+        function: String,
+    ) -> Self {
         let mut depths = BTreeMap::new();
         for i in 0..=max {
             depths.insert(i, Arc::new(AtomicU64::new(0)));
         }
         Self {
             depths: Arc::new(depths),
+            consistency,
+            controllers,
+            function,
         }
     }
 
     fn to_csv(&self, path: &Path) {
         let mut writer = csv::Writer::from_path(path).unwrap();
-        writer.write_record(["depth", "count"]).unwrap();
+        writer
+            .write_record(["depth", "count", "consistency", "controllers", "function"])
+            .unwrap();
         for (d, c) in &*self.depths {
             writer
                 .write_record([
                     d.to_string(),
                     c.load(std::sync::atomic::Ordering::Relaxed).to_string(),
+                    self.consistency.to_string(),
+                    self.controllers.to_string(),
+                    self.function.to_owned(),
                 ])
                 .unwrap();
         }
