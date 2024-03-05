@@ -66,6 +66,12 @@ def plot_depths(files: List[Path]):
     plt.savefig(plots / "scatter-depth-count-consistency-all.png")
     plt.close()
 
+    plt.figure()
+    ax = sns.ecdfplot(data, x="depth", weights="count", hue="consistency")
+    plt.tight_layout()
+    plt.savefig(plots / "ecdf-depth-count-consistency-all.png")
+    plt.close()
+
 
 def run_data_paths(d: Path) -> List[Path]:
     return [d / Path(p) for p in os.listdir(d) if "-depths" not in p]
