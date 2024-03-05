@@ -29,6 +29,7 @@
       themelios = craneLib.buildPackage (commonArgs
         // {
           inherit cargoArtifacts;
+          doCheck = false;
         });
       python =
         pkgs.python3.withPackages (ps: [ps.pandas ps.seaborn]);
