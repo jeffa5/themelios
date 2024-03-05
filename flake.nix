@@ -30,9 +30,14 @@
         // {
           inherit cargoArtifacts;
         });
+      python =
+        pkgs.python3.withPackages (ps: [ps.pandas ps.seaborn]);
+      plot = pkgs.writeShellScriptBin "plot" ''
+        ${pkgs.lib.getExe python} ${./plot.py}
+      '';
     in {
       packages = {
-        inherit themelios;
+        inherit themelios plot;
       };
 
       devShells.default = pkgs.mkShell {
@@ -48,8 +53,6 @@
           pkgs.kind
           pkgs.etcd
           pkgs.cargo-tarpaulin
-
-          (pkgs.python3.withPackages (ps: [ps.pandas ps.seaborn]))
         ];
       };
     });
