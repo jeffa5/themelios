@@ -57,6 +57,16 @@ def plot_states(files: List[Path]):
     plt.close()
 
 
+def plot_depths(files: List[Path]):
+    data = pd.concat([pd.read_csv(p) for p in files])
+
+    plt.figure()
+    ax = sns.scatterplot(data, x="depth", y="count", hue="consistency")
+    plt.tight_layout()
+    plt.savefig(plots / "scatter-depth-count-consistency-all.png")
+    plt.close()
+
+
 def run_data_paths(d: Path) -> List[Path]:
     return [d / Path(p) for p in os.listdir(d) if "-depths" not in p]
 
@@ -78,6 +88,8 @@ def main():
 
     print("Plotting all states")
     plot_states(run_data_paths(out))
+    print("Plotting all depths")
+    plot_depths(run_depth_paths(out))
 
 
 main()
