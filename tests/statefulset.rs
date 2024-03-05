@@ -70,6 +70,12 @@ test_table! {
     causal_2(ConsistencySetup::Causal, 2),
 }
 
+test_table_panic! {
+    test_spec_replicas_change,
+    optimistic_linear_1(ConsistencySetup::OptimisticLinear, 1),
+    optimistic_linear_2(ConsistencySetup::OptimisticLinear, 2),
+}
+
 // TestSpecReplicasChange
 fn test_spec_replicas_change(
     consistency: ConsistencySetup,
@@ -98,6 +104,12 @@ test_table! {
     causal_2(ConsistencySetup::Causal, 2),
 }
 
+test_table_panic! {
+    test_statefulset_available,
+    optimistic_linear_1(ConsistencySetup::OptimisticLinear, 1),
+    optimistic_linear_2(ConsistencySetup::OptimisticLinear, 2),
+}
+
 // TestStatefulSetAvailable
 fn test_statefulset_available(
     consistency: ConsistencySetup,
@@ -119,6 +131,8 @@ test_table! {
 test_table_panic! {
     test_stale_reads,
     resettable_session_1(ConsistencySetup::ResettableSession, 1),
+    optimistic_linear_1(ConsistencySetup::OptimisticLinear, 1),
+    optimistic_linear_2(ConsistencySetup::OptimisticLinear, 2),
     resettable_session_2(ConsistencySetup::ResettableSession, 2),
     causal_1(ConsistencySetup::Causal, 1),
     causal_2(ConsistencySetup::Causal, 2),
