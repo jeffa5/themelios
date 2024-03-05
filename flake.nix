@@ -37,6 +37,10 @@
         ${pkgs.lib.getExe python} ${./plot.py}
       '';
     in {
+      checks = {
+        inherit themelios plot;
+      };
+
       packages = {
         inherit themelios plot;
       };
