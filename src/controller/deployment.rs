@@ -1274,15 +1274,13 @@ fn filter_out_condition(
 }
 
 fn equal_ignore_hash(t1: &PodTemplateSpec, t2: &PodTemplateSpec) -> bool {
-    let mut t1 = t1.clone();
-    let mut t2 = t2.clone();
-    t1.metadata
-        .labels
-        .remove(DEFAULT_DEPLOYMENT_UNIQUE_LABEL_KEY);
-    t2.metadata
-        .labels
-        .remove(DEFAULT_DEPLOYMENT_UNIQUE_LABEL_KEY);
-    t1 == t2
+    // just clone the metadata to avoid cloning the entire template
+    // TODO: optimise this further
+    let mut t1m = t1.metadata.clone();
+    let mut t2m = t2.metadata.clone();
+    t1m.labels.remove(DEFAULT_DEPLOYMENT_UNIQUE_LABEL_KEY);
+    t2m.labels.remove(DEFAULT_DEPLOYMENT_UNIQUE_LABEL_KEY);
+    t1.spec == t2.spec && t1m == t2m
 }
 
 // SetNewReplicaSetAnnotations sets new replica set's annotations appropriately by updating its revision and
