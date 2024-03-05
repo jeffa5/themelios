@@ -12,15 +12,24 @@ pub struct OptimisticLinearHistory {
     /// First is the last committed state.
     /// Last is the optimistic one.
     /// In between are states that could be committed.
-    states: Vec<Arc<StateView>>,
-    commit_every: usize,
+    states: imbl::Vector<Arc<HistoryState>>,
+    committed: usize,
+}
+
+#[derive(Clone, PartialEq, Eq, Hash, Debug)]
+pub struct HistoryState {
+    state: StateView,
+    parent: usize,
 }
 
 impl OptimisticLinearHistory {
-    pub fn new(initial_state: RawState, commit_every: usize) -> Self {
+    pub fn new(initial_state: RawState) -> Self {
         Self {
-            states: vec![Arc::new(initial_state.into())],
-            commit_every,
+            states: imbl::vector![Arc::new(HistoryState {
+                state: initial_state.into(),
+                parent: 0,
+            })],
+            committed: 0,
         }
     }
 }
@@ -29,46 +38,46 @@ impl History for OptimisticLinearHistory {
     fn add_change(&mut self, change: Change) {
         // find the state for the revision that the change operated on, we'll treat this as the
         // committed one if they didn't operate on the latest (optimistic)
-        let index = self
-            .states
-            .binary_search_by_key(&&change.revision, |s| &s.revision)
-            .unwrap();
-        let mut new_state = (*self.states[index]).clone();
+        let index = change.revision.components().first().unwrap();
+        let mut new_state = (*self.states[*index]).state.clone();
         let new_revision = self.max_revision().increment();
         if new_state.apply_operation(change.operation, new_revision) {
-            if index + 1 == self.states.len() {
-                // this was a mutation on the optimistic state
-                if self.states.len() > self.commit_every {
-                    // we have triggered a commit point, the last state is now the committed one
-                    self.states.clear();
-                } else {
-                    // we haven't reached a guaranteed commit yet, just extend the current states
-                }
-                self.states.push(Arc::new(new_state));
-            } else {
-                // this was a mutation on a committed state (leader changed)
-                // Discard all states before and after this one
-                let committed_state = self.states.swap_remove(index);
-                self.states.clear();
-                self.states.push(committed_state);
-                self.states.push(Arc::new(new_state));
-            }
+            self.states.push_back(Arc::new(HistoryState {
+                state: new_state,
+                parent: *index,
+            }));
         }
     }
 
     fn max_revision(&self) -> Revision {
-        self.states.last().unwrap().revision.clone()
+        self.states.last().unwrap().state.revision.clone()
     }
 
     fn state_at(&self, revision: &Revision) -> Cow<StateView> {
-        let index = self
-            .states
-            .binary_search_by_key(&revision, |s| &s.revision)
-            .unwrap();
-        Cow::Borrowed(&self.states[index])
+        let index = revision.components().first().unwrap();
+        Cow::Borrowed(&self.states[*index].state)
     }
 
-    fn valid_revisions(&self, _min_revision: Option<&Revision>) -> Vec<Revision> {
-        self.states.iter().map(|s| s.revision.clone()).collect()
+    fn valid_revisions(&self, min_revision: Option<&Revision>) -> Vec<Revision> {
+        if let Some(min_revision) = min_revision {
+            let index = min_revision.components().first().unwrap();
+            let mut revisions = Vec::new();
+            let mut sindex = self.states.len() - 1;
+            // iteratively build up the revisions from the latest, following the parent pointers
+            // until we are past the session revision, or past the last committed one.
+            loop {
+                if sindex <= *index || sindex < self.committed {
+                    break;
+                }
+                let state = &self.states[sindex];
+                sindex = state.parent;
+                revisions.push(state.state.revision.clone());
+            }
+            revisions
+        } else {
+            // for a new requester who doesn't have a session we give them the latest (a quorum
+            // read sort of thing)
+            vec![self.max_revision()]
+        }
     }
 }

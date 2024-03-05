@@ -35,10 +35,9 @@ pub enum ConsistencySetup {
     /// Linearizable writes.
     ResettableSession,
     /// Optimistically apply changes without guarantee that they are committed.
-    /// Commits automatically happen every `k` changes.
     /// Optimistic reads.
     /// Optimistic writes.
-    OptimisticLinear(usize),
+    OptimisticLinear,
     /// Apply changes to a causal graph.
     Causal,
 }
@@ -52,7 +51,7 @@ impl Display for ConsistencySetup {
                 ConsistencySetup::Linearizable => "linearizable",
                 ConsistencySetup::MonotonicSession => "monotonic-session",
                 ConsistencySetup::ResettableSession => "resettable-session",
-                ConsistencySetup::OptimisticLinear(_) => "optimistic-linear",
+                ConsistencySetup::OptimisticLinear => "optimistic-linear",
                 ConsistencySetup::Causal => "causal",
             }
         )
@@ -104,8 +103,8 @@ impl StateHistory {
             ConsistencySetup::ResettableSession => {
                 Self::ResettableSession(ResettableSessionHistory::new(initial_state))
             }
-            ConsistencySetup::OptimisticLinear(commit_every) => {
-                Self::OptimisticLinear(OptimisticLinearHistory::new(initial_state, commit_every))
+            ConsistencySetup::OptimisticLinear => {
+                Self::OptimisticLinear(OptimisticLinearHistory::new(initial_state))
             }
             ConsistencySetup::Causal => Self::Causal(CausalHistory::new(initial_state)),
         }
