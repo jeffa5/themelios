@@ -147,7 +147,9 @@ impl Model for AbstractModel {
                 // skip nodes for now
                 continue;
             }
-            actions.push(Action::ControllerRestart(i));
+            if state.get_controller(i) != &controller.new_state() {
+                actions.push(Action::ControllerRestart(i));
+            }
         }
 
         // at max revision as this isn't a controller event
