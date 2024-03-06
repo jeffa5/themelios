@@ -244,6 +244,39 @@ impl Model for AbstractModel {
         )]);
         p
     }
+
+    fn format_action(&self, action: &Self::Action) -> String
+    where
+        Self::Action: std::fmt::Debug,
+    {
+        match action {
+            Action::ControllerStep(_, i) => {
+                let name = self.controllers[*i].name();
+                format!("{:?}: {}", action, name)
+            }
+            Action::ArbitraryStep(_) => format!("{:?}", action),
+            Action::ControllerRestart(i) => {
+                let name = self.controllers[*i].name();
+                format!("{:?}: {}", action, name)
+            }
+            Action::NodeRestart(_) => format!("{:?}", action),
+        }
+    }
+
+    fn format_step(&self, last_state: &Self::State, action: Self::Action) -> Option<String>
+    where
+        Self::State: std::fmt::Debug,
+    {
+        let last = format!("{:#?}", last_state);
+        let next = self
+            .next_state(last_state, action)
+            .map(|next_state| format!("{:#?}", next_state))
+            .unwrap_or_default();
+        let textdiff = similar::TextDiff::from_lines(&last, &next);
+        let diff = similar::udiff::UnifiedDiff::from_text_diff(&textdiff);
+        let out = diff.to_string();
+        Some(out)
+    }
 }
 
 fn all_unique<T: Ord>(iter: impl IntoIterator<Item = T>) -> bool {
