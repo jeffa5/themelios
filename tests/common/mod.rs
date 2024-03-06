@@ -57,7 +57,7 @@ pub fn run(model: OrchestrationModelCfg, fn_name: &str) {
     println!("Running test {:?}", fn_name);
 
     if let Ok(explore_test) = std::env::var("MCO_EXPLORE_TEST") {
-        if fn_name.ends_with(&explore_test) {
+        if fn_name.contains(&explore_test) {
             let path = std::env::var("MCO_EXPLORE_PATH").unwrap_or_default();
             explore(model, path);
         }
