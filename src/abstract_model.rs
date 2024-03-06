@@ -245,14 +245,18 @@ impl Model for AbstractModel {
         p
     }
 
-    fn format_action(&self, action: &Self::Action) -> String
+    fn format_action(&self, last_state: &Self::State, action: &Self::Action) -> String
     where
         Self::Action: std::fmt::Debug,
     {
         match action {
-            Action::ControllerStep(_, i) => {
+            Action::ControllerStep(rev, i) => {
+                let controller = &self.controllers[*i];
+                let view = last_state.view_at(rev);
+                let mut cstate = last_state.get_controller(*i).clone();
+                let caction = controller.step(&view, &mut cstate).unwrap();
                 let name = self.controllers[*i].name();
-                format!("{:?}: {}", action, name)
+                format!("{:?}: {}: {:?}", action, name, caction)
             }
             Action::ArbitraryStep(_) => format!("{:?}", action),
             Action::ControllerRestart(i) => {
@@ -267,10 +271,10 @@ impl Model for AbstractModel {
     where
         Self::State: std::fmt::Debug,
     {
-        let last = format!("{:#?}", last_state);
+        let last = format!("{:#?}", last_state.latest());
         let next = self
             .next_state(last_state, action)
-            .map(|next_state| format!("{:#?}", next_state))
+            .map(|next_state| format!("{:#?}", next_state.latest()))
             .unwrap_or_default();
         let textdiff = similar::TextDiff::from_lines(&last, &next);
         let diff = similar::udiff::UnifiedDiff::from_text_diff(&textdiff);
