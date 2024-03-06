@@ -38,7 +38,19 @@ impl History for LinearizableHistory {
         Cow::Borrowed(&self.states[*index])
     }
 
-    fn valid_revisions(&self, _min_revision: Option<&Revision>) -> Vec<Revision> {
-        vec![self.max_revision()]
+    fn valid_revisions(&self, min_revision: Option<&Revision>) -> Vec<Revision> {
+        let max = self.max_revision();
+        if let Some(min_revision) = min_revision {
+            if &max > min_revision {
+                // there has been changes the client has not observed
+                vec![max]
+            } else {
+                // they have already observed the latest state
+                Vec::new()
+            }
+        } else {
+            // they might not have seen anything yet
+            vec![max]
+        }
     }
 }
