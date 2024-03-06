@@ -47,7 +47,7 @@ impl History for MonotonicSessionHistory {
             let index = min_revision.components().first().unwrap();
             self.states
                 .iter()
-                .skip(*index)
+                .skip(*index + 1)
                 .map(|s| s.revision.clone())
                 .collect()
         } else {
