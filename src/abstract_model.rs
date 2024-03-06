@@ -254,9 +254,12 @@ impl Model for AbstractModel {
                 let controller = &self.controllers[*i];
                 let view = last_state.view_at(rev);
                 let mut cstate = last_state.get_controller(*i).clone();
-                let caction = controller.step(&view, &mut cstate).unwrap();
+                let caction = controller
+                    .step(&view, &mut cstate)
+                    .map(|a| format!("{:?}", a))
+                    .unwrap_or_default();
                 let name = self.controllers[*i].name();
-                format!("{:?}: {}: {:?}", action, name, caction)
+                format!("{:?}: {} {}", action, name, caction)
             }
             Action::ArbitraryStep(_) => format!("{:?}", action),
             Action::ControllerRestart(i) => {
