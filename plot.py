@@ -50,6 +50,14 @@ def plot_states(files: List[Path]):
     plt.close()
 
     plt.figure()
+    datamax = data.groupby(["function", "consistency", "controllers"]).max("total_states")
+    ax = sns.displot(kind="ecdf", data=datamax, x="total_states", hue="consistency", col="controllers")
+    plt.tight_layout()
+    plt.savefig(plots / "ecdf-states-consistency-controllers-all.png")
+    plt.close()
+
+
+    plt.figure()
     datamax = data.groupby(["function", "consistency"]).max("total_states")
     ax = sns.boxplot(datamax, x="consistency", y="total_states")
     plt.tight_layout()
