@@ -76,10 +76,8 @@ impl Controller for NodeController {
                             ..Default::default()
                         })
                     }
-                    if new_pod.status.phase == PodPhase::Pending {
-                        new_pod.status.phase = PodPhase::Running;
-                        return Some(NodeControllerAction::UpdatePod(new_pod));
-                    }
+                    new_pod.status.phase = PodPhase::Running;
+                    return Some(NodeControllerAction::UpdatePod(new_pod));
                 }
             }
 
