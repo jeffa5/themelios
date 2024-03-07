@@ -58,7 +58,7 @@ pub async fn run() -> (Arc<AtomicBool>, Vec<JoinHandle<()>>) {
                                 let local_dep =
                                     serde_json::from_value(serde_json::to_value(dep).unwrap())
                                         .unwrap();
-                                let _ = state.$field.insert(local_dep, revision);
+                                let _ = state.$field.upsert(local_dep, revision);
                             }
                             Event::Deleted(dep) => {
                                 info!(
@@ -90,7 +90,7 @@ pub async fn run() -> (Arc<AtomicBool>, Vec<JoinHandle<()>>) {
                                     let local_dep =
                                         serde_json::from_value(serde_json::to_value(dep).unwrap())
                                             .unwrap();
-                                    let _ = state.$field.insert(local_dep, revision.clone());
+                                    let _ = state.$field.upsert(local_dep, revision.clone());
                                 }
                             }
                         }

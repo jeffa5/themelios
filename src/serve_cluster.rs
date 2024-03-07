@@ -254,7 +254,7 @@ async fn create_deployment(
     s.revision = s.revision.clone().increment();
     let revision = s.revision.clone();
     let deployment_name = deployment.metadata.name.clone();
-    s.deployments.insert(deployment, revision).unwrap();
+    s.deployments.create(deployment, revision).unwrap();
     let deployment = s.deployments.get(&deployment_name).unwrap().clone();
     (StatusCode::OK, Json(SerializableResource::new(deployment)))
 }
@@ -269,7 +269,7 @@ async fn update_deployment(
     s.revision = s.revision.clone().increment();
     let revision = s.revision.clone();
     let deployment_name = deployment.metadata.name.clone();
-    s.deployments.insert(deployment, revision).unwrap();
+    s.deployments.update(deployment, revision).unwrap();
     let deployment = s.deployments.get(&deployment_name).unwrap().clone();
     (StatusCode::OK, Json(SerializableResource::new(deployment)))
 }
@@ -286,7 +286,7 @@ async fn scale_deployment(
     let revision = s.revision.clone();
     let mut deployment = s.deployments.get(&name).unwrap().clone();
     deployment.spec.replicas = scale.spec.replicas;
-    s.deployments.insert(deployment, revision).unwrap();
+    s.deployments.update(deployment, revision).unwrap();
     let deployment = s.deployments.get(&name).unwrap().clone();
     (StatusCode::OK, Json(SerializableResource::new(deployment)))
 }
@@ -374,7 +374,7 @@ async fn create_replicaset(
     s.revision = s.revision.clone().increment();
     let revision = s.revision.clone();
     let replicaset_name = replicaset.metadata.name.clone();
-    s.replicasets.insert(replicaset, revision).unwrap();
+    s.replicasets.create(replicaset, revision).unwrap();
     let replicaset = s.replicasets.get(&replicaset_name).unwrap().clone();
     (StatusCode::OK, Json(replicaset))
 }
@@ -389,7 +389,7 @@ async fn update_replicaset(
     s.revision = s.revision.clone().increment();
     let revision = s.revision.clone();
     let replicaset_name = replicaset.metadata.name.clone();
-    s.replicasets.insert(replicaset, revision).unwrap();
+    s.replicasets.update(replicaset, revision).unwrap();
     let replicaset = s.replicasets.get(&replicaset_name).unwrap().clone();
     (StatusCode::OK, Json(replicaset))
 }

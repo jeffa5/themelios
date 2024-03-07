@@ -1,7 +1,11 @@
 use stateright::Expectation;
 
 use crate::{
-    controller::{statefulset::{get_ordinal, pod_in_ordinal_range}, util::is_pod_ready, StatefulSetController},
+    controller::{
+        statefulset::{get_ordinal, pod_in_ordinal_range},
+        util::is_pod_ready,
+        StatefulSetController,
+    },
     state::revision::Revision,
     utils::LogicalBoolExt,
 };
