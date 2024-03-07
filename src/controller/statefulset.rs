@@ -781,7 +781,7 @@ fn get_end_ordinal(sts: &StatefulSet) -> Option<u32> {
     (get_start_ordinal(sts) + sts.spec.replicas.unwrap_or(1)).checked_sub(1)
 }
 
-fn pod_in_ordinal_range(pod: &Pod, sts: &StatefulSet) -> bool {
+pub fn pod_in_ordinal_range(pod: &Pod, sts: &StatefulSet) -> bool {
     if let Some(ordinal) = get_ordinal(pod) {
         if let Some(end) = get_end_ordinal(sts) {
             ordinal >= get_start_ordinal(sts) && ordinal <= end
