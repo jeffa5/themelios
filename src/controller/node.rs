@@ -104,6 +104,14 @@ impl Controller for NodeController {
                 }) {
                     new_pod.status.phase = PodPhase::Failed;
                     new_pod.status.conditions.clear();
+
+                    if let Some(pos) = local_state
+                        .running
+                        .iter()
+                        .position(|r| r == &pod.metadata.name)
+                    {
+                        local_state.running.remove(pos);
+                    }
                     return Some(NodeControllerAction::UpdatePod(new_pod));
                 }
                 if pod.status.container_statuses.iter().all(|cs| {
@@ -114,6 +122,13 @@ impl Controller for NodeController {
                 }) {
                     new_pod.status.phase = PodPhase::Succeeded;
                     new_pod.status.conditions.clear();
+                    if let Some(pos) = local_state
+                        .running
+                        .iter()
+                        .position(|r| r == &pod.metadata.name)
+                    {
+                        local_state.running.remove(pos);
+                    }
                     return Some(NodeControllerAction::UpdatePod(new_pod));
                 }
 
