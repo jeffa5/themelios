@@ -168,6 +168,7 @@ impl ArbitraryClient {
             ArbitraryClientAction::MarkSucceededContainer(name) => {
                 let mut res = state.pods.get(&name).unwrap().clone();
                 for cs in &mut res.status.container_statuses {
+                    cs.last_state = cs.state.clone();
                     cs.state = ContainerState::Terminated(ContainerStateTerminated {
                         exit_code: 0,
                         ..Default::default()
@@ -178,6 +179,7 @@ impl ArbitraryClient {
             ArbitraryClientAction::MarkFailedContainer(name) => {
                 let mut res = state.pods.get(&name).unwrap().clone();
                 for cs in &mut res.status.container_statuses {
+                    cs.last_state = cs.state.clone();
                     cs.state = ContainerState::Terminated(ContainerStateTerminated {
                         exit_code: 1,
                         ..Default::default()
