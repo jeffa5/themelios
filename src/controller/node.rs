@@ -120,6 +120,7 @@ impl Controller for NodeController {
                     )
                 }) {
                     new_pod.status.phase = PodPhase::Failed;
+                    new_pod.status.conditions.clear();
                     return Some(NodeControllerAction::UpdatePod(new_pod));
                 }
                 if pod.status.container_statuses.iter().all(|cs| {
@@ -129,6 +130,7 @@ impl Controller for NodeController {
                     )
                 }) {
                     new_pod.status.phase = PodPhase::Succeeded;
+                    new_pod.status.conditions.clear();
                     return Some(NodeControllerAction::UpdatePod(new_pod));
                 }
             }
