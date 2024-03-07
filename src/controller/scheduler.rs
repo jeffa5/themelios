@@ -6,6 +6,8 @@ use crate::resources::{Node, PersistentVolumeClaim, Pod, ResourceQuantities};
 use crate::state::revision::Revision;
 use crate::state::StateView;
 
+use super::util::is_pod_active;
+
 #[derive(Clone, Debug)]
 pub struct SchedulerController;
 
@@ -49,7 +51,7 @@ impl Controller for SchedulerController {
         let pods_to_schedule = global_state
             .pods
             .iter()
-            .filter(|p| p.spec.node_name.is_none());
+            .filter(|p| p.spec.node_name.is_none() && is_pod_active(p));
 
         let pvcs = global_state
             .persistent_volume_claims
