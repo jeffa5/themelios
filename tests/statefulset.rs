@@ -24,9 +24,18 @@ fn model(
     controllers: usize,
 ) -> OrchestrationModelCfg {
     let initial_state = RawState::default().with_statefulsets(statefulsets);
-    let mut omc = OrchestrationModelCfg::new(initial_state, consistency, controllers);
-    omc.nodes = nodes;
-    omc
+    OrchestrationModelCfg {
+        initial_state,
+        consistency_level: consistency,
+        schedulers: controllers,
+        nodes,
+        replicaset_controllers: 0,
+        deployment_controllers: 0,
+        statefulset_controllers: controllers,
+        job_controllers: 0,
+        podgc_controllers: controllers,
+        properties: Vec::new(),
+    }
 }
 
 fn new_statefulset(name: &str, _namespace: &str, replicas: u32) -> StatefulSet {
