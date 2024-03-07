@@ -1,6 +1,7 @@
 use std::collections::BTreeMap;
 
 use crate::abstract_model::ControllerAction;
+use crate::controller::util::is_pod_terminating;
 use crate::controller::Controller;
 use crate::resources::{
     ConditionStatus, ContainerState, ContainerStateRunning, ContainerStateTerminated,
@@ -59,7 +60,7 @@ impl Controller for NodeController {
 
             // quickly start up all local pods
             for &pod in &pods_for_this_node {
-                if !local_state.running.contains(&pod.metadata.name) {
+                if !is_pod_terminating(pod) && !local_state.running.contains(&pod.metadata.name) {
                     local_state.running.push(pod.metadata.name.clone());
                     let mut new_pod = pod.clone();
                     new_pod.status.container_statuses.clear();
