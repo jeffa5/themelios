@@ -75,7 +75,7 @@ impl From<JobControllerAction> for ControllerAction {
             JobControllerAction::UpdateJobStatus(j) => ControllerAction::UpdateJobStatus(j),
             JobControllerAction::CreatePod(pod) => ControllerAction::CreatePod(pod),
             JobControllerAction::UpdatePod(pod) => ControllerAction::UpdatePod(pod),
-            JobControllerAction::DeletePod(pod) => ControllerAction::DeletePod(pod),
+            JobControllerAction::DeletePod(pod) => ControllerAction::SoftDeletePod(pod),
         }
     }
 }

@@ -35,7 +35,7 @@ impl From<NodeControllerAction> for ControllerAction {
         match val {
             NodeControllerAction::NodeJoin(id, q) => ControllerAction::NodeJoin(id, q),
             NodeControllerAction::UpdatePod(pod) => ControllerAction::UpdatePod(pod),
-            NodeControllerAction::DeletePod(pod) => ControllerAction::DeletePod(pod),
+            NodeControllerAction::DeletePod(pod) => ControllerAction::HardDeletePod(pod),
         }
     }
 }

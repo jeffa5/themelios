@@ -56,7 +56,7 @@ impl From<StatefulSetControllerAction> for ControllerAction {
             }
             StatefulSetControllerAction::CreatePod(p) => ControllerAction::CreatePod(p),
             StatefulSetControllerAction::UpdatePod(p) => ControllerAction::UpdatePod(p),
-            StatefulSetControllerAction::DeletePod(p) => ControllerAction::DeletePod(p),
+            StatefulSetControllerAction::DeletePod(p) => ControllerAction::SoftDeletePod(p),
             StatefulSetControllerAction::CreatePersistentVolumeClaim(pvc) => {
                 ControllerAction::CreatePersistentVolumeClaim(pvc)
             }

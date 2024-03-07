@@ -188,7 +188,8 @@ async fn handle_action(action: ControllerAction, client: Client) {
                 .await
                 .unwrap();
         }
-        ControllerAction::DeletePod(_) => todo!(),
+        ControllerAction::SoftDeletePod(_) => todo!(),
+        ControllerAction::HardDeletePod(_) => todo!(),
         ControllerAction::UpdatePod(_) => todo!(),
         ControllerAction::UpdateDeployment(mut dep) => {
             if dep.metadata.namespace.is_empty() {

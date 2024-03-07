@@ -22,7 +22,7 @@ pub enum PodGCAction {
 impl From<PodGCAction> for ControllerAction {
     fn from(value: PodGCAction) -> Self {
         match value {
-            PodGCAction::DeletePod(pod) => ControllerAction::DeletePod(pod),
+            PodGCAction::DeletePod(pod) => ControllerAction::HardDeletePod(pod),
         }
     }
 }
