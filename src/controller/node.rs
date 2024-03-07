@@ -56,9 +56,14 @@ impl Controller for NodeController {
                 .collect::<Vec<_>>();
 
             // quickly start up all local pods
-            for pod in &pods_for_this_node {
+            for &pod in &pods_for_this_node {
                 if !local_state.running.contains(&pod.metadata.name) {
                     local_state.running.push(pod.metadata.name.clone());
+                    let mut new_pod = pod.clone();
+                    if new_pod.status.phase == PodPhase::Pending {
+                        new_pod.status.phase = PodPhase::Running;
+                        return Some(NodeControllerAction::UpdatePod(new_pod));
+                    }
                 }
             }
 
@@ -77,12 +82,11 @@ impl Controller for NodeController {
                 }
 
                 let mut new_pod = pod.clone();
-                if new_pod.status.phase != PodPhase::Running {
-                    new_pod.status.phase = PodPhase::Running;
-                }
-                if !new_pod.status.conditions.iter().any(|c| {
-                    c.r#type == PodConditionType::Ready && c.status == ConditionStatus::True
-                }) {
+                if pod.status.phase == PodPhase::Running
+                    && !new_pod.status.conditions.iter().any(|c| {
+                        c.r#type == PodConditionType::Ready && c.status == ConditionStatus::True
+                    })
+                {
                     new_pod.status.conditions.push(PodCondition {
                         status: ConditionStatus::True,
                         r#type: PodConditionType::Ready,
@@ -91,8 +95,6 @@ impl Controller for NodeController {
                         message: None,
                         reason: None,
                     });
-                }
-                if new_pod.status != pod.status {
                     return Some(NodeControllerAction::UpdatePod(new_pod));
                 }
             }
