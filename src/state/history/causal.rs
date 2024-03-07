@@ -7,12 +7,12 @@ use crate::{
     state::{revision::Revision, RawState, StateView},
 };
 
-use super::History;
+use super::{History, StatesVec};
 
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub struct CausalHistory {
     /// Mapping of states and their dependencies.
-    states: imbl::Vector<Arc<CausalState>>,
+    states: StatesVec<CausalState>,
     heads: BTreeSet<usize>,
 }
 
@@ -29,12 +29,12 @@ impl CausalHistory {
         let mut heads = BTreeSet::new();
         heads.insert(0);
         Self {
-            states: imbl::vector![Arc::new(CausalState {
+            states: StatesVec(imbl::vector![Arc::new(CausalState {
                 state: initial_state.into(),
                 predecessors: Vec::new(),
                 successors: Vec::new(),
                 concurrent: BitSet::default(),
-            })],
+            })]),
             heads,
         }
     }

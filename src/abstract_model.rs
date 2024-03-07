@@ -274,10 +274,10 @@ impl Model for AbstractModel {
     where
         Self::State: std::fmt::Debug,
     {
-        let last = format!("{:#?}", last_state.latest());
+        let last = format!("{:#?}", last_state);
         let next = self
             .next_state(last_state, action)
-            .map(|next_state| format!("{:#?}", next_state.latest()))
+            .map(|next_state| format!("{:#?}", next_state))
             .unwrap_or_default();
         let textdiff = similar::TextDiff::from_lines(&last, &next);
         let diff = similar::udiff::UnifiedDiff::from_text_diff(&textdiff);

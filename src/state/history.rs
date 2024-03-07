@@ -1,4 +1,9 @@
-use std::{borrow::Cow, fmt::Display};
+use std::{
+    borrow::Cow,
+    fmt::Display,
+    ops::{Deref, DerefMut},
+    sync::Arc,
+};
 
 use crate::abstract_model::Change;
 
@@ -150,5 +155,32 @@ impl History for StateHistory {
             StateHistory::OptimisticLinear(s) => s.valid_revisions(min_revision),
             StateHistory::Causal(s) => s.valid_revisions(min_revision),
         }
+    }
+}
+
+#[derive(Clone, Default, PartialEq, Eq, Hash)]
+pub struct StatesVec<T = StateView>(pub imbl::Vector<Arc<T>>);
+
+impl<T> Deref for StatesVec<T> {
+    type Target = imbl::Vector<Arc<T>>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl<T> DerefMut for StatesVec<T> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+impl<T> std::fmt::Debug for StatesVec<T>
+where
+    T: std::fmt::Debug,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = self.0.last().unwrap();
+        s.fmt(f)
     }
 }

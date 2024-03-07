@@ -5,14 +5,14 @@ use crate::{
     state::{revision::Revision, RawState, StateView},
 };
 
-use super::History;
+use super::{History, StatesVec};
 
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub struct OptimisticLinearHistory {
     /// First is the last committed state.
     /// Last is the optimistic one.
     /// In between are states that could be committed.
-    states: imbl::Vector<Arc<HistoryState>>,
+    states: StatesVec<HistoryState>,
     committed: usize,
 }
 
@@ -25,10 +25,10 @@ pub struct HistoryState {
 impl OptimisticLinearHistory {
     pub fn new(initial_state: RawState) -> Self {
         Self {
-            states: imbl::vector![Arc::new(HistoryState {
+            states: StatesVec(imbl::vector![Arc::new(HistoryState {
                 state: initial_state.into(),
                 parent: 0,
-            })],
+            })]),
             committed: 0,
         }
     }

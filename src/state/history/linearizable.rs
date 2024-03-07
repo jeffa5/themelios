@@ -5,17 +5,17 @@ use crate::{
     state::{revision::Revision, RawState, StateView},
 };
 
-use super::History;
+use super::{History, StatesVec};
 
 #[derive(Default, Clone, PartialEq, Eq, Hash, Debug)]
 pub struct LinearizableHistory {
-    states: imbl::Vector<Arc<StateView>>,
+    states: StatesVec,
 }
 
 impl LinearizableHistory {
     pub fn new(initial_state: RawState) -> Self {
         Self {
-            states: imbl::vector![Arc::new(initial_state.into())],
+            states: StatesVec(imbl::vector![Arc::new(initial_state.into())]),
         }
     }
 }
