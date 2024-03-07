@@ -3,10 +3,12 @@ use std::collections::BTreeMap;
 use crate::abstract_model::ControllerAction;
 use crate::controller::Controller;
 use crate::resources::{
-    ConditionStatus, Pod, PodCondition, PodConditionType, PodPhase, ResourceQuantities,
+    ConditionStatus, ContainerState, ContainerStateRunning, ContainerStateTerminated,
+    ContainerStatus, Pod, PodCondition, PodConditionType, PodPhase, ResourceQuantities,
 };
 use crate::state::revision::Revision;
 use crate::state::StateView;
+use crate::utils::now;
 
 #[derive(Clone, Debug)]
 pub struct NodeController {
@@ -60,6 +62,19 @@ impl Controller for NodeController {
                 if !local_state.running.contains(&pod.metadata.name) {
                     local_state.running.push(pod.metadata.name.clone());
                     let mut new_pod = pod.clone();
+                    new_pod.status.container_statuses.clear();
+                    for c in &new_pod.spec.containers {
+                        new_pod.status.container_statuses.push(ContainerStatus {
+                            name: c.name.clone(),
+                            state: ContainerState::Running(ContainerStateRunning {
+                                started_at: Some(now()),
+                            }),
+                            ready: true,
+                            image: c.image.clone(),
+                            started: true,
+                            ..Default::default()
+                        })
+                    }
                     if new_pod.status.phase == PodPhase::Pending {
                         new_pod.status.phase = PodPhase::Running;
                         return Some(NodeControllerAction::UpdatePod(new_pod));
@@ -95,6 +110,25 @@ impl Controller for NodeController {
                         message: None,
                         reason: None,
                     });
+                    return Some(NodeControllerAction::UpdatePod(new_pod));
+                }
+
+                if pod.status.container_statuses.iter().any(|cs| {
+                    matches!(
+                        cs.state,
+                        ContainerState::Terminated(ContainerStateTerminated { exit_code, .. }) if exit_code > 0
+                    )
+                }) {
+                    new_pod.status.phase = PodPhase::Failed;
+                    return Some(NodeControllerAction::UpdatePod(new_pod));
+                }
+                if pod.status.container_statuses.iter().all(|cs| {
+                    matches!(
+                        cs.state,
+                        ContainerState::Terminated(ContainerStateTerminated { exit_code: 0, .. })
+                    )
+                }) {
+                    new_pod.status.phase = PodPhase::Succeeded;
                     return Some(NodeControllerAction::UpdatePod(new_pod));
                 }
             }

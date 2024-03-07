@@ -1,4 +1,8 @@
-use crate::{abstract_model::ControllerAction, resources::PodPhase, state::StateView};
+use crate::{
+    abstract_model::ControllerAction,
+    resources::{ContainerState, ContainerStateTerminated, PodPhase},
+    state::StateView,
+};
 
 pub struct ArbitraryClient;
 
@@ -16,8 +20,8 @@ pub enum ArbitraryClientAction {
 
     ToggleSuspendJob(String),
 
-    MarkSucceededPod(String),
-    MarkFailedPod(String),
+    MarkSucceededContainer(String),
+    MarkFailedContainer(String),
 }
 
 impl ArbitraryClient {
@@ -104,13 +108,13 @@ impl ArbitraryClient {
         }
         toggle_suspension!(jobs, ArbitraryClientAction::ToggleSuspendJob);
 
-        // mark pods as succeeded or finished
+        // mark containers as succeeded or finished
         for pod in view.pods.iter() {
             if pod.status.phase == PodPhase::Running {
-                actions.push(ArbitraryClientAction::MarkSucceededPod(
+                actions.push(ArbitraryClientAction::MarkSucceededContainer(
                     pod.metadata.name.clone(),
                 ));
-                actions.push(ArbitraryClientAction::MarkFailedPod(
+                actions.push(ArbitraryClientAction::MarkFailedContainer(
                     pod.metadata.name.clone(),
                 ));
             }
@@ -161,16 +165,24 @@ impl ArbitraryClient {
                 res.spec.suspend = !res.spec.suspend;
                 ControllerAction::UpdateJob(res)
             }
-            ArbitraryClientAction::MarkSucceededPod(name) => {
+            ArbitraryClientAction::MarkSucceededContainer(name) => {
                 let mut res = state.pods.get(&name).unwrap().clone();
-                res.status.phase = PodPhase::Succeeded;
-                res.status.conditions.clear();
+                for cs in &mut res.status.container_statuses {
+                    cs.state = ContainerState::Terminated(ContainerStateTerminated {
+                        exit_code: 0,
+                        ..Default::default()
+                    });
+                }
                 ControllerAction::UpdatePod(res)
             }
-            ArbitraryClientAction::MarkFailedPod(name) => {
+            ArbitraryClientAction::MarkFailedContainer(name) => {
                 let mut res = state.pods.get(&name).unwrap().clone();
-                res.status.phase = PodPhase::Failed;
-                res.status.conditions.clear();
+                for cs in &mut res.status.container_statuses {
+                    cs.state = ContainerState::Terminated(ContainerStateTerminated {
+                        exit_code: 1,
+                        ..Default::default()
+                    });
+                }
                 ControllerAction::UpdatePod(res)
             }
         }

@@ -431,7 +431,12 @@ fn match_pod_failure_policy(
                     JobPodFailurePolicyRuleAction::FailIndex => {}
                     JobPodFailurePolicyRuleAction::Count => return (None, true, Some(rule.action)),
                     JobPodFailurePolicyRuleAction::FailJob => {
-                        let msg = format!("Container {} for pod {}/{} failed with exit code {} matching {:?} rule at index {}", container_status.name, pod.metadata.namespace, pod.metadata.name, container_status.state.terminated.as_ref().unwrap().exit_code, rule.action, index);
+                        let exit_code = match &container_status.state {
+                            crate::resources::ContainerState::Running(_) => unreachable!(),
+                            crate::resources::ContainerState::Terminated(t) => t.exit_code,
+                            crate::resources::ContainerState::Waiting(_) => unreachable!(),
+                        };
+                        let msg = format!("Container {} for pod {}/{} failed with exit code {} matching {:?} rule at index {}", container_status.name, pod.metadata.namespace, pod.metadata.name, exit_code, rule.action, index);
                         return (Some(msg), true, Some(rule.action));
                     }
                 }
@@ -492,21 +497,20 @@ fn get_matching_container_from_list<'a>(
     requirement: &JobPodFailurePolicyRuleOnExitCodesRequirement,
 ) -> Option<&'a ContainerStatus> {
     css.iter().find(|cs| {
-        if cs.state.terminated.is_none() {
-            // This container is still be terminating. There is no exit code to match.
-            return false;
-        }
-        if requirement
-            .container_name
-            .as_ref()
-            .map_or(true, |cn| cn == &cs.name)
-            && cs.state.terminated.as_ref().unwrap().exit_code != 0
-            && is_on_exit_codes_operator_matching(
-                cs.state.terminated.as_ref().unwrap().exit_code,
-                requirement,
-            )
-        {
-            return true;
+        if let Some(exit_code) = match &cs.state {
+            crate::resources::ContainerState::Running(_) => None,
+            crate::resources::ContainerState::Terminated(t) => Some(t.exit_code),
+            crate::resources::ContainerState::Waiting(_) => None,
+        } {
+            if requirement
+                .container_name
+                .as_ref()
+                .map_or(true, |cn| cn == &cs.name)
+                && exit_code != 0
+                && is_on_exit_codes_operator_matching(exit_code, requirement)
+            {
+                return true;
+            }
         }
         false
     })

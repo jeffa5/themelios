@@ -445,14 +445,14 @@ pub enum PodPhase {
     Failed,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ContainerStatus {
     pub name: String,
     #[serde(default)]
     pub state: ContainerState,
     #[serde(default)]
-    pub last_termination_state: ContainerState,
+    pub last_state: ContainerState,
     pub ready: bool,
     pub restart_count: u32,
     pub image: String,
@@ -468,30 +468,35 @@ pub struct ContainerStatus {
     pub resources: ResourceRequirements,
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct ContainerState {
-    pub waiting: Option<ContainerStateWaiting>,
-    pub running: Option<ContainerStateRunning>,
-    pub terminated: Option<ContainerStateTerminated>,
+pub enum ContainerState {
+    Running(ContainerStateRunning),
+    Terminated(ContainerStateTerminated),
+    Waiting(ContainerStateWaiting),
+}
+impl Default for ContainerState {
+    fn default() -> Self {
+        Self::Waiting(ContainerStateWaiting::default())
+    }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ContainerStateWaiting {
     #[serde(default)]
-    reason: String,
+    pub reason: String,
     #[serde(default)]
-    message: String,
+    pub message: String,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ContainerStateRunning {
-    started_at: Option<Time>,
+    pub started_at: Option<Time>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ContainerStateTerminated {
     pub exit_code: u32,
