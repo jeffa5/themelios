@@ -50,12 +50,19 @@ def plot_states(files: List[Path]):
     plt.close()
 
     plt.figure()
-    datamax = data.groupby(["function", "consistency", "controllers"]).max("total_states")
-    ax = sns.displot(kind="ecdf", data=datamax, x="total_states", hue="consistency", col="controllers")
+    datamax = data.groupby(["function", "consistency", "controllers"]).max(
+        "total_states"
+    )
+    ax = sns.displot(
+        kind="ecdf",
+        data=datamax,
+        x="total_states",
+        hue="consistency",
+        col="controllers",
+    )
     plt.tight_layout()
     plt.savefig(plots / "ecdf-states-consistency-controllers-all.png")
     plt.close()
-
 
     plt.figure()
     datamax = data.groupby(["function", "consistency"]).max("total_states")
@@ -81,12 +88,17 @@ def plot_depths(files: List[Path]):
     plt.close()
 
     plt.figure()
-    ax = sns.displot(kind="ecdf", data=data, x="depth", weights="count", hue="consistency", col="controllers")
+    ax = sns.displot(
+        kind="ecdf",
+        data=data,
+        x="depth",
+        weights="count",
+        hue="consistency",
+        col="controllers",
+    )
     plt.tight_layout()
     plt.savefig(plots / "ecdf-depth-count-consistency-controllers-all.png")
     plt.close()
-
-
 
 
 def run_data_paths(d: Path) -> List[Path]:
