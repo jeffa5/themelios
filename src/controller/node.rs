@@ -59,7 +59,7 @@ impl Controller for NodeController {
                 .collect::<Vec<_>>();
 
             // quickly start up all local pods
-            for &pod in &pods_for_this_node {
+            for pod in pods_for_this_node {
                 if !is_pod_terminating(pod) && !local_state.running.contains(&pod.metadata.name) {
                     local_state.running.push(pod.metadata.name.clone());
                     let mut new_pod = pod.clone();
@@ -79,39 +79,23 @@ impl Controller for NodeController {
                     new_pod.status.phase = PodPhase::Running;
                     return Some(NodeControllerAction::UpdatePod(new_pod));
                 }
-            }
 
-            for pod in pods_for_this_node {
                 if pod.metadata.deletion_timestamp.is_some() {
+                    // TODO: ensure we mark containers as shutdown first?
+
                     // pod has been marked for deletion and is running on this node, forget about
                     // it locally and delete it for good in the API
-                    local_state.running.remove(
-                        local_state
-                            .running
-                            .iter()
-                            .position(|r| r == &pod.metadata.name)
-                            .unwrap(),
-                    );
+                    if let Some(pos) = local_state
+                        .running
+                        .iter()
+                        .position(|r| r == &pod.metadata.name)
+                    {
+                        local_state.running.remove(pos);
+                    }
                     return Some(NodeControllerAction::DeletePod(pod.clone()));
                 }
 
                 let mut new_pod = pod.clone();
-                if pod.status.phase == PodPhase::Running
-                    && !new_pod.status.conditions.iter().any(|c| {
-                        c.r#type == PodConditionType::Ready && c.status == ConditionStatus::True
-                    })
-                {
-                    new_pod.status.conditions.push(PodCondition {
-                        status: ConditionStatus::True,
-                        r#type: PodConditionType::Ready,
-                        last_probe_time: None,
-                        last_transition_time: None,
-                        message: None,
-                        reason: None,
-                    });
-                    return Some(NodeControllerAction::UpdatePod(new_pod));
-                }
-
                 if pod.status.container_statuses.iter().any(|cs| {
                     matches!(
                         cs.state,
@@ -130,6 +114,24 @@ impl Controller for NodeController {
                 }) {
                     new_pod.status.phase = PodPhase::Succeeded;
                     new_pod.status.conditions.clear();
+                    return Some(NodeControllerAction::UpdatePod(new_pod));
+                }
+
+                // TODO: should have an arbitrary action to mark pods running, then this relies on
+                // that.
+                if pod.status.phase == PodPhase::Running
+                    && !new_pod.status.conditions.iter().any(|c| {
+                        c.r#type == PodConditionType::Ready && c.status == ConditionStatus::True
+                    })
+                {
+                    new_pod.status.conditions.push(PodCondition {
+                        status: ConditionStatus::True,
+                        r#type: PodConditionType::Ready,
+                        last_probe_time: None,
+                        last_transition_time: None,
+                        message: None,
+                        reason: None,
+                    });
                     return Some(NodeControllerAction::UpdatePod(new_pod));
                 }
             }
