@@ -39,7 +39,7 @@ impl History for OptimisticLinearHistory {
         // find the state for the revision that the change operated on, we'll treat this as the
         // committed one if they didn't operate on the latest (optimistic)
         let index = change.revision.components().first().unwrap();
-        let mut new_state = (*self.states[*index]).state.clone();
+        let mut new_state = self.states[*index].state.clone();
         let new_revision = self.max_revision().increment();
         if new_state.apply_operation(change.operation, new_revision) {
             self.states.push_back(Arc::new(HistoryState {
