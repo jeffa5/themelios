@@ -69,8 +69,7 @@ pub enum ControllerAction {
 
     // Pods
     CreatePod(Pod),
-    SoftDeletePod(Pod),
-    HardDeletePod(Pod),
+    DeletePod(Pod),
     UpdatePod(Pod),
 
     // Deployments
