@@ -16,13 +16,15 @@ pub struct PodGCControllerState {
 
 #[derive(Debug)]
 pub enum PodGCAction {
-    DeletePod(Pod),
+    SoftDeletePod(Pod),
+    HardDeletePod(Pod),
 }
 
 impl From<PodGCAction> for ControllerAction {
     fn from(value: PodGCAction) -> Self {
         match value {
-            PodGCAction::DeletePod(pod) => ControllerAction::HardDeletePod(pod),
+            PodGCAction::SoftDeletePod(pod) => ControllerAction::SoftDeletePod(pod),
+            PodGCAction::HardDeletePod(pod) => ControllerAction::HardDeletePod(pod),
         }
     }
 }
@@ -43,12 +45,16 @@ impl Controller for PodGCController {
             // - are orphan Pods - bound to a node which no longer exists,
             if let Some(node_name) = &pod.spec.node_name {
                 if !global_state.nodes.has(node_name) {
-                    return Some(PodGCAction::DeletePod(pod.clone()));
+                    if pod.metadata.deletion_timestamp.is_none() {
+                        return Some(PodGCAction::SoftDeletePod(pod.clone()));
+                    } else {
+                        return Some(PodGCAction::HardDeletePod(pod.clone()));
+                    }
                 }
             }
             // - are unscheduled terminating Pods,
             if pod.spec.node_name.is_none() && is_pod_terminating(pod) {
-                return Some(PodGCAction::DeletePod(pod.clone()));
+                return Some(PodGCAction::HardDeletePod(pod.clone()));
             }
             // - are terminating Pods, bound to a non-ready node tainted with node.kubernetes.io/out-of-service, when the NodeOutOfServiceVolumeDetach feature gate is enabled.
         }
