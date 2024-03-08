@@ -145,7 +145,14 @@ fn test_stale_reads(consistency: ConsistencySetup, controllers: usize) -> Orches
     let mut m = model([statefulset], 2, consistency, controllers);
     m.initial_state.set_pods(std::iter::once(Pod {
         metadata: utils::metadata("zspare-pod".to_owned()),
-        spec: PodSpec::default(),
+        spec: PodSpec {
+            containers: vec![Container {
+                name: "spare".to_owned(),
+                image: "spare".to_owned(),
+                ..Default::default()
+            }],
+            ..Default::default()
+        },
         status: Default::default(),
     }));
     m
