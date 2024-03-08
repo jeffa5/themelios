@@ -36,6 +36,9 @@ pub trait Controller {
     fn step(&self, global_state: &StateView, local_state: &mut Self::State)
         -> Option<Self::Action>;
 
+    /// Generate some changes to local state that might be made by the environment.
+    fn arbitrary_steps(&self, local_state: &Self::State) -> Vec<Self::State>;
+
     /// Name of this controller.
     fn name(&self) -> String;
 
@@ -103,6 +106,47 @@ impl Controller for Controllers {
             (Controllers::PodGC(c), ControllerStates::PodGC(s)) => {
                 c.step(global_state, s).map(|a| a.into())
             }
+            _ => unreachable!(),
+        }
+    }
+
+    fn arbitrary_steps(&self, local_state: &Self::State) -> Vec<Self::State> {
+        match (self, local_state) {
+            (Controllers::Node(c), ControllerStates::Node(s)) => c
+                .arbitrary_steps(s)
+                .into_iter()
+                .map(ControllerStates::Node)
+                .collect(),
+            (Controllers::Scheduler(c), ControllerStates::Scheduler(s)) => c
+                .arbitrary_steps(s)
+                .into_iter()
+                .map(ControllerStates::Scheduler)
+                .collect(),
+            (Controllers::ReplicaSet(c), ControllerStates::ReplicaSet(s)) => c
+                .arbitrary_steps(s)
+                .into_iter()
+                .map(ControllerStates::ReplicaSet)
+                .collect(),
+            (Controllers::Deployment(c), ControllerStates::Deployment(s)) => c
+                .arbitrary_steps(s)
+                .into_iter()
+                .map(ControllerStates::Deployment)
+                .collect(),
+            (Controllers::StatefulSet(c), ControllerStates::StatefulSet(s)) => c
+                .arbitrary_steps(s)
+                .into_iter()
+                .map(ControllerStates::StatefulSet)
+                .collect(),
+            (Controllers::Job(c), ControllerStates::Job(s)) => c
+                .arbitrary_steps(s)
+                .into_iter()
+                .map(ControllerStates::Job)
+                .collect(),
+            (Controllers::PodGC(c), ControllerStates::PodGC(s)) => c
+                .arbitrary_steps(s)
+                .into_iter()
+                .map(ControllerStates::PodGC)
+                .collect(),
             _ => unreachable!(),
         }
     }

@@ -73,6 +73,10 @@ impl Controller for ReplicaSetController {
         None
     }
 
+    fn arbitrary_steps(&self, _local_state: &Self::State) -> Vec<Self::State> {
+        Vec::new()
+    }
+
     fn name(&self) -> String {
         "ReplicaSet".to_owned()
     }

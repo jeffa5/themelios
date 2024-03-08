@@ -66,6 +66,10 @@ impl Controller for SchedulerController {
         None
     }
 
+    fn arbitrary_steps(&self, _local_state: &Self::State) -> Vec<Self::State> {
+        Vec::new()
+    }
+
     fn name(&self) -> String {
         "Scheduler".to_owned()
     }

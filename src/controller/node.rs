@@ -20,7 +20,7 @@ pub struct NodeController {
 
 #[derive(Debug, Default, Hash, Clone, PartialEq, Eq)]
 pub struct NodeControllerState {
-    pub running: Vec<String>,
+    pub running: BTreeMap<String, ContainerState>,
     revision: Option<Revision>,
 }
 
@@ -62,16 +62,19 @@ impl Controller for NodeController {
 
             for pod in pods_for_this_node {
                 if is_pod_active(pod) {
-                    if !local_state.running.contains(&pod.metadata.name) {
-                        local_state.running.push(pod.metadata.name.clone());
+                    if !local_state.running.contains_key(&pod.metadata.name) {
+                        let cs = ContainerState::Running(ContainerStateRunning {
+                            started_at: Some(now()),
+                        });
+                        local_state
+                            .running
+                            .insert(pod.metadata.name.clone(), cs.clone());
                         let mut new_pod = pod.clone();
                         new_pod.status.container_statuses.clear();
                         for c in &new_pod.spec.containers {
                             new_pod.status.container_statuses.push(ContainerStatus {
                                 name: c.name.clone(),
-                                state: ContainerState::Running(ContainerStateRunning {
-                                    started_at: Some(now()),
-                                }),
+                                state: cs.clone(),
                                 last_state: ContainerState::Waiting(
                                     ContainerStateWaiting::default(),
                                 ),
@@ -94,14 +97,7 @@ impl Controller for NodeController {
                         }) {
                             new_pod.status.phase = PodPhase::Failed;
                             new_pod.status.conditions.clear();
-
-                            if let Some(pos) = local_state
-                                .running
-                                .iter()
-                                .position(|r| r == &pod.metadata.name)
-                            {
-                                local_state.running.remove(pos);
-                            }
+                            local_state.running.remove(&pod.metadata.name);
                             return Some(NodeControllerAction::UpdatePod(new_pod));
                         } else if pod.status.container_statuses.iter().all(|cs| {
                             matches!(
@@ -114,13 +110,7 @@ impl Controller for NodeController {
                         }) {
                             new_pod.status.phase = PodPhase::Succeeded;
                             new_pod.status.conditions.clear();
-                            if let Some(pos) = local_state
-                                .running
-                                .iter()
-                                .position(|r| r == &pod.metadata.name)
-                            {
-                                local_state.running.remove(pos);
-                            }
+                            local_state.running.remove(&pod.metadata.name);
                             return Some(NodeControllerAction::UpdatePod(new_pod));
                         }else if pod.status.phase == PodPhase::Running
                             && !new_pod.status.conditions.iter().any(|c| {
@@ -146,13 +136,7 @@ impl Controller for NodeController {
 
                     // pod has been marked for deletion and is running on this node, forget about
                     // it locally and delete it for good in the API
-                    if let Some(pos) = local_state
-                        .running
-                        .iter()
-                        .position(|r| r == &pod.metadata.name)
-                    {
-                        local_state.running.remove(pos);
-                    }
+                    local_state.running.remove(&pod.metadata.name);
                     return Some(NodeControllerAction::DeletePod(pod.clone()));
                 } else {
                     // suceeded or failed, not sure what to do here?
@@ -167,6 +151,47 @@ impl Controller for NodeController {
             ));
         }
         None
+    }
+
+    fn arbitrary_steps(&self, local_state: &Self::State) -> Vec<Self::State> {
+        let mut states = Vec::new();
+        for (pod, state) in &local_state.running {
+            match state {
+                ContainerState::Running(ContainerStateRunning { started_at }) => {
+                    let term = ContainerStateTerminated {
+                        exit_code: 0,
+                        started_at: *started_at,
+                        finished_at: Some(now()),
+                        ..Default::default()
+                    };
+                    // a running container could fail
+                    let mut s = local_state.clone();
+                    s.running.insert(
+                        pod.clone(),
+                        ContainerState::Terminated(ContainerStateTerminated {
+                            exit_code: 1,
+                            ..term.clone()
+                        }),
+                    );
+                    states.push(s);
+                    // a running container could succeed
+                    let mut s = local_state.clone();
+                    s.running.insert(
+                        pod.clone(),
+                        ContainerState::Terminated(ContainerStateTerminated {
+                            exit_code: 0,
+                            ..term.clone()
+                        }),
+                    );
+                    states.push(s);
+                }
+                ContainerState::Terminated(_) => {}
+                ContainerState::Waiting(_) => {
+                    // TODO: move to running
+                }
+            }
+        }
+        states
     }
 
     fn name(&self) -> String {

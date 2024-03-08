@@ -109,6 +109,10 @@ impl Controller for StatefulSetController {
         None
     }
 
+    fn arbitrary_steps(&self, _local_state: &Self::State) -> Vec<Self::State> {
+        Vec::new()
+    }
+
     fn name(&self) -> String {
         "StatefulSet".to_owned()
     }

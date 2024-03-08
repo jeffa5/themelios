@@ -1,6 +1,6 @@
 use crate::{
     abstract_model::ControllerAction,
-    resources::{ContainerState, ContainerStateTerminated, PodPhase},
+    resources::{ContainerState, ContainerStateTerminated},
     state::StateView,
 };
 
@@ -107,18 +107,6 @@ impl ArbitraryClient {
             };
         }
         toggle_suspension!(jobs, ArbitraryClientAction::ToggleSuspendJob);
-
-        // mark containers as succeeded or finished
-        for pod in view.pods.iter() {
-            if pod.status.phase == PodPhase::Running {
-                actions.push(ArbitraryClientAction::MarkSucceededContainer(
-                    pod.metadata.name.clone(),
-                ));
-                actions.push(ArbitraryClientAction::MarkFailedContainer(
-                    pod.metadata.name.clone(),
-                ));
-            }
-        }
 
         actions
     }
