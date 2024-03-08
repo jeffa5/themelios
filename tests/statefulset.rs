@@ -126,7 +126,6 @@ test_table! {
     linearizable_1(ConsistencySetup::Linearizable, 1),
     linearizable_2(ConsistencySetup::Linearizable, 2),
     monotonic_session_1(ConsistencySetup::MonotonicSession, 1),
-    monotonic_session_2(ConsistencySetup::MonotonicSession, 2),
 }
 
 test_table_panic! {
@@ -134,6 +133,7 @@ test_table_panic! {
     resettable_session_1(ConsistencySetup::ResettableSession, 1),
     optimistic_linear_1(ConsistencySetup::OptimisticLinear, 1),
     optimistic_linear_2(ConsistencySetup::OptimisticLinear, 2),
+    monotonic_session_2(ConsistencySetup::MonotonicSession, 2),
     resettable_session_2(ConsistencySetup::ResettableSession, 2),
     causal_1(ConsistencySetup::Causal, 1),
     causal_2(ConsistencySetup::Causal, 2),
