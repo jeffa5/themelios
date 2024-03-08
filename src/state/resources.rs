@@ -146,8 +146,15 @@ impl<T: Meta + Spec + Clone> Resources<T> {
         }
     }
 
-    pub fn remove(&mut self, name: &str) -> Option<T> {
-        self.get_pos(name).map(|p| (*self.0.remove(p)).clone())
+    pub fn remove(&mut self, res: &T) -> Option<T> {
+        // in order to remove a resource it must have the same uid.
+        if let Some(existing_pos) = self.get_pos(&res.metadata().name) {
+            let existing = &self.0[existing_pos];
+            if existing.metadata().uid == res.metadata().uid {
+                return Some((*self.0.remove(existing_pos)).clone());
+            }
+        }
+        None
     }
 
     pub fn retain(&mut self, f: impl Fn(&T) -> bool) {

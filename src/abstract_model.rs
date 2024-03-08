@@ -8,6 +8,7 @@ use crate::arbitrary_client::ArbitraryClient;
 use crate::arbitrary_client::ArbitraryClientAction;
 use crate::controller::util::get_node_condition;
 use crate::controller::{Controller, Controllers};
+use crate::resources::Node;
 use crate::resources::{
     ConditionStatus, ControllerRevision, Deployment, Job, NodeConditionType, PersistentVolumeClaim,
     Pod, ReplicaSet, ResourceQuantities, StatefulSet,
@@ -65,7 +66,7 @@ pub struct Change {
 pub enum ControllerAction {
     /// Name and resources
     NodeJoin(String, ResourceQuantities),
-    DeleteNode(String),
+    DeleteNode(Node),
 
     // Pods
     CreatePod(Pod),
@@ -212,7 +213,7 @@ impl Model for AbstractModel {
                     if let Some(node) = s.nodes.get(&n.name) {
                         state.push_change(Change {
                             revision: s.revision.clone(),
-                            operation: ControllerAction::DeleteNode(node.metadata.name.clone()),
+                            operation: ControllerAction::DeleteNode(node.clone()),
                         });
                     }
                 }

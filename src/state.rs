@@ -297,7 +297,7 @@ impl StateView {
                 self.pods.update(pod, new_revision).map_err(|_| ())?;
             }
             ControllerAction::HardDeletePod(pod) => {
-                self.pods.remove(&pod.metadata.name);
+                self.pods.remove(&pod);
             }
             ControllerAction::UpdateDeployment(dep) => {
                 self.deployments.update(dep, new_revision).map_err(|_| ())?;
@@ -349,10 +349,10 @@ impl StateView {
                     .map_err(|_| ())?;
             }
             ControllerAction::DeleteControllerRevision(cr) => {
-                self.controller_revisions.remove(&cr.metadata.name);
+                self.controller_revisions.remove(&cr);
             }
             ControllerAction::DeleteReplicaSet(rs) => {
-                self.replicasets.remove(&rs.metadata.name);
+                self.replicasets.remove(&rs);
             }
             ControllerAction::CreatePersistentVolumeClaim(mut pvc) => {
                 pvc.metadata.uid = self.revision.to_string();

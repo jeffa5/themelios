@@ -299,7 +299,8 @@ async fn delete_deployment(
     info!("Got create request for deployment");
     let mut s = state.lock().await;
     s.revision = s.revision.clone().increment();
-    s.deployments.remove(&name);
+    let deployment = s.deployments.get(&name).unwrap().clone();
+    s.deployments.remove(&deployment);
     (
         StatusCode::OK,
         Json(Status {
@@ -402,7 +403,8 @@ async fn delete_replicaset(
     info!("Got create request for replicaset");
     let mut s = state.lock().await;
     s.revision = s.revision.clone().increment();
-    s.replicasets.remove(&name);
+    let replicaset = s.replicasets.get(&name).unwrap().clone();
+    s.replicasets.remove(&replicaset);
     (
         StatusCode::OK,
         Json(Status {
@@ -515,7 +517,8 @@ async fn delete_pod(
     info!("Got delete request for pods");
     let mut state = state.lock().await;
     state.revision = state.revision.clone().increment();
-    state.pods.remove(&name);
+    let pod = state.pods.get(&name).unwrap().clone();
+    state.pods.remove(&pod);
     (
         StatusCode::OK,
         Json(Status {

@@ -71,7 +71,9 @@ pub async fn run() -> (Arc<AtomicBool>, Vec<JoinHandle<()>>) {
                                 )
                                 .unwrap();
                                 state.revision = std::cmp::max(state.revision.clone(), revision);
-                                state.$field.remove(dep.metadata.name.as_ref().unwrap());
+                                // TODO: should map the given resource to our types and use that
+                                let r = state.$field.get(dep.metadata.name.as_ref().unwrap()).unwrap().clone();
+                                state.$field.remove(&r);
                             }
                             Event::Restarted(deps) => {
                                 let dep_names: Vec<_> = deps
