@@ -258,25 +258,27 @@ impl StateView {
     ) -> Result<(), ()> {
         match operation {
             ControllerAction::NodeJoin(name, capacity) => {
-                self.nodes.create(
-                    Node {
-                        metadata: utils::metadata(name.clone()),
-                        spec: crate::resources::NodeSpec {
-                            taints: Vec::new(),
-                            unschedulable: false,
+                self.nodes
+                    .create(
+                        Node {
+                            metadata: utils::metadata(name.clone()),
+                            spec: crate::resources::NodeSpec {
+                                taints: Vec::new(),
+                                unschedulable: false,
+                            },
+                            status: crate::resources::NodeStatus {
+                                capacity: capacity.clone(),
+                                allocatable: Some(capacity.clone()),
+                                conditions: vec![NodeCondition {
+                                    r#type: NodeConditionType::Ready,
+                                    status: ConditionStatus::True,
+                                    ..Default::default()
+                                }],
+                            },
                         },
-                        status: crate::resources::NodeStatus {
-                            capacity: capacity.clone(),
-                            allocatable: Some(capacity.clone()),
-                            conditions: vec![NodeCondition {
-                                r#type: NodeConditionType::Ready,
-                                status: ConditionStatus::True,
-                                ..Default::default()
-                            }],
-                        },
-                    },
-                    new_revision,
-                )?;
+                        new_revision,
+                    )
+                    .map_err(|_| ())?;
             }
             ControllerAction::DeleteNode(name) => {
                 self.nodes.remove(&name);
@@ -284,57 +286,67 @@ impl StateView {
             ControllerAction::CreatePod(mut pod) => {
                 pod.metadata.uid = self.revision.to_string();
                 self.fill_name(&mut pod);
-                self.pods.create(pod, new_revision)?;
+                self.pods.create(pod, new_revision).map_err(|_| ())?;
             }
             ControllerAction::UpdatePod(pod) => {
-                self.pods.update(pod, new_revision)?;
+                self.pods.update(pod, new_revision).map_err(|_| ())?;
             }
             ControllerAction::SoftDeletePod(mut pod) => {
                 // marked for deletion
                 pod.metadata.deletion_timestamp = Some(now());
-                self.pods.update(pod, new_revision)?;
+                self.pods.update(pod, new_revision).map_err(|_| ())?;
             }
             ControllerAction::HardDeletePod(pod) => {
                 self.pods.remove(&pod.metadata.name);
             }
             ControllerAction::UpdateDeployment(dep) => {
-                self.deployments.update(dep, new_revision)?;
+                self.deployments.update(dep, new_revision).map_err(|_| ())?;
             }
             ControllerAction::RequeueDeployment(_dep) => {
                 // skip
             }
             ControllerAction::UpdateDeploymentStatus(dep) => {
-                self.deployments.update(dep, new_revision)?;
+                self.deployments.update(dep, new_revision).map_err(|_| ())?;
             }
             ControllerAction::CreateReplicaSet(mut rs) => {
                 rs.metadata.uid = self.revision.to_string();
                 self.fill_name(&mut rs);
-                self.replicasets.create(rs, new_revision)?;
+                self.replicasets.create(rs, new_revision).map_err(|_| ())?;
             }
             ControllerAction::UpdateReplicaSet(rs) => {
-                self.replicasets.update(rs, new_revision)?;
+                self.replicasets.update(rs, new_revision).map_err(|_| ())?;
             }
             ControllerAction::UpdateReplicaSetStatus(rs) => {
-                self.replicasets.update(rs, new_revision)?;
+                self.replicasets.update(rs, new_revision).map_err(|_| ())?;
             }
             ControllerAction::UpdateReplicaSets(rss) => {
                 for rs in rss {
-                    self.replicasets.update(rs, new_revision.clone())?;
+                    self.replicasets
+                        .update(rs, new_revision.clone())
+                        .map_err(|_| ())?;
                 }
             }
             ControllerAction::UpdateStatefulSet(sts) => {
-                self.statefulsets.update(sts, new_revision)?;
+                self.statefulsets
+                    .update(sts, new_revision)
+                    .map_err(|_| ())?;
             }
             ControllerAction::UpdateStatefulSetStatus(sts) => {
-                self.statefulsets.update(sts, new_revision)?;
+                self.statefulsets
+                    .update(sts, new_revision)
+                    .map_err(|_| ())?;
             }
             ControllerAction::CreateControllerRevision(mut cr) => {
                 cr.metadata.uid = self.revision.to_string();
                 self.fill_name(&mut cr);
-                self.controller_revisions.create(cr, new_revision)?;
+                self.controller_revisions
+                    .create(cr, new_revision)
+                    .map_err(|_| ())?;
             }
             ControllerAction::UpdateControllerRevision(cr) => {
-                self.controller_revisions.update(cr, new_revision)?;
+                self.controller_revisions
+                    .update(cr, new_revision)
+                    .map_err(|_| ())?;
             }
             ControllerAction::DeleteControllerRevision(cr) => {
                 self.controller_revisions.remove(&cr.metadata.name);
@@ -345,16 +357,20 @@ impl StateView {
             ControllerAction::CreatePersistentVolumeClaim(mut pvc) => {
                 pvc.metadata.uid = self.revision.to_string();
                 self.fill_name(&mut pvc);
-                self.persistent_volume_claims.create(pvc, new_revision)?;
+                self.persistent_volume_claims
+                    .create(pvc, new_revision)
+                    .map_err(|_| ())?;
             }
             ControllerAction::UpdatePersistentVolumeClaim(pvc) => {
-                self.persistent_volume_claims.update(pvc, new_revision)?;
+                self.persistent_volume_claims
+                    .update(pvc, new_revision)
+                    .map_err(|_| ())?;
             }
             ControllerAction::UpdateJobStatus(job) => {
-                self.jobs.update(job, new_revision)?;
+                self.jobs.update(job, new_revision).map_err(|_| ())?;
             }
             ControllerAction::UpdateJob(job) => {
-                self.jobs.update(job, new_revision)?;
+                self.jobs.update(job, new_revision).map_err(|_| ())?;
             }
         }
         Ok(())

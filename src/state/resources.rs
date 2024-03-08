@@ -23,18 +23,21 @@ impl<T> Default for Resources<T> {
 }
 
 impl<T: Meta + Spec + Clone> Resources<T> {
-    pub fn upsert(&mut self, res: T, revision: Revision) {
+    pub fn upsert(&mut self, res: T, revision: Revision)
+    where
+        T: PartialEq,
+    {
         match self.create(res.clone(), revision.clone()) {
             Ok(_) => {}
             Err(_) => {
-                self.update(res, revision).unwrap();
+                self.update(res, revision).map_err(|_| ()).unwrap();
             }
         }
     }
 
-    pub fn create(&mut self, mut res: T, revision: Revision) -> Result<(), ()> {
+    pub fn create(&mut self, mut res: T, revision: Revision) -> Result<(), T> {
         if self.has(&res.metadata().name) {
-            return Err(());
+            return Err(res);
         }
         // set the uid if not set already
         if res.metadata().uid.is_empty() {
@@ -59,9 +62,23 @@ impl<T: Meta + Spec + Clone> Resources<T> {
         Ok(())
     }
 
-    pub fn update(&mut self, mut res: T, revision: Revision) -> Result<(), ()> {
+    pub fn update(&mut self, mut res: T, revision: Revision) -> Result<(), T>
+    where
+        T: PartialEq,
+    {
         if let Some(existing_pos) = self.get_pos(&res.metadata().name) {
             let existing = &self.0[existing_pos];
+            if existing.metadata().deletion_timestamp.is_some() {
+                // can only remove finalizers on terminating resources
+                let mut ex = (**existing).clone();
+                ex.metadata_mut().finalizers.clear();
+                let mut r = res.clone();
+                r.metadata_mut().finalizers.clear();
+                if r != ex {
+                    warn!("Tried to update resource that is terminating, only removing finalizers is allowed");
+                    return Err(res);
+                }
+            }
             if existing.metadata().uid != res.metadata().uid {
                 // TODO: update this to have some conflict-reconciliation thing?
                 warn!(
@@ -69,14 +86,14 @@ impl<T: Meta + Spec + Clone> Resources<T> {
                     existing.metadata().uid,
                     res.metadata().uid
                 );
-                Err(())
+                Err(res)
             } else if existing.metadata().resource_version > res.metadata().resource_version {
                 // ignore changes to resources when resource version is specified but the resource
                 // being inserted is old
                 let existing = &existing.metadata().resource_version;
                 let new = &res.metadata().resource_version;
                 warn!(?existing, ?new, "Old resource");
-                Err(())
+                Err(res)
             } else {
                 // set resource version to mod revision as per https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#concurrency-control-and-consistency
                 // Update the generation of the resource if the spec (desired state) has changed.
@@ -99,7 +116,7 @@ impl<T: Meta + Spec + Clone> Resources<T> {
                 Ok(())
             }
         } else {
-            Err(())
+            Err(res)
         }
     }
 
@@ -185,7 +202,7 @@ impl<T: Meta + Spec + Clone> From<Vec<T>> for Resources<T> {
         let mut rv = Resources::default();
         for v in value {
             let revision = v.metadata().resource_version.clone();
-            rv.create(v, revision).unwrap();
+            rv.create(v, revision).map_err(|_| ()).unwrap();
         }
         rv
     }
@@ -196,7 +213,7 @@ impl<T: Meta + Spec + Clone> FromIterator<T> for Resources<T> {
         let mut rv = Resources::default();
         for v in iter {
             let revision = v.metadata().resource_version.clone();
-            rv.create(v, revision).unwrap();
+            rv.create(v, revision).map_err(|_| ()).unwrap();
         }
         rv
     }
