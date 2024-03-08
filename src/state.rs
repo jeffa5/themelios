@@ -292,7 +292,7 @@ impl StateView {
             ControllerAction::SoftDeletePod(mut pod) => {
                 // marked for deletion
                 pod.metadata.deletion_timestamp = Some(now());
-                self.pods.insert(pod, new_revision)?;
+                self.pods.update(pod, new_revision)?;
             }
             ControllerAction::HardDeletePod(pod) => {
                 self.pods.remove(&pod.metadata.name);
