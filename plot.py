@@ -36,15 +36,19 @@ def plot_depths_per_run(path: Path):
 
 def plot_states(files: List[Path]):
     data = pd.concat([pd.read_csv(p) for p in files])
+    hue = sorted(data["consistency"].unique())
+
     plt.figure()
-    ax = sns.scatterplot(data, x="duration_ms", y="total_states", hue="consistency")
+    ax = sns.scatterplot(
+        data, x="duration_ms", y="total_states", hue="consistency", hue_order=hue
+    )
     plt.tight_layout()
     plt.savefig(plots / "scatter-duration-states-consistency-all.png")
     plt.close()
 
     plt.figure()
     datamax = data.groupby(["function", "consistency"]).max("total_states")
-    ax = sns.ecdfplot(datamax, x="total_states", hue="consistency")
+    ax = sns.ecdfplot(datamax, x="total_states", hue="consistency", hue_order=hue)
     plt.tight_layout()
     plt.savefig(plots / "ecdf-states-consistency-all.png")
     plt.close()
@@ -58,6 +62,7 @@ def plot_states(files: List[Path]):
         data=datamax,
         x="total_states",
         hue="consistency",
+        hue_order=hue,
         col="controllers",
     )
     plt.tight_layout()
@@ -74,15 +79,18 @@ def plot_states(files: List[Path]):
 
 def plot_depths(files: List[Path]):
     data = pd.concat([pd.read_csv(p) for p in files])
+    hue = sorted(data["consistency"].unique())
 
     plt.figure()
-    ax = sns.scatterplot(data, x="depth", y="count", hue="consistency")
+    ax = sns.scatterplot(data, x="depth", y="count", hue="consistency", hue_order=hue)
     plt.tight_layout()
     plt.savefig(plots / "scatter-depth-count-consistency-all.png")
     plt.close()
 
     plt.figure()
-    ax = sns.ecdfplot(data, x="depth", weights="count", hue="consistency")
+    ax = sns.ecdfplot(
+        data, x="depth", weights="count", hue="consistency", hue_order=hue
+    )
     plt.tight_layout()
     plt.savefig(plots / "ecdf-depth-count-consistency-all.png")
     plt.close()
@@ -94,6 +102,7 @@ def plot_depths(files: List[Path]):
         x="depth",
         weights="count",
         hue="consistency",
+        hue_order=hue,
         col="controllers",
     )
     plt.tight_layout()
