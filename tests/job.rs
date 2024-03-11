@@ -22,7 +22,18 @@ fn model(
     controllers: usize,
 ) -> OrchestrationModelCfg {
     let initial_state = RawState::default().with_jobs(jobs);
-    OrchestrationModelCfg::new(initial_state, consistency, controllers)
+    OrchestrationModelCfg {
+        initial_state,
+        consistency_level: consistency,
+        schedulers: controllers,
+        nodes: controllers,
+        replicaset_controllers: 0,
+        deployment_controllers: 0,
+        statefulset_controllers: 0,
+        job_controllers: controllers,
+        podgc_controllers: controllers,
+        properties: Vec::new(),
+    }
 }
 
 fn new_job(name: &str, _namespace: &str) -> Job {

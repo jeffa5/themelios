@@ -26,7 +26,18 @@ fn model(
     controllers: usize,
 ) -> OrchestrationModelCfg {
     let initial_state = RawState::default().with_deployments(deployments);
-    OrchestrationModelCfg::new(initial_state, consistency, controllers)
+    OrchestrationModelCfg {
+        initial_state,
+        consistency_level: consistency,
+        schedulers: controllers,
+        nodes: controllers,
+        replicaset_controllers: controllers,
+        deployment_controllers: controllers,
+        statefulset_controllers: 0,
+        job_controllers: 0,
+        podgc_controllers: controllers,
+        properties: Vec::new(),
+    }
 }
 
 fn new_deployment(name: &str, _namespace: &str, replicas: u32) -> Deployment {
