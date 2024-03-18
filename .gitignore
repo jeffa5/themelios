@@ -1,9 +1,11 @@
 /.direnv
-
-
-# Added by cargo
+result
 
 /target
+/ctarget
 
 *.out
 *.err
+
+perf.*
+flamegraph.svg
