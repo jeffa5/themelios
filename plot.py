@@ -6,20 +6,24 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import seaborn as sns
 
-out = Path("testout")
-plots = Path("plots")
+# out = Path("testout")
+out = Path("coverageout")
+# plots = Path("plots")
+plots = Path("covplots")
 
 
 def plot_per_run(path: Path):
     data = pd.read_csv(path)
     plt.figure()
     ax = sns.lineplot(data, x="duration_ms", y="total_states")
+    ax.set(ylabel="Total states")
     plt.tight_layout()
     plt.savefig(plots / f"line-duration-states-{path.stem}.png")
     plt.close()
 
     plt.figure()
     ax = sns.lineplot(data, x="duration_ms", y="max_depth")
+    ax.set(ylabel="Max depth")
     plt.tight_layout()
     plt.savefig(plots / f"line-duration-maxdepth-{path.stem}.png")
     plt.close()
@@ -29,6 +33,7 @@ def plot_depths_per_run(path: Path):
     data = pd.read_csv(path)
     plt.figure()
     ax = sns.scatterplot(data, x="depth", y="count")
+    ax.set(xlabel="Depth")
     plt.tight_layout()
     plt.savefig(plots / f"scatter-depth-count-{path.stem}.png")
     plt.close()
@@ -42,6 +47,7 @@ def plot_states(files: List[Path]):
     ax = sns.scatterplot(
         data, x="duration_ms", y="total_states", hue="consistency", hue_order=hue
     )
+    ax.set(ylabel="Total states")
     plt.tight_layout()
     plt.savefig(plots / "scatter-duration-states-consistency-all.png")
     plt.close()
@@ -49,6 +55,7 @@ def plot_states(files: List[Path]):
     plt.figure()
     datamax = data.groupby(["function", "consistency"]).max("total_states")
     ax = sns.ecdfplot(datamax, x="total_states", hue="consistency", hue_order=hue)
+    ax.set(xlabel="Total states")
     plt.tight_layout()
     plt.savefig(plots / "ecdf-states-consistency-all.png")
     plt.close()
@@ -65,6 +72,7 @@ def plot_states(files: List[Path]):
         hue_order=hue,
         col="controllers",
     )
+    ax.set(xlabel="Total states")
     plt.tight_layout()
     plt.savefig(plots / "ecdf-states-consistency-controllers-all.png")
     plt.close()
@@ -72,6 +80,7 @@ def plot_states(files: List[Path]):
     plt.figure()
     datamax = data.groupby(["function", "consistency"]).max("total_states")
     ax = sns.boxplot(datamax, x="consistency", y="total_states")
+    ax.set(ylabel="Total states")
     plt.tight_layout()
     plt.savefig(plots / "box-consistency-states-all.png")
     plt.close()
@@ -83,6 +92,7 @@ def plot_depths(files: List[Path]):
 
     plt.figure()
     ax = sns.scatterplot(data, x="depth", y="count", hue="consistency", hue_order=hue)
+    ax.set(xlabel="Depth", ylabel="Count")
     plt.tight_layout()
     plt.savefig(plots / "scatter-depth-count-consistency-all.png")
     plt.close()
@@ -91,6 +101,7 @@ def plot_depths(files: List[Path]):
     ax = sns.ecdfplot(
         data, x="depth", weights="count", hue="consistency", hue_order=hue
     )
+    ax.set(xlabel="Depth")
     plt.tight_layout()
     plt.savefig(plots / "ecdf-depth-count-consistency-all.png")
     plt.close()
@@ -105,6 +116,7 @@ def plot_depths(files: List[Path]):
         hue_order=hue,
         col="controllers",
     )
+    ax.set(xlabel="Depth")
     plt.tight_layout()
     plt.savefig(plots / "ecdf-depth-count-consistency-controllers-all.png")
     plt.close()
