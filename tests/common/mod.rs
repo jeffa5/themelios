@@ -52,7 +52,7 @@ macro_rules! test_table_panic {
 pub(crate) use test_table;
 pub(crate) use test_table_panic;
 
-pub fn run(model: OrchestrationModelCfg, fn_name: &str, should_succeed:bool) {
+pub fn run(model: OrchestrationModelCfg, fn_name: &str, should_succeed: bool) {
     println!("Running test {:?}", fn_name);
 
     if let Ok(explore_test) = std::env::var("MCO_EXPLORE_TEST") {
@@ -123,7 +123,10 @@ fn check(model: OrchestrationModelCfg, test_name: &str, should_succeed: bool) {
     let depth_file = format!("{test_name}-depths.csv");
     depths2.to_csv(&report_dir.join(depth_file));
     if check_result.iter().all(|(_, ok)| *ok) != should_succeed {
-        panic!("Some properties failed");
+        if !cfg!(tarpaulin) {
+            // don't panic during coverage runs, that breaks the llvm engine
+            panic!("Some properties failed");
+        }
     }
 }
 
