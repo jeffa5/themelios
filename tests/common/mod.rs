@@ -23,7 +23,7 @@ macro_rules! test_table {
             #[test_log::test]
             fn [< $globalname _ $name >]() {
                 let model = $globalname($consistency, $controllers);
-                run(model, function_name!())
+                run(model, function_name!(), true)
             }
         }
     };
@@ -37,10 +37,9 @@ macro_rules! test_table_panic {
     { $globalname:ident, $name:ident($consistency:expr, $controllers:expr), } => {
         paste::item! {
             #[test_log::test]
-            #[should_panic]
             fn [< $globalname _ $name >]() {
                 let model = $globalname($consistency, $controllers);
-                run(model, function_name!())
+                run(model, function_name!(), false)
             }
         }
     };
@@ -53,7 +52,7 @@ macro_rules! test_table_panic {
 pub(crate) use test_table;
 pub(crate) use test_table_panic;
 
-pub fn run(model: OrchestrationModelCfg, fn_name: &str) {
+pub fn run(model: OrchestrationModelCfg, fn_name: &str, should_succeed:bool) {
     println!("Running test {:?}", fn_name);
 
     if let Ok(explore_test) = std::env::var("MCO_EXPLORE_TEST") {
@@ -63,11 +62,11 @@ pub fn run(model: OrchestrationModelCfg, fn_name: &str) {
         }
         // skip others
     } else {
-        check(model, fn_name)
+        check(model, fn_name, should_succeed)
     }
 }
 
-fn check(model: OrchestrationModelCfg, test_name: &str) {
+fn check(model: OrchestrationModelCfg, test_name: &str, should_succeed: bool) {
     println!("Checking model");
     let consistency = model.consistency_level.clone();
     let controllers = model.nodes;
@@ -123,7 +122,7 @@ fn check(model: OrchestrationModelCfg, test_name: &str) {
     };
     let depth_file = format!("{test_name}-depths.csv");
     depths2.to_csv(&report_dir.join(depth_file));
-    if !check_result.iter().all(|(_, ok)| *ok) {
+    if check_result.iter().all(|(_, ok)| *ok) != should_succeed {
         panic!("Some properties failed");
     }
 }
