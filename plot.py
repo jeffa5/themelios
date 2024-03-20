@@ -46,8 +46,6 @@ def plot_states(files: List[Path], plots: Path):
         y="total_states",
         hue=hue,
         hue_order=hue_order,
-        style=hue,
-        style_order=hue_order,
     )
     ax.set(ylabel="Total states")
     plt.tight_layout()
@@ -61,8 +59,6 @@ def plot_states(files: List[Path], plots: Path):
         x="total_states",
         hue=hue,
         hue_order=hue_order,
-        style=hue,
-        style_order=hue_order,
     )
     ax.set(xlabel="Total states")
     plt.tight_layout()
@@ -79,8 +75,6 @@ def plot_states(files: List[Path], plots: Path):
         x="total_states",
         hue=hue,
         hue_order=hue_order,
-        style=hue,
-        style_order=hue_order,
         col="controllers",
     )
     ax.set(xlabel="Total states")
@@ -109,8 +103,6 @@ def plot_depths(files: List[Path], plots: Path):
         y="count",
         hue=hue,
         hue_order=hue_order,
-        style=hue,
-        style_order=hue_order,
     )
     ax.set(xlabel="Depth", ylabel="Count")
     plt.tight_layout()
@@ -124,8 +116,6 @@ def plot_depths(files: List[Path], plots: Path):
         weights="count",
         hue=hue,
         hue_order=hue_order,
-        style=hue,
-        style_order=hue_order,
     )
     ax.set(xlabel="Depth")
     plt.tight_layout()
@@ -140,8 +130,6 @@ def plot_depths(files: List[Path], plots: Path):
         weights="count",
         hue=hue,
         hue_order=hue_order,
-        style=hue,
-        style_order=hue_order,
         col="controllers",
     )
     ax.set(xlabel="Depth")
