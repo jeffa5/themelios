@@ -6,30 +6,25 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import seaborn as sns
 
-# out = Path("testout")
-out = Path("coverageout")
-# plots = Path("plots")
-plots = Path("covplots")
 
-
-def plot_per_run(path: Path):
+def plot_per_run(path: Path, plots: Path):
     data = pd.read_csv(path)
     plt.figure()
     ax = sns.lineplot(data, x="duration_ms", y="total_states")
     ax.set(ylabel="Total states")
     plt.tight_layout()
-    plt.savefig(plots / f"line-duration-states-{path.stem}.png")
+    plt.savefig(plots / f"line-duration-states-{path.stem}.svg")
     plt.close()
 
     plt.figure()
     ax = sns.lineplot(data, x="duration_ms", y="max_depth")
     ax.set(ylabel="Max depth")
     plt.tight_layout()
-    plt.savefig(plots / f"line-duration-maxdepth-{path.stem}.png")
+    plt.savefig(plots / f"line-duration-maxdepth-{path.stem}.svg")
     plt.close()
 
 
-def plot_depths_per_run(path: Path):
+def plot_depths_per_run(path: Path, plots: Path):
     data = pd.read_csv(path)
     plt.figure()
     ax = sns.scatterplot(data, x="depth", y="count")
@@ -39,13 +34,20 @@ def plot_depths_per_run(path: Path):
     plt.close()
 
 
-def plot_states(files: List[Path]):
+def plot_states(files: List[Path], plots: Path):
     data = pd.concat([pd.read_csv(p) for p in files])
-    hue = sorted(data["consistency"].unique())
+    hue_order = sorted(data["consistency"].unique())
+    hue = "consistency"
 
     plt.figure()
     ax = sns.scatterplot(
-        data, x="duration_ms", y="total_states", hue="consistency", hue_order=hue
+        data,
+        x="duration_ms",
+        y="total_states",
+        hue=hue,
+        hue_order=hue_order,
+        style=hue,
+        style_order=hue_order,
     )
     ax.set(ylabel="Total states")
     plt.tight_layout()
@@ -54,10 +56,17 @@ def plot_states(files: List[Path]):
 
     plt.figure()
     datamax = data.groupby(["function", "consistency"]).max("total_states")
-    ax = sns.ecdfplot(datamax, x="total_states", hue="consistency", hue_order=hue)
+    ax = sns.ecdfplot(
+        datamax,
+        x="total_states",
+        hue=hue,
+        hue_order=hue_order,
+        style=hue,
+        style_order=hue_order,
+    )
     ax.set(xlabel="Total states")
     plt.tight_layout()
-    plt.savefig(plots / "ecdf-states-consistency-all.png")
+    plt.savefig(plots / "ecdf-states-consistency-all.svg")
     plt.close()
 
     plt.figure()
@@ -68,13 +77,15 @@ def plot_states(files: List[Path]):
         kind="ecdf",
         data=datamax,
         x="total_states",
-        hue="consistency",
-        hue_order=hue,
+        hue=hue,
+        hue_order=hue_order,
+        style=hue,
+        style_order=hue_order,
         col="controllers",
     )
     ax.set(xlabel="Total states")
     plt.tight_layout()
-    plt.savefig(plots / "ecdf-states-consistency-controllers-all.png")
+    plt.savefig(plots / "ecdf-states-consistency-controllers-all.svg")
     plt.close()
 
     plt.figure()
@@ -82,16 +93,25 @@ def plot_states(files: List[Path]):
     ax = sns.boxplot(datamax, x="consistency", y="total_states")
     ax.set(ylabel="Total states")
     plt.tight_layout()
-    plt.savefig(plots / "box-consistency-states-all.png")
+    plt.savefig(plots / "box-consistency-states-all.svg")
     plt.close()
 
 
-def plot_depths(files: List[Path]):
+def plot_depths(files: List[Path], plots: Path):
     data = pd.concat([pd.read_csv(p) for p in files])
-    hue = sorted(data["consistency"].unique())
+    hue_order = sorted(data["consistency"].unique())
+    hue = "consistency"
 
     plt.figure()
-    ax = sns.scatterplot(data, x="depth", y="count", hue="consistency", hue_order=hue)
+    ax = sns.scatterplot(
+        data,
+        x="depth",
+        y="count",
+        hue=hue,
+        hue_order=hue_order,
+        style=hue,
+        style_order=hue_order,
+    )
     ax.set(xlabel="Depth", ylabel="Count")
     plt.tight_layout()
     plt.savefig(plots / "scatter-depth-count-consistency-all.png")
@@ -99,11 +119,17 @@ def plot_depths(files: List[Path]):
 
     plt.figure()
     ax = sns.ecdfplot(
-        data, x="depth", weights="count", hue="consistency", hue_order=hue
+        data,
+        x="depth",
+        weights="count",
+        hue=hue,
+        hue_order=hue_order,
+        style=hue,
+        style_order=hue_order,
     )
     ax.set(xlabel="Depth")
     plt.tight_layout()
-    plt.savefig(plots / "ecdf-depth-count-consistency-all.png")
+    plt.savefig(plots / "ecdf-depth-count-consistency-all.svg")
     plt.close()
 
     plt.figure()
@@ -112,13 +138,15 @@ def plot_depths(files: List[Path]):
         data=data,
         x="depth",
         weights="count",
-        hue="consistency",
-        hue_order=hue,
+        hue=hue,
+        hue_order=hue_order,
+        style=hue,
+        style_order=hue_order,
         col="controllers",
     )
     ax.set(xlabel="Depth")
     plt.tight_layout()
-    plt.savefig(plots / "ecdf-depth-count-consistency-controllers-all.png")
+    plt.savefig(plots / "ecdf-depth-count-consistency-controllers-all.svg")
     plt.close()
 
 
@@ -131,20 +159,24 @@ def run_depth_paths(d: Path) -> List[Path]:
 
 
 def main():
-    plots.mkdir(exist_ok=True)
+    for out, plots in [
+        (Path("testout"), Path("plots")),
+        (Path("coverageout"), Path("covplots")),
+    ]:
+        plots.mkdir(exist_ok=True)
 
-    for path in run_data_paths(out):
-        print(path)
-        plot_per_run(Path(path))
+        for path in run_data_paths(out):
+            print(path)
+            plot_per_run(Path(path), plots)
 
-    for path in run_depth_paths(out):
-        print(path)
-        plot_depths_per_run(Path(path))
+        for path in run_depth_paths(out):
+            print(path)
+            plot_depths_per_run(Path(path), plots)
 
-    print("Plotting all states")
-    plot_states(run_data_paths(out))
-    print("Plotting all depths")
-    plot_depths(run_depth_paths(out))
+        print("Plotting all states")
+        plot_states(run_data_paths(out), plots)
+        print("Plotting all depths")
+        plot_depths(run_depth_paths(out), plots)
 
 
 main()
