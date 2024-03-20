@@ -4,6 +4,8 @@ use crate::controller::deployment::DEFAULT_DEPLOYMENT_UNIQUE_LABEL_KEY;
 use crate::controller::util::annotations_subset;
 use crate::resources::Pod;
 use crate::resources::ReplicaSet;
+use crate::state::revision::Revision;
+use crate::utils::LogicalBoolExt;
 use stateright::Expectation;
 
 use crate::controller::DeploymentController;
@@ -25,53 +27,83 @@ impl ControllerProperties for DeploymentController {
             },
         );
         properties.add(
-            Expectation::Eventually,
+            Expectation::Always,
             "dep: replicaset has annotations from deployment",
-            |_m, s| {
-                let s = s.latest();
-                let mut deployment_iter = s.deployments.iter();
-                deployment_iter.all(|d| {
-                    s.replicasets
-                        .for_controller(&d.metadata.uid)
-                        .all(|rs| annotations_subset(d, rs))
-                })
+            |_m, state| {
+                let s = state.latest();
+                s.deployments
+                    .iter()
+                    .filter(|r| r.status.observed_revision != Revision::default())
+                    .all(|d| {
+                        let observed_revision = &d.status.observed_revision;
+                        let observed = state.view_at(observed_revision);
+                        let stable = s.resource_stable(d);
+                        let correct_annotations = observed
+                            .replicasets
+                            .for_controller(&d.metadata.uid)
+                            .all(|rs| annotations_subset(d, rs));
+                        stable.implies(correct_annotations)
+                    })
             },
         );
         properties.add(
-            Expectation::Eventually,
+            Expectation::Always,
             "dep: rs has pod-template-hash in selector, label and template label",
-            |_m, s| {
-                let s = s.latest();
-                let mut deployment_iter = s.deployments.iter();
-                deployment_iter.all(|d| {
-                    s.replicasets
-                        .for_controller(&d.metadata.uid)
-                        .all(check_rs_hash_labels)
-                })
+            |_m, state| {
+                let s = state.latest();
+                s.deployments
+                    .iter()
+                    .filter(|r| r.status.observed_revision != Revision::default())
+                    .all(|d| {
+                        let observed_revision = &d.status.observed_revision;
+                        let observed = state.view_at(observed_revision);
+                        let stable = s.resource_stable(d);
+                        let correct_hash = observed
+                            .replicasets
+                            .for_controller(&d.metadata.uid)
+                            .all(check_rs_hash_labels);
+                        stable.implies(correct_hash)
+                    })
             },
         );
         properties.add(
-            Expectation::Eventually,
+            Expectation::Always,
             "dep: all pods for the rs should have the pod-template-hash in their labels",
-            |_m, s| {
-                let s = s.latest();
-                let mut deployment_iter = s.deployments.iter();
-                deployment_iter
-                    .all(|d| check_pods_hash_label(s.pods.for_controller(&d.metadata.uid)))
+            |_m, state| {
+                let s = state.latest();
+                s.deployments
+                    .iter()
+                    .filter(|r| r.status.observed_revision != Revision::default())
+                    .all(|d| {
+                        let observed_revision = &d.status.observed_revision;
+                        let observed = state.view_at(observed_revision);
+                        let stable = s.resource_stable(d);
+                        let correct_hash =
+                            check_pods_hash_label(observed.pods.for_controller(&d.metadata.uid));
+                        stable.implies(correct_hash)
+                    })
             },
         );
         properties.add(
-            Expectation::Eventually,
+            Expectation::Always,
             "dep: old rss do not have pods",
-            |_model, s| {
-                let s = s.latest();
-                let mut deployment_iter = s.deployments.iter();
-                deployment_iter.all(|d| {
-                    let rss = s.replicasets.to_vec();
-                    let (_, old) = find_old_replicasets(d, &rss);
-                    old.iter()
-                        .all(|rs| rs.spec.replicas.map_or(false, |r| r == 0))
-                })
+            |_model, state| {
+                let s = state.latest();
+                s.deployments
+                    .iter()
+                    .filter(|r| r.status.observed_revision != Revision::default())
+                    .all(|d| {
+                        let observed_revision = &d.status.observed_revision;
+                        let observed = state.view_at(observed_revision);
+                        let stable = s.resource_stable(d);
+
+                        let rss = observed.replicasets.to_vec();
+                        let (_, old) = find_old_replicasets(d, &rss);
+                        let empty_old_rss = old
+                            .iter()
+                            .all(|rs| rs.spec.replicas.map_or(false, |r| r == 0));
+                        stable.implies(empty_old_rss)
+                    })
             },
         );
         properties.add(
