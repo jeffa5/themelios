@@ -122,11 +122,9 @@ fn check(model: OrchestrationModelCfg, test_name: &str, should_succeed: bool) {
     };
     let depth_file = format!("{test_name}-depths.csv");
     depths2.to_csv(&report_dir.join(depth_file));
-    if check_result.iter().all(|(_, ok)| *ok) != should_succeed {
-        if !cfg!(tarpaulin) {
-            // don't panic during coverage runs, that breaks the llvm engine
-            panic!("Some properties failed");
-        }
+    if check_result.iter().all(|(_, ok)| *ok) != should_succeed && !cfg!(tarpaulin) {
+        // don't panic during coverage runs, that breaks the llvm engine
+        panic!("Some properties failed");
     }
 }
 
