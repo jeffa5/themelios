@@ -1,7 +1,9 @@
 use crate::controller::deployment::deployment_complete;
 use crate::controller::deployment::find_old_replicasets;
+use crate::controller::deployment::skip_copy_annotation;
 use crate::controller::deployment::DEFAULT_DEPLOYMENT_UNIQUE_LABEL_KEY;
 use crate::controller::util::annotations_subset;
+use crate::controller::util::subset;
 use crate::resources::Pod;
 use crate::resources::ReplicaSet;
 use crate::state::revision::Revision;
@@ -38,10 +40,12 @@ impl ControllerProperties for DeploymentController {
                         let observed_revision = &d.status.observed_revision;
                         let observed = state.view_at(observed_revision);
                         let stable = s.resource_stable(d);
+                        let mut d_annotations = d.metadata.annotations.clone();
+                        d_annotations.retain(|k, _| !skip_copy_annotation(k));
                         let correct_annotations = observed
                             .replicasets
                             .for_controller(&d.metadata.uid)
-                            .all(|rs| annotations_subset(d, rs));
+                            .all(|rs| subset(&d_annotations, &rs.metadata.annotations));
                         stable.implies(correct_annotations)
                     })
             },

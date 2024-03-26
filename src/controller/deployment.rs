@@ -1411,7 +1411,7 @@ fn copy_deployment_annotations_to_replicaset(
     annotations_changed
 }
 
-fn skip_copy_annotation(key: &str) -> bool {
+pub(crate) fn skip_copy_annotation(key: &str) -> bool {
     [
         LAST_APPLIED_CONFIG_ANNOTATION,
         REVISION_ANNOTATION,

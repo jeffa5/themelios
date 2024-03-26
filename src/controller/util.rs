@@ -105,6 +105,6 @@ where
     subset(&a.metadata().annotations, &b.metadata().annotations)
 }
 
-fn subset(m1: &BTreeMap<String, String>, m2: &BTreeMap<String, String>) -> bool {
+pub fn subset(m1: &BTreeMap<String, String>, m2: &BTreeMap<String, String>) -> bool {
     m1.iter().all(|(k, v)| m2.get(k).map_or(false, |w| v == w))
 }
