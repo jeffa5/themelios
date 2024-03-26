@@ -21,9 +21,14 @@ macro_rules! test_table {
     { $globalname:ident, $name:ident($consistency:expr, $controllers:expr), } => {
         paste::item! {
             #[test_log::test]
-            fn [< $globalname _ $name >]() {
+            fn [< $globalname _ $name _ 100 >]() {
                 let model = $globalname($consistency, $controllers);
-                run(model, function_name!(), true)
+                run(model, function_name!(), true, 100)
+            }
+            #[test_log::test]
+            fn [< $globalname _ $name _ 200 >]() {
+                let model = $globalname($consistency, $controllers);
+                run(model, function_name!(), true, 200)
             }
         }
     };
@@ -37,9 +42,14 @@ macro_rules! test_table_panic {
     { $globalname:ident, $name:ident($consistency:expr, $controllers:expr), } => {
         paste::item! {
             #[test_log::test]
-            fn [< $globalname _ $name >]() {
+            fn [< $globalname _ $name _ 100 >]() {
                 let model = $globalname($consistency, $controllers);
-                run(model, function_name!(), false)
+                run(model, function_name!(), false, 100)
+            }
+            #[test_log::test]
+            fn [< $globalname _ $name _ 200 >]() {
+                let model = $globalname($consistency, $controllers);
+                run(model, function_name!(), false, 200)
             }
         }
     };
@@ -52,7 +62,7 @@ macro_rules! test_table_panic {
 pub(crate) use test_table;
 pub(crate) use test_table_panic;
 
-pub fn run(model: OrchestrationModelCfg, fn_name: &str, should_succeed: bool) {
+pub fn run(model: OrchestrationModelCfg, fn_name: &str, should_succeed: bool, max_depth: usize) {
     println!("Running test {:?}", fn_name);
 
     if let Ok(explore_test) = std::env::var("MCO_EXPLORE_TEST") {
@@ -62,11 +72,11 @@ pub fn run(model: OrchestrationModelCfg, fn_name: &str, should_succeed: bool) {
         }
         // skip others
     } else {
-        check(model, fn_name, should_succeed)
+        check(model, fn_name, should_succeed, max_depth)
     }
 }
 
-fn check(model: OrchestrationModelCfg, test_name: &str, should_succeed: bool) {
+fn check(model: OrchestrationModelCfg, test_name: &str, should_succeed: bool, max_depth: usize) {
     println!("Checking model");
     let consistency = model.consistency_level.clone();
     let controllers = model.nodes;
@@ -80,8 +90,12 @@ fn check(model: OrchestrationModelCfg, test_name: &str, should_succeed: bool) {
     }
     let report_file = format!("{test_name}.csv");
     let report_path = report_dir.join(report_file);
-    let max = 100;
-    let depths = DepthTracker::new(max, consistency.clone(), controllers, test_name.to_owned());
+    let depths = DepthTracker::new(
+        max_depth,
+        consistency.clone(),
+        controllers,
+        test_name.to_owned(),
+    );
     let depths2 = depths.clone();
     let mut reporter = JointReporter {
         reporters: vec![
@@ -99,7 +113,7 @@ fn check(model: OrchestrationModelCfg, test_name: &str, should_succeed: bool) {
         .terminal_visitor(depths)
         .threads(num_cpus::get())
         .finish_when(HasDiscoveries::AnyFailures)
-        .target_max_depth(max)
+        .target_max_depth(max_depth)
         .timeout(Duration::from_secs(60));
     let check_mode = std::env::var("MCO_CHECK_MODE").unwrap_or_else(|_| String::new());
     #[allow(clippy::wildcard_in_or_patterns)]
