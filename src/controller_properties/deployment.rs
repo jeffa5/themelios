@@ -2,7 +2,6 @@ use crate::controller::deployment::deployment_complete;
 use crate::controller::deployment::find_old_replicasets;
 use crate::controller::deployment::skip_copy_annotation;
 use crate::controller::deployment::DEFAULT_DEPLOYMENT_UNIQUE_LABEL_KEY;
-use crate::controller::util::annotations_subset;
 use crate::controller::util::subset;
 use crate::resources::Pod;
 use crate::resources::ReplicaSet;
