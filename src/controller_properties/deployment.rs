@@ -95,7 +95,9 @@ impl ControllerProperties for DeploymentController {
                 let s = state.latest();
                 s.deployments
                     .iter()
-                    .filter(|r| r.status.observed_revision != Revision::default())
+                    .filter(|d| d.status.observed_revision != Revision::default())
+                    // don't include paused deployments as they do not create new replicasets
+                    .filter(|d| !d.spec.paused)
                     .all(|d| {
                         let observed_revision = &d.status.observed_revision;
                         let observed = state.view_at(observed_revision);
