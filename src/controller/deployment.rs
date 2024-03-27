@@ -701,7 +701,8 @@ fn calculate_status(
     let unavailable_replicas = total_replicas.saturating_sub(available_replicas);
 
     let mut status = DeploymentStatus {
-        observed_generation: deployment.metadata.generation,
+        // leave this at the default
+        observed_generation: deployment.status.observed_generation,
         observed_revision: state_revision.clone(),
         replicas: get_actual_replica_count_for_replicasets(all_replicasets),
         updated_replicas: get_actual_replica_count_for_replicasets(
@@ -740,6 +741,13 @@ fn calculate_status(
         );
         set_deployment_condition(&mut status, no_min_availability);
     }
+
+    // THEMELIOS: only update observed_generation when a stable state has been reached, not in the
+    // middle of a rolling update
+    if all_replicasets.len() == 1 {
+        status.observed_generation = deployment.metadata.generation;
+    }
+
     status
 }
 
@@ -759,10 +767,6 @@ fn scale(
     // deployment. If there is no active replica set, then we should scale up the newest replica set.
     let active_or_latest = find_active_or_latest(new_replicaset, old_replicasets);
     if let Some(active_or_latest) = active_or_latest {
-        if active_or_latest.spec.replicas == Some(deployment.spec.replicas) {
-            debug!(deployment.spec.replicas, "already fully scaled");
-            return None;
-        }
         return scale_replicaset_and_record_event(
             &active_or_latest,
             deployment.spec.replicas,
@@ -784,12 +788,13 @@ fn scale(
     // We need to proportionally scale all replica sets (new and old) in case of a
     // rolling deployment.
     if is_rolling_update(deployment) {
+        debug!("Scaling rolling deployment");
         let mut all_replicasets = old_replicasets.to_vec();
         if let Some(rs) = new_replicaset {
             all_replicasets.push(rs);
         }
-        let mut all_replicasets = filter_active_replicasets(&all_replicasets);
-        let all_replicasets_replicas = get_replica_count_for_replicasets(&all_replicasets);
+        let mut active_replicasets = filter_active_replicasets(&all_replicasets);
+        let active_replicasets_replicas = get_replica_count_for_replicasets(&active_replicasets);
 
         let mut allowed_size = 0;
         if deployment.spec.replicas > 0 {
@@ -799,7 +804,12 @@ fn scale(
         // Number of additional replicas that can be either added or removed from the total
         // replicas count. These replicas should be distributed proportionally to the active
         // replica sets.
-        let deployment_replicas_to_add = allowed_size as i32 - all_replicasets_replicas as i32;
+        let deployment_replicas_to_add = allowed_size as i32 - active_replicasets_replicas as i32;
+
+        debug!(
+            active_replicasets_replicas,
+            allowed_size, deployment_replicas_to_add, "Scaling"
+        );
 
         // The additional replicas should be distributed proportionally amongst the active
         // replica sets from the larger to the smaller in size replica set. Scaling direction
@@ -808,7 +818,7 @@ fn scale(
         // when scaling down, we should scale down older replica sets first.
         if deployment_replicas_to_add > 0 {
             // sort replicasets by size newer
-            all_replicasets.sort_by(|l, r| {
+            active_replicasets.sort_by(|l, r| {
                 if l.spec.replicas == r.spec.replicas {
                     l.metadata
                         .creation_timestamp
@@ -820,7 +830,7 @@ fn scale(
             });
         } else if deployment_replicas_to_add < 0 {
             // sort replicasets by size older
-            all_replicasets.sort_by(|l, r| {
+            active_replicasets.sort_by(|l, r| {
                 if l.spec.replicas == r.spec.replicas {
                     l.metadata
                         .creation_timestamp
@@ -830,13 +840,14 @@ fn scale(
                 }
             });
         }
+        debug!(active_replicasets = ?active_replicasets.iter().map(|r|&r.metadata.name).collect::<Vec<_>>());
 
         // Iterate over all active replica sets and estimate proportions for each of them.
         // The absolute value of deploymentReplicasAdded should never exceed the absolute
         // value of deploymentReplicasToAdd.
         let mut deployment_replicas_added = 0;
         let mut name_to_size = BTreeMap::new();
-        for rs in &all_replicasets {
+        for rs in &active_replicasets {
             // Estimate proportions if we have replicas to add, otherwise simply populate
             // nameToSize with the current sizes for each replica set.
             if deployment_replicas_to_add != 0 {
@@ -846,6 +857,7 @@ fn scale(
                     deployment_replicas_to_add,
                     deployment_replicas_added,
                 );
+                debug!(rs.metadata.name, proportion);
                 let new_size = if proportion < 0 {
                     rs.spec.replicas.unwrap().saturating_sub(proportion as u32)
                 } else {
@@ -860,7 +872,7 @@ fn scale(
 
         let mut updated_rss = Vec::new();
         // Update all replicasets
-        for (i, rs) in all_replicasets.iter().enumerate() {
+        for (i, rs) in active_replicasets.iter().enumerate() {
             // Add/remove any leftovers to the largest replica set.
             if i == 0 && deployment_replicas_to_add != 0 {
                 let leftover = deployment_replicas_to_add - deployment_replicas_added;
@@ -980,12 +992,7 @@ fn scale_replicaset_and_record_event(
     new_scale: u32,
     deployment: &Deployment,
 ) -> Option<DeploymentControllerAction> {
-    if replicaset.spec.replicas == Some(new_scale) {
-        debug!("already scaled");
-        None
-    } else {
-        scale_replicaset(replicaset, new_scale, deployment)
-    }
+    scale_replicaset(replicaset, new_scale, deployment)
 }
 
 #[tracing::instrument(skip_all)]
@@ -1636,6 +1643,7 @@ fn last_revision(all_rss: &[&ReplicaSet]) -> u64 {
 // by looking at the desired-replicas annotation in the active replica sets of the deployment.
 //
 // rsList should come from getReplicaSetsForDeployment(d).
+#[tracing::instrument(skip_all)]
 fn is_scaling_event(
     deployment: &mut Deployment,
     replicasets: &[&ReplicaSet],
@@ -1659,8 +1667,10 @@ fn is_scaling_event(
             .annotations
             .get(DESIRED_REPLICAS_ANNOTATION)
             .and_then(|v| v.parse::<u32>().ok());
-        if let Some(desired) = desired {
-            if desired != deployment.spec.replicas {
+        if let Some(rs) = desired {
+            let dep = deployment.spec.replicas;
+            if dep != rs {
+                debug!(dep, rs, "Found mismatched replicas");
                 return ValOrOp::Resource(true);
             }
         }
@@ -1771,12 +1781,14 @@ fn safe_encode_string(s: &str) -> String {
 }
 
 // rolloutRolling implements the logic for rolling a new replica set.
+#[tracing::instrument(skip_all)]
 fn rollout_rolling(
     deployment: &mut Deployment,
     replicasets: &[&ReplicaSet],
     replicasets_in_ns: &[&ReplicaSet],
     state_revision: &Revision,
 ) -> Option<DeploymentControllerAction> {
+    debug!("Rolling out an update");
     let (new_replicaset, old_replicasets) =
         get_all_replicasets_and_sync_revision(deployment, replicasets, replicasets_in_ns, true);
     let new_replicaset = match new_replicaset {
@@ -1939,6 +1951,7 @@ fn reconcile_old_replicasets(
     new_rs: &ReplicaSet,
     deployment: &Deployment,
 ) -> Option<DeploymentControllerAction> {
+    debug!("Trying to scale old replicasets down");
     let old_pods_count = get_replica_count_for_replicasets(old_replicasets);
     if old_pods_count == 0 {
         return None;
@@ -1947,11 +1960,11 @@ fn reconcile_old_replicasets(
     let all_pods_count = get_replica_count_for_replicasets(all_replicasets);
     let max_unavailable = max_unavailable(deployment);
 
-    let min_avilable = deployment.spec.replicas - max_unavailable;
+    let min_available = deployment.spec.replicas - max_unavailable;
     let new_rs_unavailable_pod_count =
         new_rs.spec.replicas.unwrap() - new_rs.status.available_replicas;
     let max_scaled_down = all_pods_count
-        .saturating_sub(min_avilable)
+        .saturating_sub(min_available)
         .saturating_sub(new_rs_unavailable_pod_count);
     if max_scaled_down == 0 {
         debug!("can't scale below zero");
