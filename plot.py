@@ -17,8 +17,8 @@ def plot_per_run(path: Path, plots: Path):
     plt.close()
 
     plt.figure()
-    ax = sns.lineplot(data, x="duration_ms", y="max_depth")
-    ax.set(ylabel="Max depth")
+    ax = sns.lineplot(data, x="duration_ms", y="max_depth_reached")
+    ax.set(ylabel="Max depth reached")
     plt.tight_layout()
     plt.savefig(plots / f"line-duration-maxdepth-{path.stem}.svg")
     plt.close()
