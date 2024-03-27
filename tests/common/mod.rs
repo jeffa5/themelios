@@ -103,6 +103,7 @@ fn check(model: OrchestrationModelCfg, test_name: &str, should_succeed: bool, ma
             Box::new(CSVReporter::new(
                 &report_path,
                 consistency,
+                max_depth,
                 controllers,
                 test_name.to_owned(),
             )),
@@ -160,24 +161,26 @@ fn explore(model: OrchestrationModelCfg, mut path: String) {
 struct DepthTracker {
     depths: Arc<BTreeMap<usize, Arc<AtomicU64>>>,
     consistency: ConsistencySetup,
+    max_depth: usize,
     controllers: usize,
     function: String,
 }
 
 impl DepthTracker {
     fn new(
-        max: usize,
+        max_depth: usize,
         consistency: ConsistencySetup,
         controllers: usize,
         function: String,
     ) -> Self {
         let mut depths = BTreeMap::new();
-        for i in 0..=max {
+        for i in 0..=max_depth {
             depths.insert(i, Arc::new(AtomicU64::new(0)));
         }
         Self {
             depths: Arc::new(depths),
             consistency,
+            max_depth,
             controllers,
             function,
         }
@@ -186,7 +189,14 @@ impl DepthTracker {
     fn to_csv(&self, path: &Path) {
         let mut writer = csv::Writer::from_path(path).unwrap();
         writer
-            .write_record(["depth", "count", "consistency", "controllers", "function"])
+            .write_record([
+                "depth",
+                "count",
+                "consistency",
+                "max_depth",
+                "controllers",
+                "function",
+            ])
             .unwrap();
         for (d, c) in &*self.depths {
             writer
@@ -194,6 +204,7 @@ impl DepthTracker {
                     d.to_string(),
                     c.load(std::sync::atomic::Ordering::Relaxed).to_string(),
                     self.consistency.to_string(),
+                    self.max_depth.to_string(),
                     self.controllers.to_string(),
                     self.function.to_owned(),
                 ])

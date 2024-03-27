@@ -157,6 +157,7 @@ fn property_holds(expectation: &Expectation, discovery: bool) -> bool {
 pub struct CSVReporter {
     writer: csv::Writer<File>,
     consistency: ConsistencySetup,
+    max_depth: usize,
     controllers: usize,
     function: String,
 }
@@ -165,6 +166,7 @@ impl CSVReporter {
     pub fn new(
         path: &Path,
         consistency: ConsistencySetup,
+        max_depth: usize,
         controllers: usize,
         function: String,
     ) -> Self {
@@ -173,10 +175,11 @@ impl CSVReporter {
             .write_record([
                 "total_states",
                 "unique_states",
-                "max_depth",
+                "max_depth_reached",
                 "duration_ms",
                 "done",
                 "consistency",
+                "max_depth",
                 "controllers",
                 "function",
             ])
@@ -184,6 +187,7 @@ impl CSVReporter {
         Self {
             writer,
             consistency,
+            max_depth,
             controllers,
             function,
         }
@@ -203,6 +207,7 @@ where
                 data.duration.as_millis().to_string(),
                 data.done.to_string(),
                 self.consistency.to_string(),
+                self.max_depth.to_string(),
                 self.controllers.to_string(),
                 self.function.to_owned(),
             ])
