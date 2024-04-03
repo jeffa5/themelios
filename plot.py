@@ -78,7 +78,7 @@ def plot_states(files: List[Path], plots: Path):
         col="controllers",
         row="max_depth",
     )
-    sns.move_legend(ax, "center right", bbox_to_anchor=(0.99, 0.3))
+    sns.move_legend(ax, "center right", bbox_to_anchor=(0.99, 0.7))
     ax.set(xlabel="Total states")
     plt.tight_layout()
     plt.savefig(plots / "ecdf-states-consistency-controllers-maxdepth-all.svg")
@@ -135,7 +135,7 @@ def plot_depths(files: List[Path], plots: Path):
         col="controllers",
         row="max_depth",
     )
-    sns.move_legend(ax, "center right", bbox_to_anchor=(0.99, 0.3))
+    sns.move_legend(ax, "center right", bbox_to_anchor=(0.99, 0.7))
     ax.set(xlabel="Depth")
     plt.tight_layout()
     plt.savefig(plots / "ecdf-depth-count-consistency-controllers-maxdepth-all.svg")
