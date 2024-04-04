@@ -153,8 +153,8 @@ fn main() {
     } else if opts.causal {
         ConsistencySetup::Causal
     } else {
-        // default to linearizable
-        ConsistencySetup::Linearizable
+        // default to synchronous
+        ConsistencySetup::Synchronous
     };
     let model = model::OrchestrationModelCfg {
         initial_state,

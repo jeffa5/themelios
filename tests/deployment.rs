@@ -97,8 +97,8 @@ fn test_new_deployment(consistency: ConsistencySetup, controllers: usize) -> Orc
 
 test_table! {
     test_new_deployment,
-    linearizable_1(ConsistencySetup::Linearizable, 1),
-    linearizable_2(ConsistencySetup::Linearizable, 2),
+    synchronous_1(ConsistencySetup::Synchronous, 1),
+    synchronous_2(ConsistencySetup::Synchronous, 2),
     monotonic_session_1(ConsistencySetup::MonotonicSession, 1),
     monotonic_session_2(ConsistencySetup::MonotonicSession, 2),
     resettable_session_1(ConsistencySetup::ResettableSession, 1),
@@ -147,8 +147,8 @@ fn test_deployment_rolling_update(
 
 test_table! {
     test_deployment_rolling_update,
-    linearizable_1(ConsistencySetup::Linearizable, 1),
-    linearizable_2(ConsistencySetup::Linearizable, 2),
+    synchronous_1(ConsistencySetup::Synchronous, 1),
+    synchronous_2(ConsistencySetup::Synchronous, 2),
     monotonic_session_1(ConsistencySetup::MonotonicSession, 1),
     monotonic_session_2(ConsistencySetup::MonotonicSession, 2),
     resettable_session_1(ConsistencySetup::ResettableSession, 1),
@@ -184,8 +184,8 @@ fn test_paused_deployment(
 
 test_table! {
     test_paused_deployment,
-    linearizable_1(ConsistencySetup::Linearizable, 1),
-    linearizable_2(ConsistencySetup::Linearizable, 2),
+    synchronous_1(ConsistencySetup::Synchronous, 1),
+    synchronous_2(ConsistencySetup::Synchronous, 2),
     monotonic_session_1(ConsistencySetup::MonotonicSession, 1),
     monotonic_session_2(ConsistencySetup::MonotonicSession, 2),
     resettable_session_1(ConsistencySetup::ResettableSession, 1),

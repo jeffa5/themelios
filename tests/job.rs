@@ -75,8 +75,8 @@ fn test_non_parallel_job(
 
 test_table! {
     test_non_parallel_job,
-    linearizable_1(ConsistencySetup::Linearizable, 1),
-    linearizable_2(ConsistencySetup::Linearizable, 2),
+    synchronous_1(ConsistencySetup::Synchronous, 1),
+    synchronous_2(ConsistencySetup::Synchronous, 2),
     monotonic_session_1(ConsistencySetup::MonotonicSession, 1),
     monotonic_session_2(ConsistencySetup::MonotonicSession, 2),
     resettable_session_1(ConsistencySetup::ResettableSession, 1),
@@ -100,8 +100,8 @@ fn test_parallel_job(consistency: ConsistencySetup, controllers: usize) -> Orche
 
 test_table! {
     test_parallel_job,
-    linearizable_1(ConsistencySetup::Linearizable, 1),
-    linearizable_2(ConsistencySetup::Linearizable, 2),
+    synchronous_1(ConsistencySetup::Synchronous, 1),
+    synchronous_2(ConsistencySetup::Synchronous, 2),
     monotonic_session_1(ConsistencySetup::MonotonicSession, 1),
     monotonic_session_2(ConsistencySetup::MonotonicSession, 2),
     resettable_session_1(ConsistencySetup::ResettableSession, 1),

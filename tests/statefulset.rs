@@ -69,8 +69,8 @@ fn new_statefulset(name: &str, _namespace: &str, replicas: u32) -> StatefulSet {
 
 test_table! {
     test_spec_replicas_change,
-    linearizable_1(ConsistencySetup::Linearizable, 1),
-    linearizable_2(ConsistencySetup::Linearizable, 2),
+    synchronous_1(ConsistencySetup::Synchronous, 1),
+    synchronous_2(ConsistencySetup::Synchronous, 2),
     monotonic_session_1(ConsistencySetup::MonotonicSession, 1),
     monotonic_session_2(ConsistencySetup::MonotonicSession, 2),
     resettable_session_1(ConsistencySetup::ResettableSession, 1),
@@ -99,8 +99,8 @@ fn test_spec_replicas_change(
 
 test_table! {
     test_statefulset_available,
-    linearizable_1(ConsistencySetup::Linearizable, 1),
-    linearizable_2(ConsistencySetup::Linearizable, 2),
+    synchronous_1(ConsistencySetup::Synchronous, 1),
+    synchronous_2(ConsistencySetup::Synchronous, 2),
     monotonic_session_1(ConsistencySetup::MonotonicSession, 1),
     monotonic_session_2(ConsistencySetup::MonotonicSession, 2),
     resettable_session_1(ConsistencySetup::ResettableSession, 1),
@@ -123,8 +123,8 @@ fn test_statefulset_available(
 
 test_table! {
     test_stale_reads,
-    linearizable_1(ConsistencySetup::Linearizable, 1),
-    linearizable_2(ConsistencySetup::Linearizable, 2),
+    synchronous_1(ConsistencySetup::Synchronous, 1),
+    synchronous_2(ConsistencySetup::Synchronous, 2),
     monotonic_session_1(ConsistencySetup::MonotonicSession, 1),
 }
 

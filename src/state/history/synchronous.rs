@@ -8,11 +8,11 @@ use crate::{
 use super::{History, StatesVec};
 
 #[derive(Default, Clone, PartialEq, Eq, Hash, Debug)]
-pub struct LinearizableHistory {
+pub struct SynchronousHistory {
     states: StatesVec,
 }
 
-impl LinearizableHistory {
+impl SynchronousHistory {
     pub fn new(initial_state: RawState) -> Self {
         Self {
             states: StatesVec(imbl::vector![Arc::new(initial_state.into())]),
@@ -20,7 +20,7 @@ impl LinearizableHistory {
     }
 }
 
-impl History for LinearizableHistory {
+impl History for SynchronousHistory {
     fn add_change(&mut self, change: Change) {
         let mut new_state = (**self.states.last().unwrap()).clone();
         let new_revision = self.max_revision().increment();

@@ -8,7 +8,7 @@ use std::{
 use crate::abstract_model::Change;
 
 use self::{
-    causal::CausalHistory, linearizable::LinearizableHistory,
+    causal::CausalHistory, synchronous::SynchronousHistory,
     monotonic_session::MonotonicSessionHistory, optimistic::OptimisticLinearHistory,
     resettable_session::ResettableSessionHistory,
 };
@@ -16,7 +16,7 @@ use self::{
 use super::{revision::Revision, RawState, StateView};
 
 pub mod causal;
-pub mod linearizable;
+pub mod synchronous;
 pub mod monotonic_session;
 pub mod optimistic;
 pub mod resettable_session;
@@ -28,7 +28,7 @@ pub enum ConsistencySetup {
     /// Linearizable reads.
     /// Linearizable writes.
     #[default]
-    Linearizable,
+    Synchronous,
     /// Work off a state that derives from the last one seen, defaulting to the latest when no
     /// session is present.
     /// Session consistency on reads.
@@ -53,7 +53,7 @@ impl Display for ConsistencySetup {
             f,
             "{}",
             match self {
-                ConsistencySetup::Linearizable => "linearizable",
+                ConsistencySetup::Synchronous => "synchronous",
                 ConsistencySetup::MonotonicSession => "monotonic-session",
                 ConsistencySetup::ResettableSession => "resettable-session",
                 ConsistencySetup::OptimisticLinear => "optimistic-linear",
@@ -77,7 +77,7 @@ pub trait History {
 pub enum StateHistory {
     /// Linearizable reads.
     /// Linearizable writes.
-    Linearizable(LinearizableHistory),
+    Synchronous(SynchronousHistory),
     /// Session consistency on reads.
     /// Linearizable writes.
     MonotonicSession(MonotonicSessionHistory),
@@ -92,15 +92,15 @@ pub enum StateHistory {
 
 impl Default for StateHistory {
     fn default() -> Self {
-        Self::Linearizable(LinearizableHistory::default())
+        Self::Synchronous(SynchronousHistory::default())
     }
 }
 
 impl StateHistory {
     pub fn new(consistency_level: ConsistencySetup, initial_state: RawState) -> Self {
         match consistency_level {
-            ConsistencySetup::Linearizable => {
-                Self::Linearizable(LinearizableHistory::new(initial_state))
+            ConsistencySetup::Synchronous => {
+                Self::Synchronous(SynchronousHistory::new(initial_state))
             }
             ConsistencySetup::MonotonicSession => {
                 Self::MonotonicSession(MonotonicSessionHistory::new(initial_state))
@@ -119,7 +119,7 @@ impl StateHistory {
 impl History for StateHistory {
     fn add_change(&mut self, change: Change) {
         match self {
-            StateHistory::Linearizable(s) => s.add_change(change),
+            StateHistory::Synchronous(s) => s.add_change(change),
             StateHistory::MonotonicSession(s) => s.add_change(change),
             StateHistory::ResettableSession(s) => s.add_change(change),
             StateHistory::OptimisticLinear(s) => s.add_change(change),
@@ -129,7 +129,7 @@ impl History for StateHistory {
 
     fn max_revision(&self) -> Revision {
         match self {
-            StateHistory::Linearizable(s) => s.max_revision(),
+            StateHistory::Synchronous(s) => s.max_revision(),
             StateHistory::MonotonicSession(s) => s.max_revision(),
             StateHistory::ResettableSession(s) => s.max_revision(),
             StateHistory::OptimisticLinear(s) => s.max_revision(),
@@ -139,7 +139,7 @@ impl History for StateHistory {
 
     fn state_at(&self, revision: &Revision) -> Cow<StateView> {
         match self {
-            StateHistory::Linearizable(s) => s.state_at(revision),
+            StateHistory::Synchronous(s) => s.state_at(revision),
             StateHistory::MonotonicSession(s) => s.state_at(revision),
             StateHistory::ResettableSession(s) => s.state_at(revision),
             StateHistory::OptimisticLinear(s) => s.state_at(revision),
@@ -149,7 +149,7 @@ impl History for StateHistory {
 
     fn valid_revisions(&self, min_revision: Option<&Revision>) -> Vec<Revision> {
         match self {
-            StateHistory::Linearizable(s) => s.valid_revisions(min_revision),
+            StateHistory::Synchronous(s) => s.valid_revisions(min_revision),
             StateHistory::MonotonicSession(s) => s.valid_revisions(min_revision),
             StateHistory::ResettableSession(s) => s.valid_revisions(min_revision),
             StateHistory::OptimisticLinear(s) => s.valid_revisions(min_revision),
