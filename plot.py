@@ -36,34 +36,41 @@ def plot_depths_per_run(path: Path, plots: Path):
 
 def plot_states(files: List[Path], plots: Path):
     data = pd.concat([pd.read_csv(p) for p in files])
-    hue_order = sorted(data["consistency"].unique())
+    hue_order = [
+        "causal",
+        "optimistic-linear",
+        "resettable-session",
+        "monotonic-session",
+        "synchronous",
+    ]
+    assert len(hue_order) == data["consistency"].nunique()
     hue = "consistency"
 
-    plt.figure()
-    ax = sns.scatterplot(
-        data,
-        x="duration_ms",
-        y="total_states",
-        hue=hue,
-        hue_order=hue_order,
-    )
-    ax.set(ylabel="Total states")
-    plt.tight_layout()
-    plt.savefig(plots / "scatter-duration-states-consistency-all.png")
-    plt.close()
+    # plt.figure()
+    # ax = sns.scatterplot(
+    #     data,
+    #     x="duration_ms",
+    #     y="total_states",
+    #     hue=hue,
+    #     hue_order=hue_order,
+    # )
+    # ax.set(ylabel="Total states")
+    # plt.tight_layout()
+    # plt.savefig(plots / "scatter-duration-states-consistency-all.png")
+    # plt.close()
 
-    plt.figure()
-    datamax = data.groupby(["function", "consistency"]).max("total_states")
-    ax = sns.ecdfplot(
-        datamax,
-        x="total_states",
-        hue=hue,
-        hue_order=hue_order,
-    )
-    ax.set(xlabel="Total states")
-    plt.tight_layout()
-    plt.savefig(plots / "ecdf-states-consistency-all.svg")
-    plt.close()
+    # plt.figure()
+    # datamax = data.groupby(["function", "consistency"]).max("total_states")
+    # ax = sns.ecdfplot(
+    #     datamax,
+    #     x="total_states",
+    #     hue=hue,
+    #     hue_order=hue_order,
+    # )
+    # ax.set(xlabel="Total states")
+    # plt.tight_layout()
+    # plt.savefig(plots / "ecdf-states-consistency-all.svg")
+    # plt.close()
 
     plt.figure()
     datamax = data.groupby(["function", "consistency", "controllers", "max_depth"]).max(
@@ -85,17 +92,78 @@ def plot_states(files: List[Path], plots: Path):
     plt.close()
 
     plt.figure()
+    datamax = data.groupby(["function", "consistency", "controllers", "max_depth"]).max(
+        "total_states"
+    )
+    ax = sns.catplot(
+        kind="strip",
+        data=datamax,
+        x="consistency",
+        order=hue_order,
+        y="total_states",
+        hue=hue,
+        hue_order=hue_order,
+        legend=False,
+        col="controllers",
+        row="max_depth",
+    )
+    ax.set(xlabel="Consistency model", ylabel="Total states")
+    ax.tick_params(axis="x", labelrotation=30)
+    plt.tight_layout()
+    plt.savefig(plots / "strip-states-consistency-controllers-maxdepth-all.svg")
+    plt.close()
+
+    # for max_depth in data["max_depth"].unique():
+    #     for controllers in data["controllers"].unique():
+    #         plt.figure()
+    #         filterdata = data[data["max_depth"] == max_depth]
+    #         filterdata = filterdata[filterdata["controllers"] == controllers]
+    #         datamax = data.groupby(["function", "consistency"]).max(
+    #             "total_states"
+    #         )
+    #         ax = sns.ecdfplot(
+    #             filterdata,
+    #             x="total_states",
+    #             hue=hue,
+    #             hue_order=hue_order,
+    #         )
+    #         # sns.move_legend(ax, "center right", bbox_to_anchor=(0.99, 0.7))
+    #         ax.set(xlabel="Total states")
+    #         plt.tight_layout()
+    #         plt.savefig(plots / f"ecdf-states-consistency-controllers-{controllers}-maxdepth-{max_depth}.svg")
+    #         plt.close()
+
+    plt.figure()
     datamax = data.groupby(["function", "consistency"]).max("total_states")
-    ax = sns.boxplot(datamax, x="consistency", y="total_states")
+    ax = sns.boxplot(
+        datamax, x="consistency", y="total_states", hue="consistency", legend=False
+    )
     ax.set(ylabel="Total states")
     plt.tight_layout()
     plt.savefig(plots / "box-consistency-states-all.svg")
     plt.close()
 
+    plt.figure()
+    datamax = data.groupby(["function", "consistency"]).max("total_states")
+    ax = sns.stripplot(
+        datamax, x="consistency", y="total_states", hue="consistency", legend=False
+    )
+    ax.set(ylabel="Total states")
+    plt.tight_layout()
+    plt.savefig(plots / "strip-consistency-states-all.svg")
+    plt.close()
+
 
 def plot_depths(files: List[Path], plots: Path):
     data = pd.concat([pd.read_csv(p) for p in files])
-    hue_order = sorted(data["consistency"].unique())
+    hue_order = [
+        "causal",
+        "optimistic-linear",
+        "resettable-session",
+        "monotonic-session",
+        "synchronous",
+    ]
+    assert len(hue_order) == data["consistency"].nunique()
     hue = "consistency"
 
     plt.figure()
@@ -124,6 +192,26 @@ def plot_depths(files: List[Path], plots: Path):
     plt.savefig(plots / "ecdf-depth-count-consistency-all.svg")
     plt.close()
 
+    for controllers in data["controllers"].unique():
+        for max_depth in data["max_depth"].unique():
+            filterdata = data[data["controllers"] == controllers]
+            filterdata = filterdata[filterdata["max_depth"] == max_depth]
+            plt.figure()
+            ax = sns.ecdfplot(
+                filterdata,
+                x="depth",
+                weights="count",
+                hue=hue,
+                hue_order=hue_order,
+            )
+            ax.set(xlabel="Depth")
+            plt.tight_layout()
+            plt.savefig(
+                plots
+                / f"ecdf-depth-count-consistency-controllers-{controllers}-maxdepth-{max_depth}.svg"
+            )
+            plt.close()
+
     plt.figure()
     ax = sns.displot(
         kind="ecdf",
@@ -142,6 +230,16 @@ def plot_depths(files: List[Path], plots: Path):
     plt.close()
 
 
+def state_stats(files: List[Path]):
+    data = pd.concat([pd.read_csv(p) for p in files])
+
+    grouped = data.groupby(["consistency", "max_depth", "controllers"]).max(
+        "total_states"
+    )
+    print(grouped)
+    print(grouped["duration_ms"] / grouped["total_states"])
+
+
 def run_data_paths(d: Path) -> List[Path]:
     return [d / Path(p) for p in os.listdir(d) if "-depths" not in p]
 
@@ -157,18 +255,20 @@ def main():
     ]:
         plots.mkdir(exist_ok=True)
 
-        for path in run_data_paths(out):
-            print(path)
-            plot_per_run(Path(path), plots)
-
-        for path in run_depth_paths(out):
-            print(path)
-            plot_depths_per_run(Path(path), plots)
+        # for path in run_data_paths(out):
+        #     print(path)
+        #     plot_per_run(Path(path), plots)
+        #
+        # for path in run_depth_paths(out):
+        #     print(path)
+        #     plot_depths_per_run(Path(path), plots)
 
         print("Plotting all states")
         plot_states(run_data_paths(out), plots)
         print("Plotting all depths")
         plot_depths(run_depth_paths(out), plots)
+
+        # state_stats(run_data_paths(out))
 
 
 main()
