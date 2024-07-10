@@ -2,9 +2,12 @@ import os
 from pathlib import Path
 from typing import List
 
+import matplotlib
 import matplotlib.pyplot as plt
 import pandas as pd
 import seaborn as sns
+
+matplotlib.rcParams.update({'font.size': 14})
 
 
 def plot_per_run(path: Path, plots: Path):
