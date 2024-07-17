@@ -109,6 +109,10 @@ def plot_states(files: List[Path], plots: Path):
         legend=False,
         col="controllers",
         row="max_depth",
+        linewidth=1,
+        alpha=0.7,
+        sharex=True,
+        sharey=True,
     )
     ax.set(xlabel="Consistency model", ylabel="Total states")
     ax.tick_params(axis="x", labelrotation=30)
@@ -149,7 +153,7 @@ def plot_states(files: List[Path], plots: Path):
     plt.figure()
     datamax = data.groupby(["function", "consistency"]).max("total_states")
     ax = sns.stripplot(
-        datamax, x="consistency", y="total_states", hue="consistency", legend=False
+        datamax, x="consistency", y="total_states", hue="consistency", legend=False, alpha=0.7, linewidth=1,
     )
     ax.set(ylabel="Total states")
     plt.tight_layout()
