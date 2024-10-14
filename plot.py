@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import seaborn as sns
 
-matplotlib.rcParams.update({'font.size': 14})
+matplotlib.rcParams.update({"font.size": 14})
 
 
 def plot_per_run(path: Path, plots: Path):
@@ -98,12 +98,13 @@ def plot_states(files: List[Path], plots: Path):
     datamax = data.groupby(["function", "consistency", "controllers", "max_depth"]).max(
         "total_states"
     )
+    datamax["state_rate"] = datamax["total_states"] / 60
     ax = sns.catplot(
         kind="strip",
         data=datamax,
         x="consistency",
         order=hue_order,
-        y="total_states",
+        y="state_rate",
         hue=hue,
         hue_order=hue_order,
         legend=False,
@@ -114,7 +115,8 @@ def plot_states(files: List[Path], plots: Path):
         sharex=True,
         sharey=True,
     )
-    ax.set(xlabel="Consistency model", ylabel="Total states")
+    ax.set(yscale="log")
+    ax.set(xlabel="Consistency model", ylabel="States explored per second")
     ax.tick_params(axis="x", labelrotation=30)
     plt.tight_layout()
     plt.savefig(plots / "strip-states-consistency-controllers-maxdepth-all.svg")
@@ -153,7 +155,13 @@ def plot_states(files: List[Path], plots: Path):
     plt.figure()
     datamax = data.groupby(["function", "consistency"]).max("total_states")
     ax = sns.stripplot(
-        datamax, x="consistency", y="total_states", hue="consistency", legend=False, alpha=0.7, linewidth=1,
+        datamax,
+        x="consistency",
+        y="total_states",
+        hue="consistency",
+        legend=False,
+        alpha=0.7,
+        linewidth=1,
     )
     ax.set(ylabel="Total states")
     plt.tight_layout()
